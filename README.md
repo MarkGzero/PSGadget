@@ -1,93 +1,92 @@
 # PsGadget
 
+PsGadget is a .NETFramework PowerShell-based modular gadget framework built around the FT232H chip, bridging the gap between administration and electronic hardware.
 
+This module enables users to interface with common electronic components through PowerShell - to create practical hardware tools that extend their capabilities beyond the standard workstation setup.
 
-## Getting started
+With PsGadget, admins can build custom monitoring displays, environmental sensors, physical notification systems, or automation controls using readily available hobbyist components, all programmed through familiar PowerShell commandlet -- turning ideas into tangible hardware solutions that make daily sysadmin work more interesting and fun.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+![PsGadget_intro](img/psgadget_intro.png)
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## Potential Hardware Configurations:
 
-## Add your files
+### PsGadget_Display (see: intro image)
+Configuration for an I2C LED display (e.g. SSD1306 128×64)
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+### PsGadget_LED
+Flash, blink, or define LED patterns using the FT232H ACBUS GPIO pins C0-C7
 
-```
-cd existing_repo
-git remote add origin https://sync.git.mil/markgo/psgadget.git
-git branch -M main
-git push -uf origin main
-```
+### PsGadget_DCMotor
+Control a motor
 
-## Integrate with your tools
+### PsGadget_Sensor
+Receive data from an I2C/SPI sensor module, or send commands if applicable
 
-- [ ] [Set up project integrations](https://web.git.mil/markgo/psgadget/-/settings/integrations)
+### PsGadget_Button
+Configure one or more digital inputs (momentary, toggle, pull‑up/down, debounce) for push‑buttons and switches.
 
-## Collaborate with your team
+### PsGadget_Buzzer
+Generate tones or simple melodies on a piezo buzzer or speaker
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+### PsGadget_UART
+Raw UART bridge configuration on the FT232H’s UART engine—port name, baud, parity, stop bits, flow control, and buffer sizes.
 
-## Test and Deploy
+### PsGadget_I2C
+Generic I²C‑bus master configuration: clock/data pins, bus speed (e.g. 100 kHz, 400 kHz), acknowledgment handling, pull‑up requirements, and support for multiple device addresses.
 
-Use the built-in continuous integration in GitLab.
+### PsGadget_SPI
+Generic SPI‑bus master setup for arbitrary devices: clock polarity/phase, bit order, clock speed, and multiple chip‑select lines.
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### PsGadget_CAN
+CAN‑bus interface through an external transceiver (e.g. MCP2551): bit rate, sample point, and TX/RX pin assignments.
 
-***
+### PsGadget_RTC
+Real‑time clock module (e.g. DS3231) over I²C: device address, alarm thresholds, and time‑sync interval.
 
-# Editing this README
+### PsGadget_RFID
+Combine with RFID hardware to read RFID tags directly into PowerShell console for further processing and automation.
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+## PsGadget_ESP32  
+Paired with an ESP32 board running your pre‑flashed MicroPython firmware, this configuration lets PsGadget issue high‐level commands over serial to tap into the ESP32’s rich feature set:
 
-## Suggestions for a good README
+- **PortName** – e.g. `COM3` on Windows or `/dev/ttyUSB0` on Linux  
+- **BaudRate** – e.g. `115200`  
+- **ResetPin**, **BootPin** – FT232H ACBUS pins used to drive the ESP32’s EN and IO0 lines for hardware reset or entering the bootloader  
+- **CommandTimeout**, **RetryCount** – serial‐transaction settings  
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+#### Networking  
+- **WiFiMode** – `"Station"`, `"AP"`, or `"Station+AP"`  
+- **SSID**, **Password** – credentials for STA or AP  
+- **IPConfig** – static IP or DHCP  
 
-## Name
-Choose a self-explaining name for your project.
+#### ESP‑Now  
+- **ESPNowPeers** – array of peer MAC addresses to which you’ll send/receive data  
+- **Channel** – RF channel for ESP‑Now communication  
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+#### Bluetooth  
+- **BluetoothMode** – `"BLE"` or `"Classic"`  
+- **GATTServices** – list of service/characteristic UUIDs for BLE interactions  
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+#### PWM & GPIO  
+- **PWMChannels** – hashtable of pin numbers mapped to `{ Frequency, DutyCycle }`  
+- **DigitalPins** – list of GPIO pins you can drive or read, with pull‑up/down settings  
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+#### ADC & DAC  
+- **ADCChannels** – list of ADC pin numbers and their attenuation (e.g. `11dB`)  
+- **DACChannels** – list of DAC pin numbers for analog outputs  
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+#### Bus Bridging  
+- **I2CBus** – map SDA/SCL pins if you want to proxy an I²C bus through the ESP32  
+- **SPIBus** – map SCLK/MOSI/MISO/CS pins for SPI pass‑through  
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+#### Command Mapping  
+- **FirmwareFunctionMap** – maps PsGadget commands to MicroPython RPC calls, e.g.:  
+    ```powershell
+  @{
+    "SetLED"     = "led.on({pin},{r},{g},{b})"
+    "ReadTemp"   = "sensor.read_temp()"
+    "StartScan"  = "wifi.scan()"
+    "SendESPNOW" = "espnow.send({mac},{data})"
+  }
+    ```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
