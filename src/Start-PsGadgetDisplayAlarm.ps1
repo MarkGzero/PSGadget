@@ -1,8 +1,8 @@
 function Start-PsGadgetDisplayAlarm {
     param (
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [int]$DurationSeconds = 3,
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [object]$I2CDevice = $psgadget_ds
     )
 
@@ -19,12 +19,12 @@ function Start-PsGadgetDisplayAlarm {
     # Define "ALARM" text pattern (8x5 pixels per character, 5 characters)
     $alarmPattern = @(
         # A     L     A     R     M
-        0xE0,0xF8,0xE0,0xF8,0xFC, # Row 1
-        0xB8,0x80,0xB8,0x84,0xA4, # Row 2
-        0xF8,0x80,0xF8,0x88,0xA4, # Row 3
-        0xB8,0x80,0xB8,0x90,0xA4, # Row 4
-        0xB8,0xF8,0xB8,0x88,0xA4, # Row 5
-        0x00,0x00,0x00,0x00,0x00  # Spacing
+        0xE0, 0xF8, 0xE0, 0xF8, 0xFC, # Row 1
+        0xB8, 0x80, 0xB8, 0x84, 0xA4, # Row 2
+        0xF8, 0x80, 0xF8, 0x88, 0xA4, # Row 3
+        0xB8, 0x80, 0xB8, 0x90, 0xA4, # Row 4
+        0xB8, 0xF8, 0xB8, 0x88, 0xA4, # Row 5
+        0x00, 0x00, 0x00, 0x00, 0x00  # Spacing
     )
 
     function Draw-InsetText {
@@ -104,7 +104,7 @@ function Start-PsGadgetDisplayAlarm {
         }
 
         # Draw warning triangle in white section (pages 2-7)
-        $triangleSize = 30 + [Math]::Sin($i/4) * 10
+        $triangleSize = 30 + [Math]::Sin($i / 4) * 10
         Draw-WarningTriangle -buffer $warningBuf -cx $centerX -cy ($centerY + 8) -size $triangleSize
         
         # Render both sections
