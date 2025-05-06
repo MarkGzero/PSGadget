@@ -13,41 +13,39 @@ With PsGadget, admins can build custom monitoring displays, environmental sensor
 ### PsGadget_Display (see: intro image)
 Configuration for an I2C LED display (e.g. SSD1306 128×64)
 
+![alt text](image.png)
+
 ### PsGadget_LED
-Flash, blink, or define LED patterns using the FT232H ACBUS GPIO pins C0-C7
+Flash, blink, or fade an single LED or a group of LEDs (e.g. WS2812B) with RGB color mixing
 
-### PsGadget_DCMotor
-Control a motor
+![alt text](image-1.png)
 
-### PsGadget_Sensor
-Receive data from an I2C/SPI sensor module, or send commands if applicable
+### PsGadget_NeoPixel
+Pair with an Adafruit NeoDriver and control addressable NeoPixels (e.g. WS2812B) with RGB color mixing
 
-### PsGadget_Button
-Configure one or more digital inputs (momentary, toggle, pull‑up/down, debounce) for push‑buttons and switches.
+![alt text](img/psgadget_neopixeldriver.png)
 
-### PsGadget_Buzzer
-Generate tones or simple melodies on a piezo buzzer or speaker
+### PSGadget_Button
 
-### PsGadget_UART
-Raw UART bridge configuration on the FT232H’s UART engine—port name, baud, parity, stop bits, flow control, and buffer sizes.
+Connect to a button array like the NeoKey where each button can trigger a different event or invoke a script.
 
-### PsGadget_I2C
-Generic I²C‑bus master configuration: clock/data pins, bus speed (e.g. 100 kHz, 400 kHz), acknowledgment handling, pull‑up requirements, and support for multiple device addresses.
+![alt text](image-6.png)
 
-### PsGadget_SPI
-Generic SPI‑bus master setup for arbitrary devices: clock polarity/phase, bit order, clock speed, and multiple chip‑select lines.
+### Other Potential Configurations
 
-### PsGadget_CAN
-CAN‑bus interface through an external transceiver (e.g. MCP2551): bit rate, sample point, and TX/RX pin assignments.
-
-### PsGadget_RTC
-Real‑time clock module (e.g. DS3231) over I²C: device address, alarm thresholds, and time‑sync interval.
-
-### PsGadget_RFID
-Combine with RFID hardware to read RFID tags directly into PowerShell console for further processing and automation.
+- PsGadget_DCMotor
+- PsGadget_Sensor
+- PsGadget_Button
+- PsGadget_Buzzer
+- PsGadget_UART
+- PsGadget_I2C
+- PsGadget_SPI
 
 ## PsGadget_ESP32  
+
 Paired with an ESP32 board running your pre‑flashed MicroPython firmware, this configuration lets PsGadget issue high‐level commands over serial to tap into the ESP32’s rich feature set:
+
+![alt text](img/psgadget_esp32.png)
 
 - **PortName** – e.g. `COM3` on Windows or `/dev/ttyUSB0` on Linux  
 - **BaudRate** – e.g. `115200`  

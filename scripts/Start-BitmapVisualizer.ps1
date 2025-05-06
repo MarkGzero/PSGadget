@@ -2,7 +2,7 @@ function Start-BitmapVisualizer {
     [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MarkGzero -- PsGadget Bitmap Visualizer " Height="750" Width="385" ResizeMode="NoResize">
+        Title="MarkGzero -- PsGadget Bitmap Visualizer " Height="800" Width="385" ResizeMode="NoResize">
     <DockPanel>
         <StackPanel DockPanel.Dock="Top">
             <Button Name="HelpButton" Content="Info" Margin="5" Width="90" HorizontalAlignment="Left" Background="Black" Foreground="White" FontFamily="Consolas" FontSize="12"/>
@@ -152,7 +152,7 @@ function Update-Output {
         "Col$c Binary=$bin Hex=$hex"
     })
     $outputBox.Text = $cols -join "`n"
-    $hexConcatBox.Text = "@(" + ($hexList -join ", ") + ")"
+    $hexConcatBox.Text = $hexList -join ", "
 }
 
 $clearButton.Add_Click({
@@ -240,17 +240,24 @@ $darkToggle.Add_Unchecked({
 })
 
 $copyButton.Add_Click({
-    $hexConcatBox.SelectAll()
-    $hexConcatBox.Copy()
+    
+    $hextext = "@($($hexConcatBox.Text))"
+    $hextext | set-clipboard
+
 })
 
 $setGridButton.Add_Click({
     $hexText = $hexConcatBox.Text -replace '[^\dA-Fa-fx,]', ''
     $hexValues = $hexText -split ',' | ForEach-Object { $_.Trim() }
 
-    if ($hexValues.Count -ne 8) {
-        [System.Windows.MessageBox]::Show("Please enter exactly 8 hex values.", "Input Error", 'OK', 'Error')
-        return
+    # Pad with 0x00 if fewer than 8 values
+    while ($hexValues.Count -lt 8) {
+        $hexValues += '0x00'
+    }
+
+    if ($hexValues.Count -gt 8) {
+        [System.Windows.MessageBox]::Show("Only the first 8 hex values will be used.", "Input Notice", 'OK', 'Information')
+        $hexValues = $hexValues[0..7]
     }
 
     for ($c = 0; $c -lt 8; $c++) {
@@ -282,7 +289,6 @@ $setGridButton.Add_Click({
     }
     Update-Output
 })
-
 
 $helpButton.Add_Click({
     [System.Windows.MessageBox]::Show(@'
