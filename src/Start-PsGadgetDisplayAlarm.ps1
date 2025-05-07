@@ -59,17 +59,20 @@ function Start-PsGadgetDisplayAlarm {
     function Draw-WarningTriangle {
         param (
             [byte[]]$buffer,
-            [int]$cx,
-            [int]$cy,
-            [double]$size
+            [int]$cx,  # center x
+            [int]$cy,  # center y
+            [int]$size = 16
         )
     
-        # Example: fill a small box in the center for now
         $half = [math]::Floor($size / 2)
-        for ($x = -$half; $x -lt $half; $x++) {
-            for ($y = -$half; $y -lt $half; $y++) {
+    
+        for ($y = 0; $y -lt $size; $y++) {
+            # Width of the triangle at this height
+            $span = [math]::Floor(($size - $y) / $size * $half)
+            for ($x = -$span; $x -le $span; $x++) {
                 $px = $cx + $x
-                $py = $cy + $y
+                $py = $cy + $y - $half  # center vertically
+    
                 if ($px -ge 0 -and $px -lt 128 -and $py -ge 0 -and $py -lt 64) {
                     $page = [math]::Floor($py / 8)
                     $index = ($page * 128) + $px
@@ -78,7 +81,29 @@ function Start-PsGadgetDisplayAlarm {
                 }
             }
         }
-    }    
+    
+        # Optional: draw a '!' near the middle (small vertical bar)
+        $ex = $cx
+        for ($dy = -3; $dy -le 1; $dy++) {
+            $py = $cy + $dy
+            if ($py -ge 0 -and $py -lt 64) {
+                $page = [math]::Floor($py / 8)
+                $index = ($page * 128) + $ex
+                $bitPos = $py % 8
+                $buffer[$index] = $buffer[$index] -bxor (1 -shl $bitPos)
+            }
+        }
+    
+        # Optional: draw dot at the bottom
+        $dotY = $cy + 3
+        if ($dotY -lt 64) {
+            $page = [math]::Floor($dotY / 8)
+            $index = ($page * 128) + $cx
+            $bitPos = $dotY % 8
+            $buffer[$index] = $buffer[$index] -bxor (1 -shl $bitPos)
+        }
+    }
+     
 
     function Render-SplitBuffer {
         param (
@@ -137,4 +162,4 @@ function Start-PsGadgetDisplayAlarm {
     }
 }
 
-# Start-PsGadgetDisplayAlarm -I2CDevice $psgadget_ds -DurationSeconds 3
+Start-PsGadgetDisplayAlarm -I2CDevice $psgadget_ds -DurationSeconds 3

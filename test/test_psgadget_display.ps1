@@ -7,7 +7,7 @@ Start-Ssd1306Initialize -i2c $psgadget_ds
 Set-Ssd1306Cursor -i2c $psgadget_ds -col 0 -page 0
 Clear-Ssd1306 -i2c $psgadget_ds
 
-$str = "=== PsGadget! 1234567890 !@#$%% ===" 
+$str = "Ps Gadget!" 
 $arrChar = $str.ToCharArray()
 [System.Collections.Generic.List[byte]]$buffer = @()
 
@@ -22,5 +22,6 @@ foreach ($char in $arrChar) {
 if ($buffer.Count -gt 0) {
     Clear-ssd1306 $psgadget_ds
     $fullPayload = $buffer.ToArray()
-    Send-Ssd1306Data -i2c $psgadget_ds -data $fullPayload
+    Send-Ssd1306Data -i2c $psgadget_ds -data $fullPayload -align 'center' -fontsize 3
 }
+

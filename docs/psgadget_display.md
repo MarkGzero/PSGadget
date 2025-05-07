@@ -75,6 +75,12 @@ Set-Ssd1306Cursor -i2c $psgadget_ds -col 0 -page 0
 Clear-Ssd1306 -i2c $psgadget_ds
 ```
 
+## Script
+
+```PowerShell
+# Load the glyphs from the file
+
+```
 ## Demonstration
 
 ### Write bytes individually
