@@ -1,10 +1,10 @@
 
 ## PSGadget Display
 
-### Add library
+### Import module
 
 ```powershell
-Add-Type -Path "\\path\to\ftdisharp.dll"
+Import-Module \\path\to\PsGadget.psm1
 ```
 
 ### Scan for FTDI Devices
@@ -22,17 +22,6 @@ LocationID   : 5939
 SerialNumber : FT9ZLJ51
 Description  : USB <-> Serial Converter
 ```
-
-#### Return only available FTDI devices
-
-```powershell
-[FtdiSharp.FtdiDevices]::scan() | Where-Object {
-    $_.SerialNumber -ne $null -AND 
-    $_.IsOpen -eq $true -AND
-    $_.Type -ne "Unknown"
-    }
-```
-
 
 ### Assign FTDI Device
 
@@ -75,12 +64,6 @@ Set-Ssd1306Cursor -i2c $psgadget_ds -col 0 -page 0
 Clear-Ssd1306 -i2c $psgadget_ds
 ```
 
-## Script
-
-```PowerShell
-# Load the glyphs from the file
-
-```
 ## Demonstration
 
 ### Write bytes individually
