@@ -56,6 +56,30 @@ function Start-PsGadgetDisplayAlarm {
         }
     }
 
+    function Draw-WarningTriangle {
+        param (
+            [byte[]]$buffer,
+            [int]$cx,
+            [int]$cy,
+            [double]$size
+        )
+    
+        # Example: fill a small box in the center for now
+        $half = [math]::Floor($size / 2)
+        for ($x = -$half; $x -lt $half; $x++) {
+            for ($y = -$half; $y -lt $half; $y++) {
+                $px = $cx + $x
+                $py = $cy + $y
+                if ($px -ge 0 -and $px -lt 128 -and $py -ge 0 -and $py -lt 64) {
+                    $page = [math]::Floor($py / 8)
+                    $index = ($page * 128) + $px
+                    $bitPos = $py % 8
+                    $buffer[$index] = $buffer[$index] -bor (1 -shl $bitPos)
+                }
+            }
+        }
+    }    
+
     function Render-SplitBuffer {
         param (
             [object]$i2c,
@@ -113,4 +137,4 @@ function Start-PsGadgetDisplayAlarm {
     }
 }
 
-Start-PsGadgetDisplayAlarm -I2CDevice $psgadget_ds -DurationSeconds 3
+# Start-PsGadgetDisplayAlarm -I2CDevice $psgadget_ds -DurationSeconds 3
