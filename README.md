@@ -48,7 +48,7 @@ Paired with an ESP32 microcontroller board running pre‑flashed MicroPython cod
 
 ## PsGadget_Pico
 
-If wireless connectivity is not a strict requirement, then the Raspberry Pi Pico is a great alternative. It has a similar feature set to the ESP32, but less expensive, making it a cost-effective option for many projects. With pre-flashed code, PsGadget can issue high-level predefined commands over UART to the Pico, allowing you to tap into its rich feature set, including GPIO control with PWM to easily drive motors, servos, and sensors.
+If wireless connectivity is not a strict requirement, then the Raspberry Pi Pico is a great alternative. It has a similar feature set to the ESP32, but less expensive, making it a cost-effective option for many projects. With pre-flashed code, PsGadget can issue high-level predefined commands over UART to the Pico, allowing you to tap into its rich feature set, including GPIO control with PWM to easily drive motors, servos, and sensors. [pinout](https://datasheets.raspberrypi.com/pico/Pico-R3-A4-Pinout.pdf)
 
 
 <img src="img/psgadget_pico.png" width="480">

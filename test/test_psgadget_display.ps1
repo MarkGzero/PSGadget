@@ -22,6 +22,8 @@ foreach ($char in $arrChar) {
 if ($buffer.Count -gt 0) {
     Clear-ssd1306 $psgadget_ds
     $fullPayload = $buffer.ToArray()
-    Send-Ssd1306Data -i2c $psgadget_ds -data $fullPayload -align 'center' -fontsize 3
+    @(0..7) | ForEach-Object {
+     Send-psgadgetdisplaydata -i2c $psgadget_ds -data $fullPayload -page $_ -address 0x3C
+    }
 }
 
