@@ -117,16 +117,16 @@ function Start-PsGadgetDisplayAlarm {
         for ($page = 0; $page -lt 2; $page++) {
             $startIndex = $page * $SCREEN_WIDTH
             $endIndex = $startIndex + $SCREEN_WIDTH - 1
-            Set-Ssd1306Cursor -i2c $i2c -col 0 -page $page -address $address
-            Send-Ssd1306Data -i2c $i2c -data $topBuffer[$startIndex..$endIndex] -address $address
+            Set-PsGadgetDisplayCursor -i2c $i2c -col 0 -page $page -address $address
+            Send-PsGadgetDisplayData -i2c $i2c -data $topBuffer[$startIndex..$endIndex] -address $address
         }
 
         # Render white section (pages 2-7)
         for ($page = 2; $page -lt 8; $page++) {
             $startIndex = $page * $SCREEN_WIDTH
             $endIndex = $startIndex + $SCREEN_WIDTH - 1
-            Set-Ssd1306Cursor -i2c $i2c -col 0 -page $page -address $address
-            Send-Ssd1306Data -i2c $i2c -data $bottomBuffer[$startIndex..$endIndex] -address $address
+            Set-PsGadgetDisplayCursor -i2c $i2c -col 0 -page $page -address $address
+            Send-PsGadgetDisplayData -i2c $i2c -data $bottomBuffer[$startIndex..$endIndex] -address $address
         }
     }
 
@@ -162,4 +162,4 @@ function Start-PsGadgetDisplayAlarm {
     }
 }
 
-Start-PsGadgetDisplayAlarm -I2CDevice $psgadget_ds -DurationSeconds 3
+#Start-PsGadgetDisplayAlarm -I2CDevice $psgadget_ds -DurationSeconds 3

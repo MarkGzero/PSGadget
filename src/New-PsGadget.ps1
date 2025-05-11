@@ -1,4 +1,5 @@
-function Start-Ssd1306Initialize {
+function Open-PsGadgetDisplay {
+    [cmdletbinding()]
     param (
         [Parameter(Mandatory = $true)]
         [object]$i2c,
@@ -28,9 +29,10 @@ function Start-Ssd1306Initialize {
         $i2c.Write($address, [byte[]]@(0x00, $cmd))
         Start-Sleep -Milliseconds 1
     }
+    
 }
 
-function Set-Ssd1306Cursor {
+function Set-PsGadgetDisplayCursor {
     param (
         [Parameter(Mandatory = $true)][object]$i2c,
         [Parameter(Mandatory = $true)][int]$col,
@@ -43,7 +45,7 @@ function Set-Ssd1306Cursor {
     $i2c.Write($address, [byte[]]@(0x00, (0x10 + (($col -shr 4) -band 0x0F))))
 }
     
-function Send-Ssd1306Data {
+function Send-PsGadgetDisplayData {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)][object]$i2c,
@@ -79,7 +81,7 @@ function Send-Ssd1306Data {
     }
 
     # Move cursor
-    Set-Ssd1306Cursor -i2c $i2c -col $col -page $page -address $address
+    Set-PsGadgetDisplayCursor -i2c $i2c -col $col -page $page -address $address
 
     # Send data with control byte 0x40
     $payload = @(0x40) + $data
@@ -88,14 +90,33 @@ function Send-Ssd1306Data {
 
 
     
-function Clear-Ssd1306 {
-    param (
-        [Parameter(Mandatory = $true)][object]$i2c,
+function Clear-PsGadgetDisplay {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$i2c,
         [byte]$address = 0x3C
     )
-    
+
+    # 1) Build a “data” buffer: first byte 0x40 (data control), then 128 zeros
+    $zeroData = New-Object byte[] 129
+    $zeroData[0] = 0x40
+    for ($i = 1; $i -lt 129; $i++) {
+        $zeroData[$i] = 0x00
+    }
+
+    # 2) For each of the 8 pages:
     for ($page = 0; $page -lt 8; $page++) {
-        Set-Ssd1306Cursor -i2c $i2c -col 0 -page $page -address $address
-        Send-Ssd1306Data -i2c $i2c -data ([byte[]]@(0x00) * 128) -address $address
+        # a) Build a single command packet:
+        #    0x00 = control byte for “these are commands”,
+        #    0xB0+page = select page,
+        #    0x00     = set lower column address to 0,
+        #    0x10     = set higher column address to 0
+        $cmds = [byte[]]@(0x00, (0xB0 + $page), 0x00, 0x10)
+
+        # b) Send the 4‑byte command
+        $i2c.Write($address, $cmds)
+
+        # c) Now dump 128 zeros to that page
+        $i2c.Write($address, $zeroData)
     }
 }
