@@ -162,8 +162,4 @@ function Start-PsGadgetDisplayAlarm {
     }
 }
 
-<<<<<<< HEAD
-# Start-PsGadgetDisplayAlarm -I2CDevice $psgadget_ds -DurationSeconds 3
-=======
 #Start-PsGadgetDisplayAlarm -I2CDevice $psgadget_ds -DurationSeconds 3
->>>>>>> 535c95b64cc02f0fcc0076bb410188351dae9767
