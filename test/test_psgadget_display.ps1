@@ -1,24 +1,38 @@
+$header = @{
+    1 = ">> HOT TAKE <<"
+    2 = ">> INCOMING <<"
+}
 
-$ftdi = [FtdiSharp.FtdiDevices]::scan() | Select-Object -First 1
-$psgadget_ds = [FtdiSharp.Protocols.I2C]::new($ftdi)
-$psgadget_ds.scan() | ForEach-Object {"0x{0:X2}" -f $_}
+$body = @{
+    3 = "Python"
+    5 = "is better than "
+    6 = "PowerShell"
+}
 
-Start-Ssd1306Initialize -i2c $psgadget_ds
-Set-Ssd1306Cursor -i2c $psgadget_ds -col 0 -page 0
-Clear-Ssd1306 -i2c $psgadget_ds
+$sw = [System.Diagnostics.Stopwatch]::new()
+$sw.start()
+while ($sw.Elapsed.Seconds -lt 5) {
+    $header.GetEnumerator() | sort Name | % {
+        [System.Collections.Generic.List[byte]]$buffer = @()
+        $line = $_.Name
+        $str = $_.Value
+        $arrChar = $str.ToCharArray()
 
-$str = "Ps Gadget!" 
-$arrChar = $str.ToCharArray()
-[System.Collections.Generic.List[byte]]$buffer = @()
-
-foreach ($char in $arrChar) {
-    $glyph = $glyphs["$char"]
-    if ($glyph) {
-        foreach ($b in $glyph) {
-            $buffer.Add([byte]$b)
+        foreach ($char in $arrChar) {
+            $glyph = $script:glyphs["$char"]
+            if ($glyph) {
+                foreach ($b in $glyph) {
+                    $buffer.Add([byte]$b)
+                }
+            }
         }
+
+        Send-PsGadgetDisplayData -i2c $psgadget_ds -data $buffer -page $line -align 'center'
+        Start-Sleep -Milliseconds 250
+        Clear-PsGadgetDisplay $psgadget_ds
     }
 }
+<<<<<<< HEAD
 if ($buffer.Count -gt 0) {
     Clear-ssd1306 $psgadget_ds
     $fullPayload = $buffer.ToArray()
@@ -26,4 +40,25 @@ if ($buffer.Count -gt 0) {
      Send-psgadgetdisplaydata -i2c $psgadget_ds -data $fullPayload -page $_ -address 0x3C
     }
 }
+=======
+>>>>>>> 535c95b64cc02f0fcc0076bb410188351dae9767
 
+$sw.stop()
+
+$body.GetEnumerator() | sort Name | % {
+    [System.Collections.Generic.List[byte]]$buffer = @()
+    $line = $_.Name
+    $str = $_.Value
+    $arrChar = $str.ToCharArray()
+
+    foreach ($char in $arrChar) {
+        $glyph = $script:glyphs["$char"]
+        if ($glyph) {
+            foreach ($b in $glyph) {
+                $buffer.Add([byte]$b)
+            }
+        }
+    }
+
+    Send-PsGadgetDisplayData -i2c $psgadget_ds -data $buffer -page $line -align 'center'
+}
