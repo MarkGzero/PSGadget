@@ -1,5 +1,6 @@
 # Load external dependencies
 Add-Type -Path "$PSScriptRoot\lib\ftdisharp\FtdiSharp.dll"
+Add-Type -Path "$PSScriptRoot\lib\ftd2xx\FTD2XX_NET.dll"
 
 # Add the glyphs for the SSD1306 display
 # Initialize the glyphs hashtable as ordinal
