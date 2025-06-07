@@ -1,4 +1,23 @@
 function Clear-Ssd1306 {
+<#
+.SYNOPSIS
+Clears the SSD1306 display.
+
+.DESCRIPTION
+Writes zeros to every page and column of the display so that all pixels are
+turned off.
+
+.PARAMETER i2c
+The I2C device handle used for communication.
+
+.PARAMETER address
+The I2C address of the SSD1306 display.
+
+.EXAMPLE
+Clear-Ssd1306 -i2c $device
+
+Clears the entire screen attached to the supplied device.
+#>
     param (
         [Parameter(Mandatory = $true)][object]$i2c,
         [byte]$address = 0x3C

@@ -1,4 +1,23 @@
 function Start-PsGadgetDisplayAlarm {
+<#
+.SYNOPSIS
+Displays a flashing alarm animation.
+
+.DESCRIPTION
+Renders a short warning sequence on the SSD1306 display using two frame buffers
+and simple graphics primitives.
+
+.PARAMETER DurationSeconds
+Length of the animation in seconds.
+
+.PARAMETER I2CDevice
+The I2C device used to communicate with the display.
+
+.EXAMPLE
+Start-PsGadgetDisplayAlarm -DurationSeconds 5 -I2CDevice $dev
+
+Runs the alarm animation for five seconds.
+#>
     param (
         [Parameter(Mandatory = $false)]
         [int]$DurationSeconds = 3,
@@ -28,6 +47,28 @@ function Start-PsGadgetDisplayAlarm {
     )
 
     function Draw-InsetText {
+    <#
+    .SYNOPSIS
+    Draws the word "ALARM" inset into a buffer.
+
+    .DESCRIPTION
+    Renders a 5 character string into the provided buffer, erasing pixels where
+    the letters appear.
+
+    .PARAMETER buffer
+    The byte buffer to modify.
+
+    .PARAMETER x
+    Horizontal center of the text.
+
+    .PARAMETER y
+    Vertical start position of the text.
+
+    .EXAMPLE
+    Draw-InsetText -buffer $buf -x 64 -y 5
+
+    Writes the word onto the buffer centred at column 64.
+    #>
         param (
             [byte[]]$buffer,
             [int]$x,
@@ -57,6 +98,31 @@ function Start-PsGadgetDisplayAlarm {
     }
 
     function Draw-WarningTriangle {
+    <#
+    .SYNOPSIS
+    Draws a warning triangle into a buffer.
+
+    .DESCRIPTION
+    Plots a filled triangle and optional exclamation point within the provided
+    buffer.
+
+    .PARAMETER buffer
+    Target byte buffer.
+
+    .PARAMETER cx
+    X-coordinate of the centre.
+
+    .PARAMETER cy
+    Y-coordinate of the centre.
+
+    .PARAMETER size
+    Size of the triangle in pixels.
+
+    .EXAMPLE
+    Draw-WarningTriangle -buffer $buf -cx 64 -cy 32 -size 20
+
+    Draws a triangle centred on the display.
+    #>
         param (
             [byte[]]$buffer,
             [int]$cx,  # center x
@@ -106,6 +172,31 @@ function Start-PsGadgetDisplayAlarm {
      
 
     function Render-SplitBuffer {
+    <#
+    .SYNOPSIS
+    Writes two buffers to the display.
+
+    .DESCRIPTION
+    Sends the top and bottom buffers to their respective page ranges on the
+    display.
+
+    .PARAMETER i2c
+    The I2C device used for communication.
+
+    .PARAMETER topBuffer
+    Data for pages 0 and 1.
+
+    .PARAMETER bottomBuffer
+    Data for pages 2 through 7.
+
+    .PARAMETER address
+    I2C address of the display.
+
+    .EXAMPLE
+    Render-SplitBuffer -i2c $dev -topBuffer $top -bottomBuffer $bottom
+
+    Writes both buffers to the screen.
+    #>
         param (
             [object]$i2c,
             [byte[]]$topBuffer,

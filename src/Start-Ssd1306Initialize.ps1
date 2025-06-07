@@ -1,4 +1,22 @@
 function Start-Ssd1306Initialize {
+<#
+.SYNOPSIS
+Runs the standard SSD1306 initialization sequence.
+
+.DESCRIPTION
+Sends the recommended set of setup commands to prepare the display for use.
+
+.PARAMETER i2c
+The I2C device used for communication.
+
+.PARAMETER address
+I2C address of the display.
+
+.EXAMPLE
+Start-Ssd1306Initialize -i2c $dev
+
+Initializes the SSD1306 connected to the provided device.
+#>
     param (
         [Parameter(Mandatory = $true)]
         [object]$i2c,
