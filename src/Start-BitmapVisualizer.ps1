@@ -1,4 +1,18 @@
 function Start-BitmapVisualizer {
+<#
+.SYNOPSIS
+Opens a GUI tool for designing 8x8 bitmaps.
+
+.DESCRIPTION
+Launches a WPF window that lets you toggle pixels, copy the resulting hex
+values and switch between light and dark mode. The tool is helpful when
+creating graphics for LED matrix displays.
+
+.EXAMPLE
+Start-BitmapVisualizer
+
+Opens the bitmap editor window.
+#>
     [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -141,6 +155,19 @@ for ($row = 0; $row -lt 8; $row++) {
 }
 
 function Update-Output {
+<#
+.SYNOPSIS
+Updates the display of binary and hex values.
+
+.DESCRIPTION
+Reads the current state of the grid buttons and populates the output text boxes
+with binary and hexadecimal representations.
+
+.EXAMPLE
+Update-Output
+
+Refreshes the hex and binary output fields based on the grid state.
+#>
     $hexList = @()
     $cols = @(for ($c = 0; $c -lt 8; $c++) {
         $bin = ""

@@ -1,4 +1,23 @@
 function Open-PsGadgetDisplay {
+<#
+.SYNOPSIS
+Initializes the SSD1306 display.
+
+.DESCRIPTION
+Sends a sequence of initialization commands to the display so it is ready for
+use.
+
+.PARAMETER i2c
+The I2C device used to communicate with the display.
+
+.PARAMETER address
+The I2C address of the display device.
+
+.EXAMPLE
+Open-PsGadgetDisplay -i2c $dev
+
+Prepares the connected display for further operations.
+#>
     [cmdletbinding()]
     param (
         [Parameter(Mandatory = $true)]
@@ -33,6 +52,31 @@ function Open-PsGadgetDisplay {
 }
 
 function Set-PsGadgetDisplayCursor {
+<#
+.SYNOPSIS
+Sets the cursor position on the display.
+
+.DESCRIPTION
+Positions the column and page address pointers so that subsequent data writes
+begin at the specified location.
+
+.PARAMETER i2c
+The I2C device used for communication.
+
+.PARAMETER col
+Column address (0-127).
+
+.PARAMETER page
+Page number (0-7).
+
+.PARAMETER address
+I2C address of the display.
+
+.EXAMPLE
+Set-PsGadgetDisplayCursor -i2c $dev -col 0 -page 0
+
+Moves the cursor to the top-left corner of the screen.
+#>
     param (
         [Parameter(Mandatory = $true)][object]$i2c,
         [Parameter(Mandatory = $true)][int]$col,
@@ -46,6 +90,40 @@ function Set-PsGadgetDisplayCursor {
 }
     
 function Send-PsGadgetDisplayData {
+<#
+.SYNOPSIS
+Writes a byte array to the display.
+
+.DESCRIPTION
+Sends pixel data to the display with optional alignment, font scaling and
+inversion.
+
+.PARAMETER i2c
+The I2C device used to communicate with the display.
+
+.PARAMETER data
+Byte array containing the pixel data.
+
+.PARAMETER address
+The I2C address of the display.
+
+.PARAMETER page
+Display page to start writing at.
+
+.PARAMETER FontSize
+Optional font scaling (1 or 2).
+
+.PARAMETER Invert
+Inverts the bits in the data before writing.
+
+.PARAMETER Align
+Alignment of the data on the line: left, right or center.
+
+.EXAMPLE
+Send-PsGadgetDisplayData -i2c $dev -data $bytes -page 0 -Align center
+
+Writes the supplied data centered on the first page.
+#>
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)][object]$i2c,
@@ -91,6 +169,24 @@ function Send-PsGadgetDisplayData {
 
     
 function Clear-PsGadgetDisplay {
+<#
+.SYNOPSIS
+Clears all pixels on the display.
+
+.DESCRIPTION
+Iterates over all pages writing zeros so the screen is blanked.
+
+.PARAMETER i2c
+The I2C device used for communication.
+
+.PARAMETER address
+I2C address of the display.
+
+.EXAMPLE
+Clear-PsGadgetDisplay -i2c $dev
+
+Erases everything currently shown on the display.
+#>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][object]$i2c,
