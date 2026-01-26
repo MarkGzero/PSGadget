@@ -1,10 +1,15 @@
-# This is the main module file for PSGadget
+# PsGadget.psm1
+Write-Verbose "PsGadget module loaded"
 
-# Exported functions
-Export-ModuleMember -Function *
+function Get-PsGadgetInfo {
+    [CmdletBinding()]
+    param()
 
-# Exported aliases
-Export-ModuleMember -Alias *
+    [pscustomobject]@{
+        Name    = 'PsGadget'
+        Status  = 'Under Development'
+        Version = '0.0.3'
+    }
+}
 
-# Exported variables
-Export-ModuleMember -Variable *
+Export-ModuleMember -Function Get-PsGadgetInfo
