@@ -27,13 +27,14 @@ function Invoke-FtdiWindowsEnumerate {
             throw "FTDI GetNumberOfDevices failed: $status"
         }
         
+        # Build D2XX device list
+        $enrichedDevices = @()
+
         if ($deviceCount -eq 0) {
-            Write-Verbose "No FTDI devices found on Windows"
+            Write-Verbose "No FTDI devices found via D2XX on Windows"
             $ftdi.Close() | Out-Null
-            return @()
-        }
-        
-        Write-Verbose "Found $deviceCount FTDI device(s) on Windows"
+        } else {
+        Write-Verbose "Found $deviceCount FTDI device(s) via D2XX on Windows"
         
         # Get device info list (use New-Object like the working old function)
         $deviceList = New-Object 'FTD2XX_NET.FTDI+FT_DEVICE_INFO_NODE[]' $deviceCount
@@ -45,8 +46,6 @@ function Invoke-FtdiWindowsEnumerate {
         }
         
         # Build enriched device objects with friendly type names
-        $enrichedDevices = @()
-        
         for ($i = 0; $i -lt $deviceList.Count; $i++) {
             $device = $deviceList[$i]
             
@@ -84,10 +83,37 @@ function Invoke-FtdiWindowsEnumerate {
             
             $enrichedDevices += $enrichedDevice
         }
-        
-        # Clean up FTDI instance
+
+        # Close D2XX instance after enumeration
         $ftdi.Close() | Out-Null
-        
+        } # end D2XX block
+
+        # Supplement: find VCP-mode FTDI devices not visible to D2XX
+        Write-Verbose "Scanning registry for VCP-mode FTDI devices..."
+        $vcpDevices = Invoke-FtdiWindowsEnumerateVcp
+        foreach ($vcpDev in $vcpDevices) {
+            $alreadyFound = $false
+            foreach ($d in $enrichedDevices) {
+                if ($d.SerialNumber -eq $vcpDev.SerialNumber) {
+                    $alreadyFound = $true
+                    # Enrich D2XX entry with COM port info if available
+                    if ($vcpDev.ComPort -and -not $d.PSObject.Properties['ComPort']) {
+                        $d | Add-Member -MemberType NoteProperty -Name ComPort -Value $vcpDev.ComPort -Force
+                    }
+                    break
+                }
+            }
+            if (-not $alreadyFound) {
+                $vcpDev.Index = $enrichedDevices.Count
+                $enrichedDevices += $vcpDev
+            }
+        }
+
+        if ($enrichedDevices.Count -eq 0) {
+            Write-Verbose "No FTDI devices found on Windows"
+            return @()
+        }
+
         return $enrichedDevices
         
     } catch [System.NotImplementedException] {
@@ -124,6 +150,86 @@ function Invoke-FtdiWindowsEnumerate {
         Write-Warning "Windows FTDI enumeration failed: $($_.Exception.Message)"
         return @()
     }
+}
+
+function Invoke-FtdiWindowsEnumerateVcp {
+    # Scan the FTDIBUS registry hive for VCP-mode FTDI devices (FT232R, etc.)
+    # Returns device objects for any FTDI device not visible via D2XX.
+    [CmdletBinding()]
+    [OutputType([System.Object[]])]
+    param()
+
+    $results = @()
+    $ftdibusPath = 'HKLM:\SYSTEM\CurrentControlSet\Enum\FTDIBUS'
+
+    if (-not (Test-Path $ftdibusPath)) {
+        Write-Verbose "FTDIBUS registry key not found - no VCP FTDI devices installed"
+        return $results
+    }
+
+    # Map FTDI PID (hex string, upper) to friendly device type name
+    $pidTypeMap = @{
+        '6001' = 'FT232R'
+        '6010' = 'FT2232D'
+        '6011' = 'FT4232H'
+        '6014' = 'FT232H'
+        '6015' = 'FT231X'
+        '6040' = 'FT232HP'
+    }
+
+    try {
+        $comboKeys = Get-ChildItem $ftdibusPath -ErrorAction SilentlyContinue
+        foreach ($comboKey in $comboKeys) {
+            # Key name pattern: VID_0403+PID_6001+{SERIAL}
+            if ($comboKey.PSChildName -match 'VID_([0-9A-Fa-f]{4})\+PID_([0-9A-Fa-f]{4})\+(.+)$') {
+                $vid    = $Matches[1].ToUpper()
+                $pid    = $Matches[2].ToUpper()
+                $serial = $Matches[3]
+
+                $typeName = if ($pidTypeMap.ContainsKey($pid)) { $pidTypeMap[$pid] } else { "FT-Unknown (PID $pid)" }
+
+                # Each combo key has one or more instance sub-keys (typically '0000')
+                $instanceKeys = Get-ChildItem $comboKey.PSPath -ErrorAction SilentlyContinue
+                foreach ($inst in $instanceKeys) {
+                    # Friendly name stored on the instance key
+                    $friendlyName = $null
+                    try {
+                        $friendlyName = (Get-ItemProperty -Path $inst.PSPath -Name FriendlyName -ErrorAction SilentlyContinue).FriendlyName
+                    } catch {}
+
+                    # COM port stored under Device Parameters sub-key
+                    $comPort = $null
+                    $devParams = Join-Path $inst.PSPath 'Device Parameters'
+                    try {
+                        $comPort = (Get-ItemProperty -Path $devParams -Name PortName -ErrorAction SilentlyContinue).PortName
+                    } catch {}
+
+                    if (-not $friendlyName) { $friendlyName = "$typeName USB Serial" }
+
+                    $results += [PSCustomObject]@{
+                        Index        = -1   # assigned by caller
+                        Type         = $typeName
+                        Description  = $friendlyName
+                        SerialNumber = $serial
+                        LocationId   = 0
+                        IsOpen       = $false
+                        Flags        = '0x00000000'
+                        DeviceId     = "0x0403$pid"
+                        Handle       = $null
+                        Driver       = 'ftdibus.sys (VCP)'
+                        Platform     = 'Windows'
+                        ComPort      = $comPort
+                        VID          = $vid
+                        PID          = $pid
+                    }
+                }
+            }
+        }
+    } catch {
+        Write-Verbose "VCP registry scan error: $($_.Exception.Message)"
+    }
+
+    return $results
 }
 
 function Invoke-FtdiWindowsOpen {

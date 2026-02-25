@@ -1,6 +1,102 @@
 # Mpy.Backend.ps1
 # MicroPython backend functionality using mpremote
 
+# Known USB Vendor IDs for MicroPython / CircuitPython boards
+$script:MpyKnownVids = @{
+    '303A' = @{ Manufacturer = 'Espressif (ESP32)';          IsMicroPython = $true  }
+    '2E8A' = @{ Manufacturer = 'Raspberry Pi (RP2040/RP2350)'; IsMicroPython = $true  }
+    '0483' = @{ Manufacturer = 'STMicroelectronics';          IsMicroPython = $true  }
+    '239A' = @{ Manufacturer = 'Adafruit (CircuitPython)';    IsMicroPython = $true  }
+    '1D50' = @{ Manufacturer = 'MicroPython (Pyboard)';       IsMicroPython = $true  }
+    '0403' = @{ Manufacturer = 'FTDI';                        IsMicroPython = $false }
+    '1A86' = @{ Manufacturer = 'WCH (CH340)';                 IsMicroPython = $false }
+    '10C4' = @{ Manufacturer = 'Silicon Labs (CP210x)';       IsMicroPython = $false }
+}
+
+function Get-MpyPortList {
+    # Platform-aware serial port enumeration for MicroPython device discovery.
+    # Default: returns port name strings. With -Detailed: returns enriched objects.
+    [CmdletBinding()]
+    param(
+        [switch]$Detailed
+    )
+
+    $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+
+    if ($isWindows) {
+        if ($Detailed) {
+            return Invoke-MpyWindowsPortList
+        } else {
+            # Basic list - just port names sorted
+            return [System.IO.Ports.SerialPort]::GetPortNames() | Sort-Object
+        }
+    } else {
+        # Unix: basic .NET enumeration for now
+        $ports = [System.IO.Ports.SerialPort]::GetPortNames() | Sort-Object
+        if (-not $Detailed) {
+            return $ports
+        }
+        # Build minimal objects for Unix (no WMI available)
+        return $ports | ForEach-Object {
+            [PSCustomObject]@{
+                Port          = $_
+                FriendlyName  = $_
+                VID           = 'N/A'
+                PID           = 'N/A'
+                Manufacturer  = 'Unknown'
+                IsMicroPython = $false
+                Status        = 'Unknown'
+            }
+        }
+    }
+}
+
+function Invoke-MpyWindowsPortList {
+    # Windows-specific: enrich serial ports with VID/PID and board identification via WMI.
+    [CmdletBinding()]
+    [OutputType([System.Object[]])]
+    param()
+
+    $results = @()
+
+    try {
+        $wmiPorts = Get-WmiObject -Class Win32_SerialPort -ErrorAction SilentlyContinue
+        foreach ($port in $wmiPorts) {
+            $vid = $null
+            $pid = $null
+
+            if ($port.PNPDeviceID -match 'VID_([0-9A-Fa-f]{4})&PID_([0-9A-Fa-f]{4})') {
+                $vid = $Matches[1].ToUpper()
+                $pid = $Matches[2].ToUpper()
+            }
+
+            if ($vid -and $script:MpyKnownVids.ContainsKey($vid)) {
+                $mfgInfo = $script:MpyKnownVids[$vid]
+                $mfg    = $mfgInfo.Manufacturer
+                $isMpy  = $mfgInfo.IsMicroPython
+            } else {
+                $mfg   = if ($port.Manufacturer) { $port.Manufacturer } else { 'Unknown' }
+                $isMpy = $false
+            }
+
+            $results += [PSCustomObject]@{
+                Port          = $port.DeviceID
+                FriendlyName  = $port.Name
+                VID           = if ($vid) { "0x$vid" } else { 'N/A' }
+                PID           = if ($pid) { "0x$pid" } else { 'N/A' }
+                Manufacturer  = $mfg
+                IsMicroPython = $isMpy
+                Status        = $port.Status
+            }
+        }
+    } catch {
+        Write-Verbose "WMI serial port enumeration failed: $($_.Exception.Message)"
+    }
+
+    # MicroPython devices first, then alphabetical by port name
+    return $results | Sort-Object -Property @{Expression = 'IsMicroPython'; Descending = $true}, Port
+}
+
 function Invoke-MpyBackendGetInfo {
     [CmdletBinding()]
     [OutputType([hashtable])]

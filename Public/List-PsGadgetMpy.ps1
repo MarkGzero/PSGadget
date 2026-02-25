@@ -7,44 +7,51 @@ function List-PsGadgetMpy {
     Lists all available serial ports that could contain MicroPython devices.
     
     .DESCRIPTION
-    Enumerates serial ports on the system using .NET System.IO.Ports.SerialPort.
-    Returns an array of port names that can be used with Connect-PsGadgetMpy.
+    Enumerates serial ports on the system. On Windows, uses WMI to enrich results
+    with VID/PID, board identification, and MicroPython detection when -Detailed is specified.
+    
+    .PARAMETER Detailed
+    Return enriched objects with VID, PID, Manufacturer, IsMicroPython, and Status
+    properties instead of plain port name strings.
     
     .EXAMPLE
     List-PsGadgetMpy
     
     .EXAMPLE
-    $Ports = List-PsGadgetMpy
-    foreach ($Port in $Ports) {
-        Write-Host "Found serial port: $Port"
-    }
+    List-PsGadgetMpy -Detailed | Where-Object { $_.IsMicroPython } | Select Port, FriendlyName, Manufacturer
     
     .OUTPUTS
-    System.String[]
-    Array of serial port names (e.g., COM3, /dev/ttyUSB0).
+    System.String[] when called without -Detailed.
+    System.Object[] when called with -Detailed.
     #>
     
     [CmdletBinding()]
-    [OutputType([System.String[]])]
-    param()
+    param(
+        [switch]$Detailed
+    )
     
     try {
         Write-Verbose "Enumerating serial ports..."
         
-        # Get available serial ports using .NET
-        $SerialPorts = [System.IO.Ports.SerialPort]::GetPortNames()
+        $ports = Get-MpyPortList -Detailed:$Detailed
         
-        if ($SerialPorts.Count -eq 0) {
-            Write-Warning "No serial ports found on this system"
-            return @()
+        if ($Detailed) {
+            $portArray = @($ports)
+            if ($portArray.Count -eq 0) {
+                Write-Warning "No serial ports found on this system"
+                return @()
+            }
+            Write-Verbose "Found $($portArray.Count) serial port(s)"
+            return $portArray
+        } else {
+            $portArray = @($ports)
+            if ($portArray.Count -eq 0) {
+                Write-Warning "No serial ports found on this system"
+                return @()
+            }
+            Write-Verbose "Found $($portArray.Count) serial port(s): $($portArray -join ', ')"
+            return $portArray
         }
-        
-        # Sort ports for consistent output
-        $SortedPorts = $SerialPorts | Sort-Object
-        
-        Write-Verbose "Found $($SortedPorts.Count) serial port(s): $($SortedPorts -join ', ')"
-        
-        return $SortedPorts
         
     } catch {
         Write-Error "Failed to enumerate serial ports: $($_.Exception.Message)"
