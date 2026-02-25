@@ -7,34 +7,40 @@ function Invoke-FtdiWindowsEnumerate {
     param()
     
     try {
-        # Check if FTDI assembly is available
-        if (-not $script:FtdiInitialized) {
+        # Check if FTDI assembly is available, but try to use it anyway if types exist
+        $ftdiAssemblyAvailable = $script:FtdiInitialized -or ([System.Type]::GetType("FTD2XX_NET.FTDI") -ne $null)
+        
+        if (-not $ftdiAssemblyAvailable) {
             throw [System.NotImplementedException]::new("FTDI assembly not loaded - Windows FTDI enumeration not available")
         }
         
         # Create FTDI instance for enumeration
         $ftdi = [FTD2XX_NET.FTDI]::new()
         
-        # Get device count
-        [uint32]$deviceCount = 0
+        # Get device count (use int like the working old function)
+        [int]$deviceCount = 0
         $status = $ftdi.GetNumberOfDevices([ref]$deviceCount)
         
-        if ($status -ne $script:FTDI_OK) {
+        # Use enum directly like the working old function
+        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
+            $ftdi.Close() | Out-Null
             throw "FTDI GetNumberOfDevices failed: $status"
         }
         
         if ($deviceCount -eq 0) {
             Write-Verbose "No FTDI devices found on Windows"
+            $ftdi.Close() | Out-Null
             return @()
         }
         
         Write-Verbose "Found $deviceCount FTDI device(s) on Windows"
         
-        # Get device info list
-        $deviceList = [FTD2XX_NET.FTDI+FT_DEVICE_INFO_NODE[]]::new($deviceCount)
+        # Get device info list (use New-Object like the working old function)
+        $deviceList = New-Object 'FTD2XX_NET.FTDI+FT_DEVICE_INFO_NODE[]' $deviceCount
         $status = $ftdi.GetDeviceList($deviceList)
         
-        if ($status -ne $script:FTDI_OK) {
+        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
+            $ftdi.Close() | Out-Null  
             throw "FTDI GetDeviceList failed: $status"
         }
         
