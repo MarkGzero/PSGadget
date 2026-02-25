@@ -92,6 +92,7 @@ function Test-PsGadgetWindows {
     
     # Test 4: Logging Functionality
     Write-Host "`n4. Testing Logging Functionality..." -ForegroundColor Yellow
+    
     try {
         Write-Host "   Creating logger instance..." -ForegroundColor Gray
         $logger = [PsGadgetLogger]::new()
@@ -110,11 +111,12 @@ function Test-PsGadgetWindows {
             foreach ($entry in $logEntries) {
                 Write-Host "     $entry" -ForegroundColor DarkGray
             }
-        } else {
+        }
+        else {
             Write-Host "   ✗ Log file not created" -ForegroundColor Red
         }
-        
-    } catch {
+    }
+    catch {
         Write-Host "   ✗ Logging error: $_" -ForegroundColor Red
     }
     
