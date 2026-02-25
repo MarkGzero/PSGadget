@@ -1,34 +1,41 @@
-# Module manifest for PSGadget
-
 @{
-    # Script module or binary module file associated with this manifest.
-    RootModule           = 'PsGadget.psm1'
-    ModuleVersion        = '0.0.3'
-    CompatiblePSEditions = @('Desktop', 'Core')
-    PowerShellVersion    = '5.1'
-
-    # ID used to uniquely identify this module
-    GUID                 = '72440f23-d3c6-4249-83eb-9affa6df882b'
-
-    # Author of this module
-    Author               = 'Mark Go'
-    CompanyName          = 'Mark Go'
-
-    # Description of the functionality provided by this module
-    Description          = 'PsGadget hardware + PowerShell -- (Under Development)'
-
-    FunctionsToExport    = @('Get-PsGadgetInfo')
-    CmdletsToExport      = @()
-    VariablesToExport    = @()
-    AliasesToExport      = @()
-
-    # Private data to pass to the module specified in RootModule/ModuleToProcess
-    PrivateData          = @{
+    # Module metadata
+    RootModule = 'PSGadget.psm1'
+    ModuleVersion = '0.1.0'
+    GUID = 'a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6'
+    
+    # PowerShell version requirements
+    PowerShellVersion = '5.1'
+    
+    # Author information
+    Author = 'PsGadget Team'
+    CompanyName = 'PsGadget'
+    Copyright = '(c) 2026 PsGadget Team. All rights reserved.'
+    
+    # Description
+    Description = 'Production-grade PowerShell module for FTDI hardware control and MicroPython orchestration'
+    
+    # Exported functions - explicitly declared, no wildcards
+    FunctionsToExport = @(
+        'List-PsGadgetFtdi',
+        'Connect-PsGadgetFtdi',
+        'List-PsGadgetMpy',
+        'Connect-PsGadgetMpy'
+    )
+    
+    # No cmdlets, variables, or aliases exported
+    CmdletsToExport = @()
+    VariablesToExport = @()
+    AliasesToExport = @()
+    
+    # Private data
+    PrivateData = @{
         PSData = @{
-            Tags         = @('FTDI', 'Hardware', 'GPIO', 'UART', 'I2C', 'PsGadget')
-            ProjectUri   = 'https://github.com/MarkGzero/PsGadget'
-            LicenseUri   = 'https://opensource.org/licenses/MIT'
-            ReleaseNotes = 'v0.0.3: Fixed project URI.'
+            Tags = @('FTDI', 'MicroPython', 'Hardware', 'Gadget')
+            LicenseUri = 'https://github.com/MarkGzero/PsGadget/blob/main/LICENSE'
+            ProjectUri = 'https://github.com/MarkGzero/PsGadget'
+            IconUri = ''
+            ReleaseNotes = 'Initial release v0.1.0'
         }
     }
 }
