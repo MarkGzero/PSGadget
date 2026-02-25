@@ -90,7 +90,7 @@ function Test-NativeCommand {
     )
     
     try {
-        if ($IsWindows -or $PSVersionTable.PSVersion.Major -le 5) {
+        if ($PSVersionTable.PSVersion.Major -le 5 -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
             # Windows: Use where.exe
             $Result = Invoke-NativeProcess -FilePath "where.exe" -ArgumentList @($Command) -TimeoutSeconds 5
         } else {

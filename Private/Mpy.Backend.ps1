@@ -89,7 +89,8 @@ function Invoke-MpyBackendPushFile {
         throw [System.NotImplementedException]::new("MicroPython mpremote file push not yet implemented")
         
     } catch [System.NotImplementedException] {
-        $FileSize = (Get-Item -Path $LocalPath -ErrorAction SilentlyContinue)?.Length ?? 0
+        $FileItem = Get-Item -Path $LocalPath -ErrorAction SilentlyContinue
+        $FileSize = if ($FileItem) { $FileItem.Length } else { 0 }
         Write-Verbose "Pushed file $LocalPath -> $RemotePath ($FileSize bytes) (STUB MODE)"
     } catch {
         Write-Warning "Failed to push file via MicroPython: $($_.Exception.Message)"

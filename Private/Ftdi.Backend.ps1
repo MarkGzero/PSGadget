@@ -10,7 +10,7 @@ function Get-FtdiDeviceList {
         # TODO: Implement actual FTDI D2XX device enumeration
         # This should call platform-specific implementations
         
-        if ($IsWindows -or $PSVersionTable.PSVersion.Major -le 5) {
+        if ($PSVersionTable.PSVersion.Major -le 5 -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
             # Call Windows-specific implementation
             return Invoke-FtdiWindowsEnumerate
         } else {
