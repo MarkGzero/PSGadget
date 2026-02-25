@@ -88,7 +88,7 @@ function Get-PsGadgetFtdiEeprom {
         # Dispatch to device-type-specific reader
         switch -Regex ($targetDev.Type) {
             '^FT232R(L|NL)?$' {
-                return Get-FtdiFt232rEeprom -Index $targetIndex
+                return Get-FtdiFt232rEeprom -Index $targetIndex -SerialNumber $targetDev.SerialNumber
             }
             default {
                 Write-Warning (

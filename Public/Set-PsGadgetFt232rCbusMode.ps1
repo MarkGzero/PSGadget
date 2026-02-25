@@ -140,7 +140,7 @@ function Set-PsGadgetFt232rCbusMode {
 
         # Show current EEPROM state for context
         Write-Verbose "Reading current EEPROM for $($targetDev.Description) ($($targetDev.SerialNumber))..."
-        $current = Get-FtdiFt232rEeprom -Index $targetIndex
+        $current = Get-FtdiFt232rEeprom -Index $targetIndex -SerialNumber $targetDev.SerialNumber
         if ($current) {
             $pinLines = $Pins | ForEach-Object {
                 $cur = $current."Cbus$_"
@@ -157,7 +157,7 @@ function Set-PsGadgetFt232rCbusMode {
             return $null
         }
 
-        $result = Set-FtdiFt232rCbusPinMode -Index $targetIndex -Pins $Pins -Mode $Mode
+        $result = Set-FtdiFt232rCbusPinMode -Index $targetIndex -Pins $Pins -Mode $Mode -SerialNumber $targetDev.SerialNumber
 
         if ($result.Success) {
             Write-Host "FT232R EEPROM updated: $pinNames set to $Mode." -ForegroundColor Green

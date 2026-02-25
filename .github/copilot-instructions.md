@@ -104,3 +104,14 @@ Connect-PsGadgetFtdi -Index 0
 - `Set-PsGadgetGpio` - set GPIO pin state on a connected device
 
 Never modify exports in [PSGadget.psd1](PSGadget.psd1) without updating the corresponding Public function file. All hardware logic should be stubbed first, then incrementally implemented.
+
+## Examples and Workflow Documentation
+
+**Maintain [examples/psgadget_workflow.md](../examples/psgadget_workflow.md) as a living reference document.**
+
+Rules for keeping it current:
+- When a new device type gains GPIO or other public-API support, add an H2 section for it following the existing FT232H / FT232R pattern (enumerate -> setup steps -> commands -> pin map).
+- When a public function is added, renamed, or its parameters change, update both the inline code examples for the affected device section AND the Public Function Quick Reference table at the bottom of the file.
+- When a device's capability changes (e.g., async bit-bang for FT232R is implemented), update the Device Capability Comparison table and remove any "not yet implemented" notes.
+- The `examples/` folder is also the home for any future per-feature example scripts (`.ps1` files). Name them `Example-<Feature>.ps1`.
+- After every session that changes public behavior, verify the workflow file is still accurate by re-reading it alongside the current public function signatures.

@@ -52,7 +52,11 @@ function Get-FtdiFt232rEeprom {
     [OutputType([System.Object])]
     param(
         [Parameter(Mandatory = $true)]
-        [int]$Index
+        [int]$Index,
+
+        # Optional serial number used as fallback when OpenByIndex fails (e.g. device in VCP mode)
+        [Parameter(Mandatory = $false)]
+        [string]$SerialNumber = ''
     )
 
     try {
@@ -60,11 +64,22 @@ function Get-FtdiFt232rEeprom {
             throw [System.NotImplementedException]::new("FTDI assembly not loaded")
         }
 
-        $ftdi = [FTD2XX_NET.FTDI]::new()
+        $ftdi   = [FTD2XX_NET.FTDI]::new()
         $status = $ftdi.OpenByIndex([uint32]$Index)
+
+        # VCP-mode devices (shown as COM ports) cause OpenByIndex to return FT_DEVICE_NOT_FOUND.
+        # Fall back to OpenBySerialNumber which works regardless of driver mode.
+        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK -and $SerialNumber -ne '') {
+            Write-Verbose "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
+            $ftdi.Close() | Out-Null
+            $ftdi   = [FTD2XX_NET.FTDI]::new()
+            $status = $ftdi.OpenBySerialNumber($SerialNumber)
+        }
+
         if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
             $ftdi.Close() | Out-Null
-            throw "OpenByIndex failed: $status"
+            $openMethod = if ($SerialNumber -ne '') { "OpenByIndex($Index) and OpenBySerialNumber('$SerialNumber')" } else { "OpenByIndex($Index)" }
+            throw "Failed to open device via $openMethod : $status"
         }
 
         $eeprom = [FTD2XX_NET.FTDI+FT232R_EEPROM_STRUCTURE]::new()
@@ -210,7 +225,11 @@ function Set-FtdiFt232rCbusPinMode {
             'FT_CBUS_CLK12','FT_CBUS_CLK6','FT_CBUS_IOMODE',
             'FT_CBUS_BITBANG_WR','FT_CBUS_BITBANG_RD'
         )]
-        [string]$Mode = 'FT_CBUS_IOMODE'
+        [string]$Mode = 'FT_CBUS_IOMODE',
+
+        # Optional serial number used as fallback when OpenByIndex fails (e.g. device in VCP mode)
+        [Parameter(Mandatory = $false)]
+        [string]$SerialNumber = ''
     )
 
     try {
@@ -218,11 +237,22 @@ function Set-FtdiFt232rCbusPinMode {
             throw [System.NotImplementedException]::new("FTDI assembly not loaded")
         }
 
-        $ftdi = [FTD2XX_NET.FTDI]::new()
+        $ftdi   = [FTD2XX_NET.FTDI]::new()
         $status = $ftdi.OpenByIndex([uint32]$Index)
+
+        # VCP-mode devices (shown as COM ports) cause OpenByIndex to return FT_DEVICE_NOT_FOUND.
+        # Fall back to OpenBySerialNumber which works regardless of driver mode.
+        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK -and $SerialNumber -ne '') {
+            Write-Verbose "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
+            $ftdi.Close() | Out-Null
+            $ftdi   = [FTD2XX_NET.FTDI]::new()
+            $status = $ftdi.OpenBySerialNumber($SerialNumber)
+        }
+
         if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
             $ftdi.Close() | Out-Null
-            throw "OpenByIndex failed: $status"
+            $openMethod = if ($SerialNumber -ne '') { "OpenByIndex($Index) and OpenBySerialNumber('$SerialNumber')" } else { "OpenByIndex($Index)" }
+            throw "Failed to open device via $openMethod : $status"
         }
 
         # Read current EEPROM - preserve all fields, only modify requested CBUS pins
