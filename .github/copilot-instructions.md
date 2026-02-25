@@ -2,7 +2,13 @@
 
 ## Formatting and Communication Style
 
-**No Emojis or Unicode Icons**: Do not use emojis, unicode icons, or decorative symbols in code, comments, documentation, or responses unless explicitly requested by the user. Keep all text clean and professional using standard ASCII characters only.
+**CRITICAL: No Unicode Characters in Code**: NEVER use Unicode characters (✓✗➜→←↑↓○●◆■♠♦♥♣★☆♪♫♬※⚡⚠⬜⬛✅❌⭐🔴🟢🟡🔵⟨⟩⟪⟫❓❗💡🎯🎮🎲📝📊📈📉📋📌📍📎🔗🔒🔓🔑⭕❎🚫🛑) in PowerShell code, comments, or strings. These characters cause PowerShell parsing errors on Windows platforms, resulting in "Try statement is missing its Catch or Finally block" and similar cryptic errors. Instead use:
+- `[OK]` or `PASS` instead of ✓
+- `[FAIL]` or `ERROR` instead of ✗  
+- `->` instead of →
+- ASCII text and punctuation only
+
+**No Emojis or Decorative Symbols**: Do not use emojis, unicode icons, or decorative symbols in code, comments, documentation, or responses unless explicitly requested by the user. Keep all text clean and professional using standard ASCII characters only.
 
 **Plain Text Formatting**: Use standard markdown formatting (headers, lists, code blocks) without decorative elements. Focus on clarity and readability over visual appeal.
 

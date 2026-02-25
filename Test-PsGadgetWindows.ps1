@@ -25,16 +25,16 @@ function Test-PsGadgetWindows {
     Write-Host "1. Testing FTDI Assembly Detection..." -ForegroundColor Yellow
     try {
         $ftdiType = [FTD2XX_NET.FTDI]
-        Write-Host "   ✓ FTD2XX_NET.FTDI type available" -ForegroundColor Green
+        Write-Host "   OK FTD2XX_NET.FTDI type available" -ForegroundColor Green
         
         $statusType = [FTD2XX_NET.FTDI+FT_STATUS] 
-        Write-Host "   ✓ FT_STATUS enum available" -ForegroundColor Green
+        Write-Host "   OK FT_STATUS enum available" -ForegroundColor Green
         
         $deviceType = [FTD2XX_NET.FTDI+FT_DEVICE]
-        Write-Host "   ✓ FT_DEVICE enum available" -ForegroundColor Green
+        Write-Host "   OK FT_DEVICE enum available" -ForegroundColor Green
         
     } catch {
-        Write-Host "   ✗ FTDI Assembly Error: $_" -ForegroundColor Red
+        Write-Host "   X FTDI Assembly Error: $_" -ForegroundColor Red
         return
     }
     
@@ -46,31 +46,31 @@ function Test-PsGadgetWindows {
         $status = $ftdi.GetNumberOfDevices([ref]$deviceCount)
         
         if ($status -eq [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
-            Write-Host "   ✓ Device count: $deviceCount" -ForegroundColor Green
+            Write-Host "   OK Device count: $deviceCount" -ForegroundColor Green
             
             if ($deviceCount -gt 0) {
                 $deviceList = New-Object 'FTD2XX_NET.FTDI+FT_DEVICE_INFO_NODE[]' $deviceCount
                 $status = $ftdi.GetDeviceList($deviceList)
                 
                 if ($status -eq [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
-                    Write-Host "   ✓ Device list retrieved successfully" -ForegroundColor Green
+                    Write-Host "   OK Device list retrieved successfully" -ForegroundColor Green
                     
                     for ($i = 0; $i -lt $deviceList.Count; $i++) {
                         $dev = $deviceList[$i]
                         Write-Host "     Device $i`: $($dev.Description) ($($dev.SerialNumber))" -ForegroundColor Gray
                     }
                 } else {
-                    Write-Host "   ✗ GetDeviceList failed: $status" -ForegroundColor Red
+                    Write-Host "   X GetDeviceList failed: $status" -ForegroundColor Red
                 }
             }
         } else {
-            Write-Host "   ✗ GetNumberOfDevices failed: $status" -ForegroundColor Red
+            Write-Host "   X GetNumberOfDevices failed: $status" -ForegroundColor Red
         }
         
         $ftdi.Close() | Out-Null
         
     } catch {
-        Write-Host "   ✗ Direct enumeration error: $_" -ForegroundColor Red
+        Write-Host "   X Direct enumeration error: $_" -ForegroundColor Red
     }
     
     # Test 3: PsGadget Module Functions
@@ -80,14 +80,14 @@ function Test-PsGadgetWindows {
         $devices = List-PsGadgetFtdi -Verbose
         
         if ($devices -and $devices.Count -gt 0) {
-            Write-Host "   ✓ List-PsGadgetFtdi found $($devices.Count) device(s)" -ForegroundColor Green
+            Write-Host "   OK List-PsGadgetFtdi found $($devices.Count) device(s)" -ForegroundColor Green
             $devices | Format-Table Index, Type, Description, SerialNumber, IsOpen -AutoSize
         } else {
-            Write-Host "   ✗ List-PsGadgetFtdi returned no devices" -ForegroundColor Red
+            Write-Host "   X List-PsGadgetFtdi returned no devices" -ForegroundColor Red
         }
         
     } catch {
-        Write-Host "   ✗ Module function error: $_" -ForegroundColor Red
+        Write-Host "   X Module function error: $_" -ForegroundColor Red
     }
     
     # Test 4: Logging Functionality
@@ -97,14 +97,14 @@ function Test-PsGadgetWindows {
         Write-Host "   Creating logger instance..." -ForegroundColor Gray
         $logger = [PsGadgetLogger]::new()
         
-        Write-Host "   ✓ Logger created: $($logger.LogFilePath)" -ForegroundColor Green
+        Write-Host "   OK Logger created: $($logger.LogFilePath)" -ForegroundColor Green
         
         $logger.WriteInfo("Test log entry from Test-PsGadgetWindows")
         $logger.WriteDebug("Debug message test")
         
         if (Test-Path $logger.LogFilePath) {
             $logSize = (Get-Item $logger.LogFilePath).Length
-            Write-Host "   ✓ Log file exists: $logSize bytes" -ForegroundColor Green
+            Write-Host "   OK Log file exists: $logSize bytes" -ForegroundColor Green
             
             Write-Host "   Recent log entries:" -ForegroundColor Gray
             $logEntries = Get-Content $logger.LogFilePath -Tail 5
@@ -113,11 +113,11 @@ function Test-PsGadgetWindows {
             }
         }
         else {
-            Write-Host "   ✗ Log file not created" -ForegroundColor Red
+            Write-Host "   X Log file not created" -ForegroundColor Red
         }
     }
     catch {
-        Write-Host "   ✗ Logging error: $_" -ForegroundColor Red
+        Write-Host "   X Logging error: $_" -ForegroundColor Red
     }
     
     # Test 5: Environment Check
