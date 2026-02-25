@@ -2,7 +2,7 @@
 
 ## Code Style
 
-**PowerShell Compatibility**: All code must work in PowerShell 5.1+ (use `#Requires -Version 5.1`). Avoid PS7-only features like ternary operators. Use `$IsWindows` or `$PSVersionTable.PSVersion.Major -le 5` for platform detection.
+**PowerShell Compatibility**: All code must work in PowerShell 5.1+ (use `#Requires -Version 5.1`). Avoid PS7-only features like ternary operators (`?:`), null-conditional operators (`?.`), and null-coalescing operators (`??`). Use `[System.Environment]::OSVersion.Platform -eq 'Win32NT'` or `$PSVersionTable.PSVersion.Major -le 5` for platform detection (not `$IsWindows`).
 
 **Function Naming**: Public functions use `Verb-PsGadge*` pattern. Private functions use `Invoke-[Technology][Platform][Action]` format. See [Public/](Public/) for examples.
 
