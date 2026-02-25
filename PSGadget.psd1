@@ -29,6 +29,34 @@
     VariablesToExport = @()
     AliasesToExport = @()
     
+    # Files included in this module
+    FileList = @(
+        'PSGadget.psm1',
+        'Classes/PsGadgetLogger.ps1',
+        'Classes/PsGadgetFtdi.ps1', 
+        'Classes/PsGadgetMpy.ps1',
+        'Private/Ftdi.Backend.ps1',
+        'Private/Ftdi.Mpsse.ps1',
+        'Private/Ftdi.Unix.ps1',
+        'Private/Ftdi.Windows.ps1',
+        'Private/Initialize-FtdiAssembly.ps1',
+        'Private/Initialize-PsGadgetEnvironment.ps1',
+        'Private/Invoke-NativeProcess.ps1',
+        'Private/Mpy.Backend.ps1',
+        'Public/Connect-PsGadgetFtdi.ps1',
+        'Public/Connect-PsGadgetMpy.ps1',
+        'Public/List-PsGadgetFtdi.ps1',
+        'Public/List-PsGadgetMpy.ps1',
+        'Public/Set-PsGadgetGpio.ps1',
+        'lib/net48/FTD2XX_NET.dll',
+        'lib/net48/FTD2XX_NET.xml',
+        'lib/netstandard20/FTD2XX_NET.dll',
+        'lib/netstandard20/FTD2XX_NET.xml',
+        'lib/netstandard20/FTD2XX_NET.deps.json',
+        'lib/native/FTD2XX.dll',
+        'lib/README.md'
+    )
+    
     # Private data
     PrivateData = @{
         PSData = @{
