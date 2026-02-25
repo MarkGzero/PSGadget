@@ -1,5 +1,9 @@
 # PsGadget PowerShell Module - AI Agent Guidelines
 
+## Project Scope
+
+**IMPORTANT: Focus on PSGadget Repository Only**: When working in this workspace, only modify files within the `psgadget/` directory. Other folders (`psgadget_reference/`, `summitpiserver/`, etc.) are for reference only and should NOT be modified. If you need examples or patterns from reference folders, you may read them but never edit them.
+
 ## Formatting and Communication Style
 
 **CRITICAL: No Unicode Characters in Code**: NEVER use Unicode characters (✓✗➜→←↑↓○●◆■♠♦♥♣★☆♪♫♬※⚡⚠⬜⬛✅❌⭐🔴🟢🟡🔵⟨⟩⟪⟫❓❗💡🎯🎮🎲📝📊📈📉📋📌📍📎🔗🔒🔓🔑⭕❎🚫🛑) in PowerShell code, comments, or strings. These characters cause PowerShell parsing errors on Windows platforms, resulting in "Try statement is missing its Catch or Finally block" and similar cryptic errors. Instead use:

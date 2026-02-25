@@ -21,8 +21,23 @@ function Test-PsGadgetWindows {
     Write-Host "=== PsGadget Windows Testing ===" -ForegroundColor Cyan
     Write-Host ""
     
+    # Import PSGadget module if not already loaded
+    Write-Host "0. Importing PSGadget Module..." -ForegroundColor Yellow
+    try {
+        if (-not (Get-Module PSGadget)) {
+            Write-Verbose "Importing PSGadget module..."
+            Import-Module "$PSScriptRoot\..\PSGadget.psd1" -Force
+            Write-Host "   [OK] PSGadget module imported" -ForegroundColor Green
+        } else {
+            Write-Host "   [OK] PSGadget module already loaded" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "   [FAIL] Failed to import PSGadget module: $_" -ForegroundColor Red
+        return
+    }
+    
     # Test 1: Assembly Detection
-    Write-Host "1. Testing FTDI Assembly Detection..." -ForegroundColor Yellow
+    Write-Host "`n1. Testing FTDI Assembly Detection..." -ForegroundColor Yellow
     try {
         $ftdiType = [FTD2XX_NET.FTDI]
         Write-Host "   OK FTD2XX_NET.FTDI type available" -ForegroundColor Green
