@@ -1,2 +1,37 @@
 # Ignore the mynotes directory
 mynotes\
+mynotes/
+
+# PowerShell specific
+*.pssc
+*.psproj
+*.psworkspace
+
+# Test and coverage results  
+*.Tests.ps1.xml
+coverage.xml
+TestResults/
+
+# User data and logs (but keep the structure)
+**/.psgadget/logs/*.log
+**/.psgadget/config/
+
+# IDE specific
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific  
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup

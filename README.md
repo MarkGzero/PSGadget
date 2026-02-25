@@ -1,4 +1,4 @@
-# PsGadget PowerShell Module
+# PSGadget PowerShell Module
 
 Production-grade PowerShell module for FTDI hardware control and MicroPython orchestration.
 
