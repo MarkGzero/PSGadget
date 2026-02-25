@@ -30,7 +30,7 @@ function List-PsGadgetFtdi {
         Write-Verbose "Enumerating FTDI devices..."
         
         # Call the backend function to get device list
-        $Devices = Get-FtdiDeviceList
+        $Devices = @(Get-FtdiDeviceList)
         
         if ($Devices.Count -eq 0) {
             Write-Warning "No FTDI devices found on this system"

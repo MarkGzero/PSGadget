@@ -92,9 +92,9 @@ function Test-PsGadgetWindows {
     Write-Host "`n3. Testing PsGadget Module Functions..." -ForegroundColor Yellow
     try {
         Write-Verbose "Calling List-PsGadgetFtdi..."
-        $devices = List-PsGadgetFtdi -Verbose
+        $devices = @(List-PsGadgetFtdi -Verbose)
         
-        if ($devices -and $devices.Count -gt 0) {
+        if ($devices.Count -gt 0) {
             Write-Host "   OK List-PsGadgetFtdi found $($devices.Count) device(s)" -ForegroundColor Green
             $devices | Format-Table Index, Type, Description, SerialNumber, IsOpen -AutoSize
         } else {
@@ -110,7 +110,8 @@ function Test-PsGadgetWindows {
     
     try {
         Write-Host "   Creating logger instance..." -ForegroundColor Gray
-        $logger = [PsGadgetLogger]::new()
+        # PsGadgetLogger is a module-scoped class - must be instantiated inside module scope
+        $logger = & (Get-Module PSGadget) { [PsGadgetLogger]::new() }
         
         Write-Host "   OK Logger created: $($logger.LogFilePath)" -ForegroundColor Green
         

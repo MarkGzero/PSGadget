@@ -19,15 +19,16 @@ function Get-FtdiDeviceList {
         }
         
         # Validate and enrich device list
-        if ($devices -and $devices.Count -gt 0) {
-            Write-Verbose "Successfully enumerated $($devices.Count) FTDI device(s)"
+        if ($devices -and @($devices).Count -gt 0) {
+            Write-Verbose "Successfully enumerated $(@($devices).Count) FTDI device(s)"
             
             # Ensure consistent Index values
-            for ($i = 0; $i -lt $devices.Count; $i++) {
-                $devices[$i].Index = $i
+            $deviceArray = @($devices)
+            for ($i = 0; $i -lt $deviceArray.Count; $i++) {
+                $deviceArray[$i].Index = $i
             }
             
-            return $devices
+            return $deviceArray
         } else {
             Write-Verbose "No FTDI devices found"
             return @()
