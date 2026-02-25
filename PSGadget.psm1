@@ -36,7 +36,21 @@ foreach ($PublicFile in $PublicFiles) {
     . $PublicFile.FullName
 }
 
-# 4. Initialize the PsGadget environment
+# 4. Initialize FTDI assembly loading
+$script:FtdiInitialized = $false
+try {
+    $script:FtdiInitialized = Initialize-FtdiAssembly -ModuleRoot $ModuleRoot
+    if ($script:FtdiInitialized) {
+        Write-Verbose "FTDI D2XX assembly loaded successfully"
+    } else {
+        Write-Verbose "FTDI assembly not available - using stub mode"
+    }
+} catch {
+    Write-Warning "Failed to initialize FTDI assembly: $_"
+    $script:FtdiInitialized = $false
+}
+
+# 5. Initialize the PsGadget environment
 try {
     Initialize-PsGadgetEnvironment
 } catch {

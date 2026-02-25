@@ -4,51 +4,93 @@
 function Connect-PsGadgetFtdi {
     <#
     .SYNOPSIS
-    Connects to an FTDI device and returns a PsGadgetFtdi object.
+    Connects to an FTDI device for GPIO and communication control.
     
     .DESCRIPTION
-    Creates a new PsGadgetFtdi object for the specified device index. The device
-    can then be opened and used for communication and GPIO control.
+    Opens a direct connection to an FTDI device using the appropriate platform backend.
+    Returns a connection object that can be used for MPSSE GPIO control, serial 
+    communication, and other FTDI operations.
     
     .PARAMETER Index
     The index of the FTDI device to connect to. Use List-PsGadgetFtdi to see available devices.
     
-    .EXAMPLE
-    $Device = Connect-PsGadgetFtdi -Index 0
-    $Device.Open()
+    .PARAMETER SerialNumber
+    Alternative to Index - connect to device by its serial number
     
     .EXAMPLE
-    $FtdiDevices = List-PsGadgetFtdi
-    $FirstDevice = Connect-PsGadgetFtdi -Index $FtdiDevices[0].Index
+    $Connection = Connect-PsGadgetFtdi -Index 0
+    Set-PsGadgetGpio -DeviceIndex 0 -Pins @(2) -State HIGH
+    $Connection.Close()
+    
+    .EXAMPLE
+    $Connection = Connect-PsGadgetFtdi -SerialNumber "ABC123"
+    # Use connection for GPIO or serial operations
+    $Connection.Close()
     
     .OUTPUTS
-    PsGadgetFtdi
-    A PsGadgetFtdi object that can be used to control the FTDI device.
+    System.Object
+    A connection object with platform-specific device handle and control methods.
     #>
     
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'ByIndex')]
     param(
-        [Parameter(Mandatory = $true, Position = 0)]
-        [int]$Index
+        [Parameter(Mandatory = $true, ParameterSetName = 'ByIndex', Position = 0)]
+        [int]$Index,
+        
+        [Parameter(Mandatory = $true, ParameterSetName = 'BySerial')]
+        [string]$SerialNumber
     )
     
     try {
-        Write-Verbose "Connecting to FTDI device at index: $Index"
-        
-        # Validate that the device index exists
-        if (-not (Test-FtdiDeviceAvailable -Index $Index)) {
-            throw [System.ArgumentException]::new("FTDI device at index $Index not found or not available")
+        # Get available devices for validation
+        $devices = Get-FtdiDeviceList
+        if (-not $devices -or $devices.Count -eq 0) {
+            throw "No FTDI devices found. Run List-PsGadgetFtdi to check available devices."
         }
         
-        # Create and return new PsGadgetFtdi object
-        $FtdiDevice = [PsGadgetFtdi]::new($Index)
+        # Determine target device
+        $targetDevice = $null
+        $deviceIndex = -1
         
-        Write-Verbose "Successfully created FTDI device object for index: $Index"
+        if ($PSCmdlet.ParameterSetName -eq 'ByIndex') {
+            if ($Index -lt 0 -or $Index -ge $devices.Count) {
+                throw "Device index $Index is out of range. Available devices: 0-$($devices.Count - 1)"
+            }
+            $deviceIndex = $Index
+            $targetDevice = $devices[$Index]
+        } else {
+            $targetDevice = $devices | Where-Object { $_.SerialNumber -eq $SerialNumber }
+            if (-not $targetDevice) {
+                throw "No device found with serial number '$SerialNumber'"
+            }
+            $deviceIndex = $targetDevice.Index
+        }
         
-        return $FtdiDevice
+        Write-Verbose "Connecting to: $($targetDevice.Description) ($($targetDevice.SerialNumber))"
+        
+        # Check if device is already in use
+        if ($targetDevice.IsOpen) {
+            Write-Warning "Device appears to be in use by another application"
+        }
+        
+        # Call platform-specific opening function
+        if ($PSVersionTable.PSVersion.Major -le 5 -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
+            Write-Verbose "Using Windows FTDI backend for connection"
+            $connection = Invoke-FtdiWindowsOpen -Index $deviceIndex
+        } else {
+            Write-Verbose "Using Unix FTDI backend for connection"
+            $connection = Invoke-FtdiUnixOpen -Index $deviceIndex
+        }
+        
+        if (-not $connection) {
+            throw "Failed to establish connection to FTDI device"
+        }
+        
+        Write-Verbose "Successfully connected to FTDI device $deviceIndex"
+        return $connection
         
     } catch {
-        Write-Error "Failed to connect to FTDI device at index $Index`: $($_.Exception.Message)"
+        Write-Error "Failed to connect to FTDI device: $_"
         throw
     }
 }

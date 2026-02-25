@@ -7,37 +7,68 @@ function Get-FtdiDeviceList {
     param()
     
     try {
-        # TODO: Implement actual FTDI D2XX device enumeration
-        # This should call platform-specific implementations
+        Write-Verbose "Enumerating FTDI devices via platform-specific backend..."
         
+        # Determine platform and call appropriate implementation
         if ($PSVersionTable.PSVersion.Major -le 5 -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
-            # Call Windows-specific implementation
-            return Invoke-FtdiWindowsEnumerate
+            Write-Verbose "Using Windows FTDI backend"
+            $devices = Invoke-FtdiWindowsEnumerate
         } else {
-            # Call Unix-specific implementation  
-            return Invoke-FtdiUnixEnumerate
+            Write-Verbose "Using Unix FTDI backend"  
+            $devices = Invoke-FtdiUnixEnumerate
+        }
+        
+        # Validate and enrich device list
+        if ($devices -and $devices.Count -gt 0) {
+            Write-Verbose "Successfully enumerated $($devices.Count) FTDI device(s)"
+            
+            # Ensure consistent Index values
+            for ($i = 0; $i -lt $devices.Count; $i++) {
+                $devices[$i].Index = $i
+            }
+            
+            return $devices
+        } else {
+            Write-Verbose "No FTDI devices found"
+            return @()
         }
         
     } catch [System.NotImplementedException] {
-        # Return stub device list for development
+        Write-Verbose "FTDI enumeration not implemented - returning unified stub devices"
+        
+        # Return platform-agnostic stub device list for development
+        $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+        
         return @(
             [PSCustomObject]@{
                 Index = 0
-                Description = "FT232R USB UART (STUB)"
-                SerialNumber = "A12345"
-                LocationId = 0x1234
+                Type = "FT232H"
+                Description = "FT232H USB-Serial (UNIFIED STUB)"
+                SerialNumber = "STUB001"
+                LocationId = if ($isWindows) { 0x1234 } else { "/dev/ttyUSB0" }
                 IsOpen = $false
+                Flags = "0x00000000"
+                DeviceId = "0x04036014"
+                Handle = $null
+                Driver = if ($isWindows) { "ftd2xx.dll (STUB)" } else { "libftdi (STUB)" }
+                Platform = if ($isWindows) { "Windows" } else { "Unix" }
             },
             [PSCustomObject]@{
-                Index = 1  
-                Description = "FT2232H Dual RS232-HS (STUB)"
-                SerialNumber = "B67890"
-                LocationId = 0x5678
+                Index = 1
+                Type = "FT2232H" 
+                Description = "FT2232H Dual USB-Serial (UNIFIED STUB)"
+                SerialNumber = "STUB002"
+                LocationId = if ($isWindows) { 0x5678 } else { "/dev/ttyUSB1" }
                 IsOpen = $false
+                Flags = "0x00000000"
+                DeviceId = "0x04036010"
+                Handle = $null
+                Driver = if ($isWindows) { "ftd2xx.dll (STUB)" } else { "libftdi (STUB)" }
+                Platform = if ($isWindows) { "Windows" } else { "Unix" }
             }
         )
     } catch {
-        Write-Warning "Failed to enumerate FTDI devices: $($_.Exception.Message)"
+        Write-Warning "FTDI device enumeration failed: $($_.Exception.Message)"
         return @()
     }
 }

@@ -20,7 +20,8 @@
         'List-PsGadgetFtdi',
         'Connect-PsGadgetFtdi',
         'List-PsGadgetMpy',
-        'Connect-PsGadgetMpy'
+        'Connect-PsGadgetMpy',
+        'Set-PsGadgetGpio'
     )
     
     # No cmdlets, variables, or aliases exported

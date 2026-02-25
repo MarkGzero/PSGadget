@@ -1,15 +1,15 @@
 # PSGadget PowerShell Module
 
-Production-grade PowerShell module for FTDI hardware control and MicroPython orchestration.
+PowerShell module for FTDI hardware control and MicroPython orchestration.
 
 ## Features
 
-- 🔧 **FTDI-First Design**: Direct hardware control via D2XX drivers
-- 🐍 **MicroPython Integration**: Built-in orchestration via `mpremote` 
-- 🔄 **Cross-Platform**: PowerShell 5.1+ compatible (Windows, Linux, macOS)
-- 📊 **Automatic Logging**: Session tracking with timestamped logs
-- 🎯 **Clean Architecture**: Separation of Public/Private/Classes
-- 🛠️ **Stub-First Development**: Safe hardware integration patterns
+- **FTDI-First Design**: Direct hardware control via D2XX drivers
+- **MicroPython Integration**: Built-in orchestration via `mpremote` 
+- **Cross-Platform**: PowerShell 5.1+ compatible (Windows, Linux, macOS)
+- **Automatic Logging**: Session tracking with timestamped logs
+- **Clean Architecture**: Separation of Public/Private/Classes
+- **Stub-First Development**: Safe hardware integration patterns
 
 ## Quick Start
 

@@ -7,21 +7,39 @@ function Invoke-FtdiUnixEnumerate {
     param()
     
     try {
-        # TODO: Implement Unix FTDI enumeration
-        # This should use libftdi or direct USB device enumeration
+        # TODO: Implement Unix FTDI enumeration using libftdi or USB device enumeration
+        # Could use lsusb, libftdi bindings, or direct USB device inspection
         
         throw [System.NotImplementedException]::new("Unix FTDI enumeration not yet implemented")
         
     } catch [System.NotImplementedException] {
-        # Return stub data for Unix development
+        # Return enhanced stub data for Unix development matching Windows format
         return @(
             [PSCustomObject]@{
                 Index = 0
-                Description = "FT232R USB UART (Unix STUB)"
-                SerialNumber = "UNIX123"
+                Type = "FT232H"
+                Description = "FT232H USB-Serial (Unix STUB)"
+                SerialNumber = "UNIXSTUB001"
                 LocationId = "/dev/ttyUSB0"
                 IsOpen = $false
-                Driver = "libftdi"
+                Flags = "0x00000000"
+                DeviceId = "0x04036014"
+                Handle = $null
+                Driver = "libftdi (STUB)"
+                Platform = "Unix"
+            },
+            [PSCustomObject]@{
+                Index = 1
+                Type = "FT2232H"
+                Description = "FT2232H Dual USB-Serial (Unix STUB)"
+                SerialNumber = "UNIXSTUB002"
+                LocationId = "/dev/ttyUSB1"
+                IsOpen = $false
+                Flags = "0x00000000"
+                DeviceId = "0x04036010"
+                Handle = $null
+                Driver = "libftdi (STUB)"
+                Platform = "Unix"
             }
         )
     } catch {
@@ -32,25 +50,59 @@ function Invoke-FtdiUnixEnumerate {
 
 function Invoke-FtdiUnixOpen {
     [CmdletBinding()]
+    [OutputType([System.Object])]
     param(
         [Parameter(Mandatory = $true)]
         [int]$Index
     )
     
     try {
-        # TODO: Implement Unix FTDI device open via libftdi
+        # TODO: Implement Unix FTDI device open via libftdi or direct USB access
+        # This could use libftdi bindings, pyftdi bridge, or direct USB device access
+        
         throw [System.NotImplementedException]::new("Unix FTDI device open not yet implemented")
         
     } catch [System.NotImplementedException] {
-        Write-Verbose "Opened FTDI device $Index on Unix (STUB MODE)"
-        return [PSCustomObject]@{
-            Success = $true
-            Handle = "/dev/ttyUSB$Index"
-            Message = "Device opened successfully (Unix STUB)"
+        # Return enhanced stub connection for Unix development
+        Write-Verbose "Creating stub connection for device $Index (Unix)"
+        
+        # Get device info for realistic stub
+        $devices = Invoke-FtdiUnixEnumerate
+        $targetDevice = if ($Index -lt $devices.Count) { $devices[$Index] } else {
+            [PSCustomObject]@{
+                SerialNumber = "UNIXSTUB$Index"
+                Description = "Unix STUB Device"
+                Type = "FT232H"
+                LocationId = "/dev/ttyUSB$Index"
+            }
         }
+        
+        return [PSCustomObject]@{
+            Device = $null
+            Index = $Index
+            SerialNumber = $targetDevice.SerialNumber
+            Description = $targetDevice.Description
+            Type = $targetDevice.Type
+            LocationId = $targetDevice.LocationId
+            IsOpen = $true
+            MpsseEnabled = $true
+            Platform = "Unix (STUB)"
+        } | Add-Member -MemberType ScriptMethod -Name 'Close' -Value { $this.IsOpen = $false } -PassThru |
+          Add-Member -MemberType ScriptMethod -Name 'Write' -Value { 
+            param([byte[]]$data, [int]$length, [ref]$bytesWritten)
+            $bytesWritten.Value = $length
+            return 0  # Simulate FT_OK equivalent
+          } -PassThru |
+          Add-Member -MemberType ScriptMethod -Name 'Read' -Value { 
+            param([byte[]]$buffer, [int]$length, [ref]$bytesRead)
+            $bytesRead.Value = 1
+            $buffer[0] = 0x55  # Stub data
+            return 0  # Simulate FT_OK equivalent
+          } -PassThru
+        
     } catch {
-        Write-Warning "Failed to open Unix FTDI device: $($_.Exception.Message)"
-        throw
+        Write-Error "Failed to open Unix FTDI device: $_"
+        return $null
     }
 }
 
