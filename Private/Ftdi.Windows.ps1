@@ -67,18 +67,23 @@ function Invoke-FtdiWindowsEnumerate {
             $isOpen = ($device.Flags -band 0x00000001) -ne 0
             
             # Create enriched device object
+            $caps = Get-FtdiChipCapabilities -TypeName $typeName
             $enrichedDevice = [PSCustomObject]@{
-                Index = $i
-                Type = $typeName
-                Description = $device.Description
-                SerialNumber = $device.SerialNumber
-                LocationId = $device.LocId
-                IsOpen = $isOpen
-                Flags = "0x{0:X8}" -f $device.Flags
-                DeviceId = "0x{0:X8}" -f $device.ID
-                Handle = $device.ftHandle
-                Driver = "ftd2xx.dll"
-                Platform = "Windows"
+                Index          = $i
+                Type           = $typeName
+                Description    = $device.Description
+                SerialNumber   = $device.SerialNumber
+                LocationId     = $device.LocId
+                IsOpen         = $isOpen
+                Flags          = "0x{0:X8}" -f $device.Flags
+                DeviceId       = "0x{0:X8}" -f $device.ID
+                Handle         = $device.ftHandle
+                Driver         = "ftd2xx.dll"
+                Platform       = "Windows"
+                GpioMethod     = $caps.GpioMethod
+                GpioPins       = $caps.GpioPins
+                HasMpsse       = $caps.HasMpsse
+                CapabilityNote = $caps.CapabilityNote
             }
             
             $enrichedDevices += $enrichedDevice
@@ -120,30 +125,38 @@ function Invoke-FtdiWindowsEnumerate {
         # Return enhanced stub data for Windows development
         return @(
             [PSCustomObject]@{
-                Index = 0
-                Type = "FT232H"
-                Description = "FT232H USB-Serial (Windows STUB)"
-                SerialNumber = "WINSTUB001"
-                LocationId = 0x1001
-                IsOpen = $false
-                Flags = "0x00000000"
-                DeviceId = "0x04036014"
-                Handle = $null
-                Driver = "ftd2xx.dll (STUB)"
-                Platform = "Windows"
+                Index          = 0
+                Type           = "FT232H"
+                Description    = "FT232H USB-Serial (Windows STUB)"
+                SerialNumber   = "WINSTUB001"
+                LocationId     = 0x1001
+                IsOpen         = $false
+                Flags          = "0x00000000"
+                DeviceId       = "0x04036014"
+                Handle         = $null
+                Driver         = "ftd2xx.dll (STUB)"
+                Platform       = "Windows"
+                GpioMethod     = "MPSSE"
+                GpioPins       = "ACBUS0-7, ADBUS0-7"
+                HasMpsse       = $true
+                CapabilityNote = ""
             },
             [PSCustomObject]@{
-                Index = 1
-                Type = "FT2232H"
-                Description = "FT2232H Dual USB-Serial (Windows STUB)"
-                SerialNumber = "WINSTUB002"
-                LocationId = 0x1002
-                IsOpen = $false
-                Flags = "0x00000000"
-                DeviceId = "0x04036010"
-                Handle = $null
-                Driver = "ftd2xx.dll (STUB)"
-                Platform = "Windows"
+                Index          = 1
+                Type           = "FT232R"
+                Description    = "FT232R USB-Serial (Windows STUB)"
+                SerialNumber   = "WINSTUB002"
+                LocationId     = 0x1002
+                IsOpen         = $false
+                Flags          = "0x00000000"
+                DeviceId       = "0x04036001"
+                Handle         = $null
+                Driver         = "ftdibus.sys (VCP) (STUB)"
+                Platform       = "Windows"
+                GpioMethod     = "CBUS"
+                GpioPins       = "CBUS0-3 (CBUS bit-bang), ADBUS0-7 (async bit-bang)"
+                HasMpsse       = $false
+                CapabilityNote = "No MPSSE. CBUS bit-bang (mode 0x20): requires FT_PROG EEPROM config to set CBUS0-3 as 'CBUS I/O'. Async bit-bang (mode 0x01): uses ADBUS0-7 (UART lines), no EEPROM change needed."
             }
         )
     } catch {
@@ -169,11 +182,11 @@ function Invoke-FtdiWindowsEnumerateVcp {
 
     # Map FTDI PID (hex string, upper) to friendly device type name
     $pidTypeMap = @{
-        '6001' = 'FT232R'
-        '6010' = 'FT2232D'
+        '6001' = 'FT232R'    # FT232R / FT232RL / FT232RNL (same PID, all VCP-only)
+        '6010' = 'FT2232D'   # FT2232D / FT2232C
         '6011' = 'FT4232H'
         '6014' = 'FT232H'
-        '6015' = 'FT231X'
+        '6015' = 'FT231X'    # FT-X Series (FT230X/FT231X)
         '6040' = 'FT232HP'
     }
 
@@ -206,21 +219,26 @@ function Invoke-FtdiWindowsEnumerateVcp {
 
                     if (-not $friendlyName) { $friendlyName = "$typeName USB Serial" }
 
+                    $caps = Get-FtdiChipCapabilities -TypeName $typeName
                     $results += [PSCustomObject]@{
-                        Index        = -1   # assigned by caller
-                        Type         = $typeName
-                        Description  = $friendlyName
-                        SerialNumber = $serial
-                        LocationId   = 0
-                        IsOpen       = $false
-                        Flags        = '0x00000000'
-                        DeviceId     = "0x0403$pid"
-                        Handle       = $null
-                        Driver       = 'ftdibus.sys (VCP)'
-                        Platform     = 'Windows'
-                        ComPort      = $comPort
-                        VID          = $vid
-                        PID          = $pid
+                        Index          = -1   # assigned by caller
+                        Type           = $typeName
+                        Description    = $friendlyName
+                        SerialNumber   = $serial
+                        LocationId     = 0
+                        IsOpen         = $false
+                        Flags          = '0x00000000'
+                        DeviceId       = "0x0403$pid"
+                        Handle         = $null
+                        Driver         = 'ftdibus.sys (VCP)'
+                        Platform       = 'Windows'
+                        ComPort        = $comPort
+                        VID            = $vid
+                        PID            = $pid
+                        GpioMethod     = $caps.GpioMethod
+                        GpioPins       = $caps.GpioPins
+                        HasMpsse       = $caps.HasMpsse
+                        CapabilityNote = $caps.CapabilityNote
                     }
                 }
             }
@@ -276,7 +294,7 @@ function Invoke-FtdiWindowsOpen {
         }
         
         # Configure device for MPSSE mode if supported
-        if ($targetDevice.Type -in @('FT232H', 'FT2232H', 'FT4232H')) {
+        if ($targetDevice.HasMpsse) {
             Write-Verbose "Configuring device for MPSSE mode..."
             
             # Reset the device
@@ -296,18 +314,24 @@ function Invoke-FtdiWindowsOpen {
             
             # Set timeouts
             $ftdi.SetTimeouts(5000, 5000) | Out-Null  # 5 second read/write timeouts
+        } else {
+            Write-Verbose "Device uses $($targetDevice.GpioMethod) GPIO (no MPSSE setup needed on open)"
+            $ftdi.SetTimeouts(5000, 5000) | Out-Null
         }
         
         # Create connection object with device info
         $connection = [PSCustomObject]@{
-            Device = $ftdi
-            Index = $Index
+            Device      = $ftdi
+            Index       = $Index
             SerialNumber = $targetDevice.SerialNumber
-            Description = $targetDevice.Description
-            Type = $targetDevice.Type
-            IsOpen = $true
-            MpsseEnabled = $targetDevice.Type -in @('FT232H', 'FT2232H', 'FT4232H')
-            Platform = "Windows"
+            Description  = $targetDevice.Description
+            Type         = $targetDevice.Type
+            IsOpen       = $true
+            GpioMethod   = $targetDevice.GpioMethod
+            GpioPins     = $targetDevice.GpioPins
+            HasMpsse     = $targetDevice.HasMpsse
+            MpsseEnabled = $targetDevice.HasMpsse
+            Platform     = "Windows"
         }
         
         # Add methods to the connection object

@@ -1,6 +1,76 @@
 # Ftdi.Backend.ps1
 # Core FTDI backend functionality - platform agnostic
 
+function Get-FtdiChipCapabilities {
+    # Returns a capability descriptor hashtable for a given FTDI chip type name.
+    # This is the single source of truth for GPIO method, pin availability, and
+    # any EEPROM or setup requirements - used by enumeration, connect, and GPIO code.
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$TypeName
+    )
+
+    switch -Regex ($TypeName) {
+        '^FT232H$|^FT232HP$' {
+            return @{
+                GpioMethod     = 'MPSSE'
+                GpioPins       = 'ACBUS0-7, ADBUS0-7'
+                HasMpsse       = $true
+                CapabilityNote = ''
+            }
+        }
+        '^FT2232H$|^FT2232C$|^FT2232D$' {
+            return @{
+                GpioMethod     = 'MPSSE'
+                GpioPins       = 'ACBUS0-7, ADBUS0-7 (dual channel)'
+                HasMpsse       = $true
+                CapabilityNote = 'MPSSE available on both channels A and B'
+            }
+        }
+        '^FT4232H$' {
+            return @{
+                GpioMethod     = 'MPSSE'
+                GpioPins       = 'ADBUS0-7 (channels A/B only)'
+                HasMpsse       = $true
+                CapabilityNote = 'MPSSE on channels A and B only; C and D are UART/GPIO'
+            }
+        }
+        '^FT232R(L|NL)?$' {
+            return @{
+                GpioMethod     = 'CBUS'
+                GpioPins       = 'CBUS0-3 (CBUS bit-bang), ADBUS0-7 (async bit-bang)'
+                HasMpsse       = $false
+                CapabilityNote = 'No MPSSE. CBUS bit-bang (mode 0x20): requires FT_PROG EEPROM config to set CBUS0-3 as "CBUS I/O". Async bit-bang (mode 0x01): uses ADBUS0-7 (UART lines), no EEPROM change needed.'
+            }
+        }
+        '^FT231X$|^FT230X$|^FT-X' {
+            return @{
+                GpioMethod     = 'CBUS'
+                GpioPins       = 'CBUS0-3'
+                HasMpsse       = $false
+                CapabilityNote = 'CBUS bit-bang (mode 0x20): requires FT_PROG EEPROM config'
+            }
+        }
+        '^FT232BM$|^FT232AM$|^FT100AX$' {
+            return @{
+                GpioMethod     = 'AsyncBitBang'
+                GpioPins       = 'ADBUS0-7'
+                HasMpsse       = $false
+                CapabilityNote = 'Legacy chip. Async bit-bang (mode 0x01) on ADBUS0-7 only'
+            }
+        }
+        default {
+            return @{
+                GpioMethod     = 'Unknown'
+                GpioPins       = 'Unknown'
+                HasMpsse       = $false
+                CapabilityNote = "Unrecognised chip type: $TypeName"
+            }
+        }
+    }
+}
+
 function Get-FtdiDeviceList {
     [CmdletBinding()]
     [OutputType([System.Object[]])]

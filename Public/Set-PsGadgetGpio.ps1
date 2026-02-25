@@ -104,8 +104,13 @@ function Set-PsGadgetGpio {
         }
         
         try {
-            # Validate device supports MPSSE (FT232H, FT2232H, etc.)
-            if ($targetDevice.Type -notin @('FT232H', 'FT2232H', 'FT4232H')) {
+            # Check GPIO method and warn if device doesn't support MPSSE
+            if ($targetDevice.PSObject.Properties['GpioMethod']) {
+                $gpioMethod = $targetDevice.GpioMethod
+                if ($gpioMethod -ne 'MPSSE') {
+                    Write-Warning "Device '$($targetDevice.Type)' uses $gpioMethod GPIO (not MPSSE). Current Set-PsGadgetGpio uses MPSSE commands - operation may fail.`n  Note: $($targetDevice.CapabilityNote)"
+                }
+            } elseif ($targetDevice.Type -notin @('FT232H', 'FT2232H', 'FT4232H')) {
                 Write-Warning "Device type '$($targetDevice.Type)' may not support MPSSE GPIO control"
             }
             
