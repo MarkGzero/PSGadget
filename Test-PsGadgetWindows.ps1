@@ -106,8 +106,9 @@ function Test-PsGadgetWindows {
             Write-Host "   ✓ Log file exists: $logSize bytes" -ForegroundColor Green
             
             Write-Host "   Recent log entries:" -ForegroundColor Gray
-            Get-Content $logger.LogFilePath -Tail 5 | ForEach-Object {
-                Write-Host "     $_" -ForegroundColor DarkGray
+            $logEntries = Get-Content $logger.LogFilePath -Tail 5
+            foreach ($entry in $logEntries) {
+                Write-Host "     $entry" -ForegroundColor DarkGray
             }
         } else {
             Write-Host "   ✗ Log file not created" -ForegroundColor Red
