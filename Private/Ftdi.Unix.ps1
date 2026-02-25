@@ -13,33 +13,45 @@ function Invoke-FtdiUnixEnumerate {
         throw [System.NotImplementedException]::new("Unix FTDI enumeration not yet implemented")
         
     } catch [System.NotImplementedException] {
-        # Return enhanced stub data for Unix development matching Windows format
+        # Return enhanced stub data for Unix development matching Windows format.
+        # Includes FT232R stub so CBUS GPIO code paths can be exercised on Linux.
+        $caps232H  = Get-FtdiChipCapabilities -TypeName 'FT232H'
+        $caps232R  = Get-FtdiChipCapabilities -TypeName 'FT232R'
+
         return @(
             [PSCustomObject]@{
-                Index = 0
-                Type = "FT232H"
-                Description = "FT232H USB-Serial (Unix STUB)"
-                SerialNumber = "UNIXSTUB001"
-                LocationId = "/dev/ttyUSB0"
-                IsOpen = $false
-                Flags = "0x00000000"
-                DeviceId = "0x04036014"
-                Handle = $null
-                Driver = "libftdi (STUB)"
-                Platform = "Unix"
+                Index          = 0
+                Type           = 'FT232H'
+                Description    = 'FT232H USB-Serial (Unix STUB)'
+                SerialNumber   = 'UNIXSTUB001'
+                LocationId     = '/dev/ttyUSB0'
+                IsOpen         = $false
+                Flags          = '0x00000000'
+                DeviceId       = '0x04036014'
+                Handle         = $null
+                Driver         = 'libftdi (STUB)'
+                Platform       = 'Unix'
+                GpioMethod     = $caps232H.GpioMethod
+                GpioPins       = $caps232H.GpioPins
+                HasMpsse       = $caps232H.HasMpsse
+                CapabilityNote = $caps232H.CapabilityNote
             },
             [PSCustomObject]@{
-                Index = 1
-                Type = "FT2232H"
-                Description = "FT2232H Dual USB-Serial (Unix STUB)"
-                SerialNumber = "UNIXSTUB002"
-                LocationId = "/dev/ttyUSB1"
-                IsOpen = $false
-                Flags = "0x00000000"
-                DeviceId = "0x04036010"
-                Handle = $null
-                Driver = "libftdi (STUB)"
-                Platform = "Unix"
+                Index          = 1
+                Type           = 'FT232R'
+                Description    = 'FT232R USB UART (Unix STUB)'
+                SerialNumber   = 'UNIXSTUB002'
+                LocationId     = '/dev/ttyUSB1'
+                IsOpen         = $false
+                Flags          = '0x00000000'
+                DeviceId       = '0x04036001'
+                Handle         = $null
+                Driver         = 'libftdi (STUB)'
+                Platform       = 'Unix'
+                GpioMethod     = $caps232R.GpioMethod
+                GpioPins       = $caps232R.GpioPins
+                HasMpsse       = $caps232R.HasMpsse
+                CapabilityNote = $caps232R.CapabilityNote
             }
         )
     } catch {

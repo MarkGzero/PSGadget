@@ -92,10 +92,19 @@ function Get-FtdiDeviceList {
         if ($devices -and @($devices).Count -gt 0) {
             Write-Verbose "Successfully enumerated $(@($devices).Count) FTDI device(s)"
             
-            # Ensure consistent Index values
+            # Ensure consistent Index values and backfill any missing capability properties.
+            # Windows and future platform backends may already stamp these; this pass ensures
+            # that any backend which omits Get-FtdiChipCapabilities still produces a complete object.
             $deviceArray = @($devices)
             for ($i = 0; $i -lt $deviceArray.Count; $i++) {
                 $deviceArray[$i].Index = $i
+                if (-not $deviceArray[$i].PSObject.Properties['GpioMethod']) {
+                    $caps = Get-FtdiChipCapabilities -TypeName $deviceArray[$i].Type
+                    $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name GpioMethod     -Value $caps.GpioMethod     -Force
+                    $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name GpioPins       -Value $caps.GpioPins       -Force
+                    $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name HasMpsse       -Value $caps.HasMpsse       -Force
+                    $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name CapabilityNote -Value $caps.CapabilityNote -Force
+                }
             }
             
             return $deviceArray
@@ -110,34 +119,43 @@ function Get-FtdiDeviceList {
         # Return platform-agnostic stub device list for development
         $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
         
-        return @(
+        $stubDevices = @(
             [PSCustomObject]@{
-                Index = 0
-                Type = "FT232H"
-                Description = "FT232H USB-Serial (UNIFIED STUB)"
-                SerialNumber = "STUB001"
-                LocationId = if ($isWindows) { 0x1234 } else { "/dev/ttyUSB0" }
-                IsOpen = $false
-                Flags = "0x00000000"
-                DeviceId = "0x04036014"
-                Handle = $null
-                Driver = if ($isWindows) { "ftd2xx.dll (STUB)" } else { "libftdi (STUB)" }
-                Platform = if ($isWindows) { "Windows" } else { "Unix" }
+                Index          = 0
+                Type           = 'FT232H'
+                Description    = 'FT232H USB-Serial (UNIFIED STUB)'
+                SerialNumber   = 'STUB001'
+                LocationId     = if ($isWindows) { 0x1234 } else { '/dev/ttyUSB0' }
+                IsOpen         = $false
+                Flags          = '0x00000000'
+                DeviceId       = '0x04036014'
+                Handle         = $null
+                Driver         = if ($isWindows) { 'ftd2xx.dll (STUB)' } else { 'libftdi (STUB)' }
+                Platform       = if ($isWindows) { 'Windows' } else { 'Unix' }
+                GpioMethod     = 'MPSSE'
+                GpioPins       = 'ACBUS0-7, ADBUS0-7'
+                HasMpsse       = $true
+                CapabilityNote = ''
             },
             [PSCustomObject]@{
-                Index = 1
-                Type = "FT2232H" 
-                Description = "FT2232H Dual USB-Serial (UNIFIED STUB)"
-                SerialNumber = "STUB002"
-                LocationId = if ($isWindows) { 0x5678 } else { "/dev/ttyUSB1" }
-                IsOpen = $false
-                Flags = "0x00000000"
-                DeviceId = "0x04036010"
-                Handle = $null
-                Driver = if ($isWindows) { "ftd2xx.dll (STUB)" } else { "libftdi (STUB)" }
-                Platform = if ($isWindows) { "Windows" } else { "Unix" }
+                Index          = 1
+                Type           = 'FT232R'
+                Description    = 'FT232R USB UART (UNIFIED STUB)'
+                SerialNumber   = 'STUB002'
+                LocationId     = if ($isWindows) { 0x5678 } else { '/dev/ttyUSB1' }
+                IsOpen         = $false
+                Flags          = '0x00000000'
+                DeviceId       = '0x04036001'
+                Handle         = $null
+                Driver         = if ($isWindows) { 'ftdibus.sys (VCP) (STUB)' } else { 'libftdi (STUB)' }
+                Platform       = if ($isWindows) { 'Windows' } else { 'Unix' }
+                GpioMethod     = 'CBUS'
+                GpioPins       = 'CBUS0-3 (CBUS bit-bang), ADBUS0-7 (async bit-bang)'
+                HasMpsse       = $false
+                CapabilityNote = "No MPSSE. CBUS bit-bang (mode 0x20): requires FT_PROG EEPROM config to set CBUS0-3 as 'CBUS I/O'. Async bit-bang (mode 0x01): uses ADBUS0-7 (UART lines), no EEPROM change needed."
             }
         )
+        return $stubDevices
     } catch {
         Write-Warning "FTDI device enumeration failed: $($_.Exception.Message)"
         return @()

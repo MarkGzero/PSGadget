@@ -7,17 +7,25 @@ function Set-PsGadgetGpio {
     Controls GPIO pins on connected FTDI devices.
     
     .DESCRIPTION
-    Sets ACBUS GPIO pins on FTDI devices (FT232H, FT2232H) to HIGH or LOW states.
-    Supports timing control and multiple pin operations. Uses MPSSE commands for
-    precise hardware control.
+    Sets GPIO pins on FTDI devices to HIGH or LOW states. Supports both MPSSE-
+    capable devices (FT232H, FT2232H, FT4232H) using ACBUS0-7, and CBUS bit-bang
+    devices (FT232R / FT232RL / FT232RNL) using CBUS0-3.
+
+    For FT232R CBUS GPIO, the CBUS pins must first be programmed in the device
+    EEPROM as FT_CBUS_IOMODE. Run Set-PsGadgetFt232rCbusMode once per device,
+    replug the USB device, then use this function normally.
+
+    Supports timing control and multiple pin operations.
     
     .PARAMETER DeviceIndex
     Index of the FTDI device to control (from List-PsGadgetFtdi)
     
     .PARAMETER Pins
-    Array of ACBUS pin numbers to control (0-7)
-    ACBUS0=pin21, ACBUS1=pin25, ACBUS2=pin26, ACBUS3=pin27
-    ACBUS4=pin28, ACBUS5=pin29, ACBUS6=pin30, ACBUS7=pin31 (FT232H)
+    For MPSSE devices (FT232H, FT2232H, FT4232H): ACBUS pin numbers 0-7
+      ACBUS0=pin21, ACBUS1=pin25, ACBUS2=pin26, ACBUS3=pin27
+      ACBUS4=pin28, ACBUS5=pin29, ACBUS6=pin30, ACBUS7=pin31 (FT232H)
+    For CBUS devices (FT232R): CBUS pin numbers 0-3 only
+      (Pins outside 0-3 are rejected for CBUS devices)
     
     .PARAMETER State
     Pin state: HIGH/H/1 or LOW/L/0
@@ -29,22 +37,27 @@ function Set-PsGadgetGpio {
     Alternative to DeviceIndex - specify device by serial number
     
     .EXAMPLE
+    # FT232H / MPSSE device - control ACBUS pins
     Set-PsGadgetGpio -DeviceIndex 0 -Pins @(2, 4) -State HIGH
-    Sets ACBUS2 and ACBUS4 to HIGH on first FTDI device
     
     .EXAMPLE
+    # FT232R CBUS GPIO (after running Set-PsGadgetFt232rCbusMode -Index 1 once)
+    Set-PsGadgetGpio -DeviceIndex 1 -Pins @(0, 1) -State HIGH
+    
+    .EXAMPLE
+    # Pulse ACBUS0 LOW for 500ms
     Set-PsGadgetGpio -SerialNumber "ABC123" -Pins @(0) -State LOW -DurationMs 500
-    Pulses ACBUS0 LOW for 500ms on device with serial "ABC123"
     
     .EXAMPLE
-    # LED Control Example
+    # LED Control Example (FT232H)
     Set-PsGadgetGpio -DeviceIndex 0 -Pins @(2) -State HIGH   # Red LED on
     Set-PsGadgetGpio -DeviceIndex 0 -Pins @(4) -State HIGH   # Green LED on
-    Set-PsGadgetGpio -DeviceIndex 0 -Pins @(2, 4) -State LOW  # Both LEDs off
+    Set-PsGadgetGpio -DeviceIndex 0 -Pins @(2, 4) -State LOW  # Both off
     
     .NOTES
     Requires FTDI D2XX drivers and FTD2XX_NET.dll assembly.
-    Pin mapping for FT232H: ACBUS0-7 = physical pins 21,25-31.
+    FT232H MPSSE: ACBUS0-7 = physical pins 21,25-31.
+    FT232R CBUS: CBUS0-3 require prior EEPROM configuration via Set-PsGadgetFt232rCbusMode.
     Use List-PsGadgetFtdi to see available devices.
     #>
     
@@ -104,37 +117,79 @@ function Set-PsGadgetGpio {
         }
         
         try {
-            # Check GPIO method and warn if device doesn't support MPSSE
-            if ($targetDevice.PSObject.Properties['GpioMethod']) {
-                $gpioMethod = $targetDevice.GpioMethod
-                if ($gpioMethod -ne 'MPSSE') {
-                    Write-Warning "Device '$($targetDevice.Type)' uses $gpioMethod GPIO (not MPSSE). Current Set-PsGadgetGpio uses MPSSE commands - operation may fail.`n  Note: $($targetDevice.CapabilityNote)"
+            # Determine GPIO method - dispatch to the appropriate backend
+            $gpioMethod = if ($targetDevice.PSObject.Properties['GpioMethod']) {
+                $targetDevice.GpioMethod
+            } else {
+                'Unknown'
+            }
+
+            Write-Verbose "Device $($targetDevice.Type): GpioMethod=$gpioMethod, pins=[$($Pins -join ',')], state=$State"
+
+            $success = $false
+            $pinLabel = ''
+
+            switch ($gpioMethod) {
+                'MPSSE' {
+                    # FT232H / FT2232H / FT4232H - ACBUS control via MPSSE command 0x82
+                    $params = @{
+                        DeviceHandle = $connection
+                        Pins         = $Pins
+                        Direction    = $State
+                    }
+                    if ($DurationMs) { $params.DurationMs = $DurationMs }
+
+                    $success  = Set-FtdiGpioPins @params
+                    $pinLabel = "ACBUS pins [$($Pins -join ', ')]"
                 }
-            } elseif ($targetDevice.Type -notin @('FT232H', 'FT2232H', 'FT4232H')) {
-                Write-Warning "Device type '$($targetDevice.Type)' may not support MPSSE GPIO control"
+
+                'CBUS' {
+                    # FT232R / FT231X / FT230X - CBUS bit-bang via SetBitMode 0x20
+                    # Validate pin range - CBUS bit-bang only supports CBUS0-3
+                    $badPins = $Pins | Where-Object { $_ -gt 3 }
+                    if ($badPins) {
+                        throw (
+                            "Pin(s) [$($badPins -join ', ')] are out of range for CBUS bit-bang. " +
+                            "$($targetDevice.Type) CBUS GPIO supports CBUS0-3 only (pins 0-3)."
+                        )
+                    }
+
+                    $cbusParams = @{
+                        Connection = $connection
+                        Pins       = $Pins
+                        State      = $State
+                    }
+                    if ($DurationMs) { $cbusParams.DurationMs = $DurationMs }
+
+                    $success  = Set-FtdiCbusBits @cbusParams
+                    $pinLabel = "CBUS pins [$($Pins -join ', ')]"
+                }
+
+                'AsyncBitBang' {
+                    # FT232BM / FT232AM - async bit-bang on ADBUS0-7 (not yet implemented)
+                    throw (
+                        "Async bit-bang GPIO (ADBUS0-7) for '$($targetDevice.Type)' is not yet implemented. " +
+                        "Note: $($targetDevice.CapabilityNote)"
+                    )
+                }
+
+                default {
+                    # Unknown or unsupported type - attempt MPSSE as last resort
+                    Write-Warning "Unknown GpioMethod '$gpioMethod' for device '$($targetDevice.Type)'. Attempting MPSSE fallback."
+                    $params = @{
+                        DeviceHandle = $connection
+                        Pins         = $Pins
+                        Direction    = $State
+                    }
+                    if ($DurationMs) { $params.DurationMs = $DurationMs }
+                    $success  = Set-FtdiGpioPins @params
+                    $pinLabel = "pins [$($Pins -join ', ')]"
+                }
             }
-            
-            Write-Verbose "Setting pins [$($Pins -join ',')] to $State"
-            
-            # Perform GPIO control
-            $params = @{
-                DeviceHandle = $connection
-                Pins = $Pins
-                Direction = $State
-            }
-            
-            if ($DurationMs) {
-                $params.DurationMs = $DurationMs
-            }
-            
-            $success = Set-FtdiGpioPins @params
-            
+
             if ($success) {
-                $pinList = $Pins -join ', '
-                $message = "Successfully set ACBUS pins [$pinList] to $State"
-                if ($DurationMs) {
-                    $message += " for $DurationMs ms"
-                }
+                $message = "Successfully set $pinLabel to $State"
+                if ($DurationMs) { $message += " for $DurationMs ms" }
                 Write-Host $message -ForegroundColor Green
             } else {
                 throw "GPIO operation failed"
