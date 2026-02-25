@@ -6,14 +6,15 @@
 Describe 'PsGadget Module Tests' {
     
     BeforeAll {
-        # Import the module for testing
-        $ModulePath = Join-Path -Path $PSScriptRoot -ChildPath "PsGadget.psd1"
+        # Import the module for testing (from parent directory)
+        $ModuleRoot = Split-Path -Path $PSScriptRoot -Parent
+        $ModulePath = Join-Path -Path $ModuleRoot -ChildPath "PSGadget.psd1"
         Import-Module $ModulePath -Force
     }
     
     AfterAll {
         # Clean up
-        Remove-Module PsGadget -Force -ErrorAction SilentlyContinue
+        Remove-Module PSGadget -Force -ErrorAction SilentlyContinue
     }
 
     Context 'Module Loading' {
