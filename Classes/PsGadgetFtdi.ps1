@@ -2,7 +2,7 @@
 # Represents an FTDI device connection with automatic logging.
 # Delegates to Connect-PsGadgetFtdi and Set-PsGadgetGpio public functions.
 
-class PsGadgetFtdi {
+class PsGadgetFtdi : System.IDisposable {
     [int]$Index
     [string]$SerialNumber
     [string]$LocationId
@@ -93,6 +93,13 @@ class PsGadgetFtdi {
             $this.IsOpen      = $false
             $this._connection = $null
         }
+    }
+
+    # IDisposable.Dispose() - enables try/finally and 'using' patterns.
+    # Guarantees the D2XX handle is released even if the script errors mid-run.
+    [void] Dispose() {
+        $this.Logger.WriteInfo("Dispose()")
+        $this.Close()
     }
 
     # Set a single GPIO pin by name: "HIGH"/"LOW"/"H"/"L"/"1"/"0"
