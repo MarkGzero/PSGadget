@@ -1,7 +1,7 @@
 @{
     # Module metadata
     RootModule = 'PSGadget.psm1'
-    ModuleVersion = '0.2.0'
+    ModuleVersion = '0.3.0'
     GUID = 'a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6'
     
     # PowerShell version requirements
@@ -17,6 +17,7 @@
     
     # Exported functions - explicitly declared, no wildcards
     FunctionsToExport = @(
+        'New-PsGadgetFtdi',
         'List-PsGadgetFtdi',
         'Connect-PsGadgetFtdi',
         'List-PsGadgetMpy',

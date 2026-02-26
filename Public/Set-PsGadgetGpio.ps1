@@ -35,6 +35,10 @@ function Set-PsGadgetGpio {
     
     .PARAMETER SerialNumber
     Alternative to DeviceIndex - specify device by serial number
+
+    .PARAMETER Connection
+    An already-open connection object returned by Connect-PsGadgetFtdi or [PsGadgetFtdi].Connect().
+    When using this parameter set the caller is responsible for closing the connection.
     
     .EXAMPLE
     # FT232H / MPSSE device - control ACBUS pins
@@ -47,6 +51,22 @@ function Set-PsGadgetGpio {
     .EXAMPLE
     # Pulse ACBUS0 LOW for 500ms
     Set-PsGadgetGpio -SerialNumber "ABC123" -Pins @(0) -State LOW -DurationMs 500
+
+    .EXAMPLE
+    # Connect once, call GPIO multiple times, close when done
+    $conn = Connect-PsGadgetFtdi -SerialNumber "BG01X3GX"
+    Set-PsGadgetGpio -Connection $conn -Pins @(0) -State HIGH   # LED on
+    Set-PsGadgetGpio -Connection $conn -Pins @(1) -State HIGH
+    Set-PsGadgetGpio -Connection $conn -Pins @(0, 1) -State LOW  # Both off
+    $conn.Close()
+
+    .EXAMPLE
+    # OOP style via PsGadgetFtdi class
+    $dev = [PsGadgetFtdi]::new("BG01X3GX")
+    $dev.Connect()
+    $dev.SetPin(0, "HIGH")
+    $dev.SetPin(0, "LOW")
+    $dev.Close()
     
     .EXAMPLE
     # LED Control Example (FT232H)
@@ -68,6 +88,10 @@ function Set-PsGadgetGpio {
         
         [Parameter(Mandatory = $true, ParameterSetName = 'BySerial')]
         [string]$SerialNumber,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'ByConnection', Position = 0)]
+        [ValidateNotNull()]
+        [object]$Connection,
         
         [Parameter(Mandatory = $true, Position = 1)]
         [ValidateRange(0, 7)]
@@ -83,48 +107,60 @@ function Set-PsGadgetGpio {
     )
     
     try {
-        # Get available devices
-        $devices = Get-FtdiDeviceList
-        if (-not $devices -or $devices.Count -eq 0) {
-            throw "No FTDI devices found. Run List-PsGadgetFtdi to check available devices."
-        }
-        
-        # Find target device
-        $targetDevice = $null
-        if ($PSCmdlet.ParameterSetName -eq 'ByIndex') {
-            if ($DeviceIndex -lt 0 -or $DeviceIndex -ge $devices.Count) {
-                throw "Device index $DeviceIndex is out of range. Available devices: 0-$($devices.Count - 1)"
+        # Track whether this function opened the connection (must close it in finally)
+        $ownsConnection = $true
+
+        if ($PSCmdlet.ParameterSetName -eq 'ByConnection') {
+            # Caller provides an already-open connection - use it directly, do not close on exit
+            $ownsConnection = $false
+            if (-not $Connection.IsOpen) {
+                throw "The supplied connection is not open. Call Connect-PsGadgetFtdi (or [PsGadgetFtdi].Connect()) first."
             }
-            $targetDevice = $devices[$DeviceIndex]
+            Write-Verbose "Using caller-supplied connection: $($Connection.Description) ($($Connection.SerialNumber))"
         } else {
-            $targetDevice = $devices | Where-Object { $_.SerialNumber -eq $SerialNumber }
-            if (-not $targetDevice) {
-                throw "No device found with serial number '$SerialNumber'"
+            # Get available devices
+            $devices = Get-FtdiDeviceList
+            if (-not $devices -or $devices.Count -eq 0) {
+                throw "No FTDI devices found. Run List-PsGadgetFtdi to check available devices."
             }
-        }
-        
-        Write-Verbose "Targeting device: $($targetDevice.Description) ($($targetDevice.SerialNumber))"
-        
-        # Check if device is available
-        if ($targetDevice.IsOpen) {
-            Write-Warning "Device $($targetDevice.SerialNumber) appears to be in use by another application"
-        }
-        
-        # Open device connection
-        $connection = Connect-PsGadgetFtdi -Index $targetDevice.Index
-        if (-not $connection) {
-            throw "Failed to connect to FTDI device"
+            
+            # Find target device
+            $targetDevice = $null
+            if ($PSCmdlet.ParameterSetName -eq 'ByIndex') {
+                if ($DeviceIndex -lt 0 -or $DeviceIndex -ge $devices.Count) {
+                    throw "Device index $DeviceIndex is out of range. Available devices: 0-$($devices.Count - 1)"
+                }
+                $targetDevice = $devices[$DeviceIndex]
+            } else {
+                $targetDevice = $devices | Where-Object { $_.SerialNumber -eq $SerialNumber }
+                if (-not $targetDevice) {
+                    throw "No device found with serial number '$SerialNumber'"
+                }
+            }
+            
+            Write-Verbose "Targeting device: $($targetDevice.Description) ($($targetDevice.SerialNumber))"
+            
+            # Check if device is available
+            if ($targetDevice.IsOpen) {
+                Write-Warning "Device $($targetDevice.SerialNumber) appears to be in use by another application"
+            }
+            
+            # Open device connection
+            $Connection = Connect-PsGadgetFtdi -Index $targetDevice.Index
+            if (-not $Connection) {
+                throw "Failed to connect to FTDI device"
+            }
         }
         
         try {
             # Determine GPIO method - dispatch to the appropriate backend
-            $gpioMethod = if ($targetDevice.PSObject.Properties['GpioMethod']) {
-                $targetDevice.GpioMethod
+            $gpioMethod = if ($Connection.PSObject.Properties['GpioMethod']) {
+                $Connection.GpioMethod
             } else {
                 'Unknown'
             }
 
-            Write-Verbose "Device $($targetDevice.Type): GpioMethod=$gpioMethod, pins=[$($Pins -join ',')], state=$State"
+            Write-Verbose "Device $($Connection.Type): GpioMethod=$gpioMethod, pins=[$($Pins -join ',')], state=$State"
 
             $success = $false
             $pinLabel = ''
@@ -133,7 +169,7 @@ function Set-PsGadgetGpio {
                 'MPSSE' {
                     # FT232H / FT2232H / FT4232H - ACBUS control via MPSSE command 0x82
                     $params = @{
-                        DeviceHandle = $connection
+                        DeviceHandle = $Connection
                         Pins         = $Pins
                         Direction    = $State
                     }
@@ -150,12 +186,12 @@ function Set-PsGadgetGpio {
                     if ($badPins) {
                         throw (
                             "Pin(s) [$($badPins -join ', ')] are out of range for CBUS bit-bang. " +
-                            "$($targetDevice.Type) CBUS GPIO supports CBUS0-3 only (pins 0-3)."
+                            "$($Connection.Type) CBUS GPIO supports CBUS0-3 only (pins 0-3)."
                         )
                     }
 
                     $cbusParams = @{
-                        Connection = $connection
+                        Connection = $Connection
                         Pins       = $Pins
                         State      = $State
                     }
@@ -175,9 +211,9 @@ function Set-PsGadgetGpio {
 
                 default {
                     # Unknown or unsupported type - attempt MPSSE as last resort
-                    Write-Warning "Unknown GpioMethod '$gpioMethod' for device '$($targetDevice.Type)'. Attempting MPSSE fallback."
+                    Write-Warning "Unknown GpioMethod '$gpioMethod' for device '$($Connection.Type)'. Attempting MPSSE fallback."
                     $params = @{
-                        DeviceHandle = $connection
+                        DeviceHandle = $Connection
                         Pins         = $Pins
                         Direction    = $State
                     }
@@ -196,10 +232,10 @@ function Set-PsGadgetGpio {
             }
             
         } finally {
-            # Always close the device connection
-            if ($connection -and $connection.Close) {
+            # Only close the connection if this function opened it
+            if ($ownsConnection -and $Connection -and $Connection.Close) {
                 try {
-                    $connection.Close()
+                    $Connection.Close()
                 } catch {
                     Write-Warning "Failed to close device connection: $_"
                 }

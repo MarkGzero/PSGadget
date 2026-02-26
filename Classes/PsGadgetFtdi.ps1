@@ -1,125 +1,166 @@
 # PsGadgetFtdi Class
-# Represents an FTDI device connection with automatic logging
+# Represents an FTDI device connection with automatic logging.
+# Delegates to Connect-PsGadgetFtdi and Set-PsGadgetGpio public functions.
 
 class PsGadgetFtdi {
     [int]$Index
+    [string]$SerialNumber
     [string]$Description
+    [string]$Type
+    [string]$GpioMethod
     [bool]$IsOpen
     [PsGadgetLogger]$Logger
+    hidden [object]$_connection = $null
 
-    # Constructor
+    # Constructor - connect by serial number (preferred)
+    PsGadgetFtdi([string]$SerialNumber) {
+        $this.SerialNumber = $SerialNumber
+        $this.Index = -1
+        $this.IsOpen = $false
+        $this.Description = "FTDI $SerialNumber"
+        $this.Logger = [PsGadgetLogger]::new()
+        $this.Logger.WriteInfo("PsGadgetFtdi created for serial: $SerialNumber")
+    }
+
+    # Constructor - connect by device index
     PsGadgetFtdi([int]$DeviceIndex) {
         $this.Index = $DeviceIndex
+        $this.SerialNumber = ''
         $this.IsOpen = $false
-        $this.Description = "FTDI Device $DeviceIndex (Stubbed)"
+        $this.Description = "FTDI device index $DeviceIndex"
         $this.Logger = [PsGadgetLogger]::new()
-        
-        $this.Logger.WriteInfo("Created PsGadgetFtdi instance for device index: $DeviceIndex")
+        $this.Logger.WriteInfo("PsGadgetFtdi created for index: $DeviceIndex")
     }
 
-    # Open the FTDI device
-    [void] Open() {
-        $this.Logger.WriteInfo("Attempting to open FTDI device at index: $($this.Index)")
-        
-        # Stub implementation - real D2XX logic will go here
-        try {
-            # TODO: Implement actual FTDI D2XX open logic
-            throw [System.NotImplementedException]::new("FTDI D2XX open logic not yet implemented")
-            
-        } catch [System.NotImplementedException] {
-            # For now, simulate successful open in stub mode
-            $this.IsOpen = $true
-            $this.Logger.WriteInfo("FTDI device opened successfully (STUB MODE)")
-        } catch {
-            $this.Logger.WriteError("Failed to open FTDI device: $($_.Exception.Message)")
-            throw
+    # Open the device connection.
+    # Calls the exported Connect-PsGadgetFtdi function and stores the connection object.
+    [void] Connect() {
+        if ($this.IsOpen) {
+            $this.Logger.WriteInfo("Device already open: $($this.SerialNumber)$($this.Index)")
+            return
         }
-    }
 
-    # Close the FTDI device
-    [void] Close() {
-        $this.Logger.WriteInfo("Attempting to close FTDI device at index: $($this.Index)")
-        
-        try {
-            # TODO: Implement actual FTDI D2XX close logic
-            throw [System.NotImplementedException]::new("FTDI D2XX close logic not yet implemented")
-            
-        } catch [System.NotImplementedException] {
-            # For now, simulate successful close in stub mode
-            $this.IsOpen = $false
-            $this.Logger.WriteInfo("FTDI device closed successfully (STUB MODE)")
-        } catch {
-            $this.Logger.WriteError("Failed to close FTDI device: $($_.Exception.Message)")
-            throw
-        }
-    }
-
-    # Set GPIO pin state
-    [void] SetGpio([int]$Pin, [bool]$State) {
-        $this.Logger.WriteTrace("SetGpio called - Pin: $Pin, State: $State")
-        
-        if (-not $this.IsOpen) {
-            $this.Logger.WriteError("Cannot set GPIO: device not open")
-            throw [System.InvalidOperationException]::new("Device must be opened before setting GPIO")
-        }
+        $this.Logger.WriteInfo("Connecting to FTDI device...")
 
         try {
-            # TODO: Implement actual FTDI GPIO control logic
-            throw [System.NotImplementedException]::new("FTDI GPIO control logic not yet implemented")
-            
-        } catch [System.NotImplementedException] {
-            $this.Logger.WriteInfo("GPIO pin $Pin set to $State (STUB MODE)")
-        } catch {
-            $this.Logger.WriteError("Failed to set GPIO pin ${Pin}: $($_.Exception.Message)")
-            throw
-        }
-    }
-
-    # Write data to FTDI device
-    [void] Write([byte[]]$Data) {
-        $this.Logger.WriteTrace("Write called with $($Data.Length) bytes")
-        
-        if (-not $this.IsOpen) {
-            $this.Logger.WriteError("Cannot write data: device not open")
-            throw [System.InvalidOperationException]::new("Device must be opened before writing") 
-        }
-
-        try {
-            # TODO: Implement actual FTDI write logic
-            throw [System.NotImplementedException]::new("FTDI write logic not yet implemented")
-            
-        } catch [System.NotImplementedException] {
-            $this.Logger.WriteInfo("Wrote $($Data.Length) bytes to FTDI device (STUB MODE)")
-        } catch {
-            $this.Logger.WriteError("Failed to write data: $($_.Exception.Message)")
-            throw
-        }
-    }
-
-    # Read data from FTDI device
-    [byte[]] Read([int]$Count) {
-        $this.Logger.WriteTrace("Read called for $Count bytes")
-        
-        if (-not $this.IsOpen) {
-            $this.Logger.WriteError("Cannot read data: device not open")
-            throw [System.InvalidOperationException]::new("Device must be opened before reading")
-        }
-
-        try {
-            # TODO: Implement actual FTDI read logic
-            throw [System.NotImplementedException]::new("FTDI read logic not yet implemented")
-            
-        } catch [System.NotImplementedException] {
-            # Return stub data
-            $StubData = [byte[]]::new($Count)
-            for ($i = 0; $i -lt $Count; $i++) {
-                $StubData[$i] = $i % 256
+            $conn = $null
+            if ($this.SerialNumber -ne '') {
+                $conn = Connect-PsGadgetFtdi -SerialNumber $this.SerialNumber
+            } else {
+                $conn = Connect-PsGadgetFtdi -Index $this.Index
             }
-            $this.Logger.WriteInfo("Read $Count bytes from FTDI device (STUB MODE)")
-            return $StubData
+
+            if (-not $conn) {
+                throw "Connect-PsGadgetFtdi returned null"
+            }
+
+            $this._connection  = $conn
+            $this.IsOpen       = $true
+            $this.Type         = $conn.Type
+            $this.GpioMethod   = $conn.GpioMethod
+            $this.Description  = $conn.Description
+            if ($this.SerialNumber -eq '') { $this.SerialNumber = $conn.SerialNumber }
+            if ($this.Index -lt 0)         { $this.Index        = $conn.Index }
+
+            $this.Logger.WriteInfo("Connected: $($this.Description) ($($this.SerialNumber)) Type=$($this.Type) GPIO=$($this.GpioMethod)")
         } catch {
-            $this.Logger.WriteError("Failed to read data: $($_.Exception.Message)")
+            $this.Logger.WriteError("Connect failed: $($_.Exception.Message)")
             throw
         }
+    }
+
+    # Close the device connection.
+    [void] Close() {
+        if (-not $this.IsOpen) {
+            $this.Logger.WriteInfo("Close called but device is not open")
+            return
+        }
+
+        $this.Logger.WriteInfo("Closing FTDI device: $($this.SerialNumber)")
+
+        try {
+            if ($this._connection -and $this._connection.Close) {
+                $this._connection.Close()
+            }
+        } catch {
+            $this.Logger.WriteError("Close error: $($_.Exception.Message)")
+        } finally {
+            $this.IsOpen      = $false
+            $this._connection = $null
+        }
+    }
+
+    # Set a single GPIO pin by name: "HIGH"/"LOW"/"H"/"L"/"1"/"0"
+    [void] SetPin([int]$Pin, [string]$State) {
+        $this.Logger.WriteTrace("SetPin($Pin, $State)")
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new("Device not open. Call Connect() first.")
+        }
+        Set-PsGadgetGpio -Connection $this._connection -Pins @($Pin) -State $State
+    }
+
+    # Set a single GPIO pin by boolean (true = HIGH, false = LOW)
+    [void] SetPin([int]$Pin, [bool]$High) {
+        $state = if ($High) { 'HIGH' } else { 'LOW' }
+        $this.SetPin($Pin, $state)
+    }
+
+    # Set multiple GPIO pins simultaneously
+    [void] SetPins([int[]]$Pins, [string]$State) {
+        $this.Logger.WriteTrace("SetPins([$($Pins -join ',')] $State)")
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new("Device not open. Call Connect() first.")
+        }
+        Set-PsGadgetGpio -Connection $this._connection -Pins $Pins -State $State
+    }
+
+    # Set multiple GPIO pins by boolean
+    [void] SetPins([int[]]$Pins, [bool]$High) {
+        $state = if ($High) { 'HIGH' } else { 'LOW' }
+        $this.SetPins($Pins, $state)
+    }
+
+    # Pulse a pin: set to State for DurationMs then invert
+    [void] PulsePin([int]$Pin, [string]$State, [int]$DurationMs) {
+        $this.Logger.WriteTrace("PulsePin($Pin, $State, ${DurationMs}ms)")
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new("Device not open. Call Connect() first.")
+        }
+        Set-PsGadgetGpio -Connection $this._connection -Pins @($Pin) -State $State -DurationMs $DurationMs
+    }
+
+    # Write raw bytes to the device
+    [void] Write([byte[]]$Data) {
+        $this.Logger.WriteTrace("Write $($Data.Length) bytes")
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new("Device not open. Call Connect() first.")
+        }
+        if (-not $this._connection -or -not $this._connection.Device) {
+            throw [System.InvalidOperationException]::new("No underlying device handle available")
+        }
+        [uint32]$written = 0
+        $status = $this._connection.Device.Write($Data, [uint32]$Data.Length, [ref]$written)
+        $this.Logger.WriteInfo("Write $written/$($Data.Length) bytes status=$status")
+    }
+
+    # Read raw bytes from the device
+    [byte[]] Read([int]$Count) {
+        $this.Logger.WriteTrace("Read $Count bytes")
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new("Device not open. Call Connect() first.")
+        }
+        if (-not $this._connection -or -not $this._connection.Device) {
+            throw [System.InvalidOperationException]::new("No underlying device handle available")
+        }
+        $buf = [byte[]]::new($Count)
+        [uint32]$bytesRead = 0
+        $status = $this._connection.Device.Read($buf, [uint32]$Count, [ref]$bytesRead)
+        $this.Logger.WriteInfo("Read $bytesRead/$Count bytes status=$status")
+        if ($bytesRead -lt $Count) {
+            $trimmed = [byte[]]::new($bytesRead)
+            [System.Array]::Copy($buf, $trimmed, $bytesRead)
+            return $trimmed
+        }
+        return $buf
     }
 }
