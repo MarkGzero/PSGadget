@@ -168,4 +168,43 @@ class PsGadgetFtdi {
         }
         return $buf
     }
+
+    # Soft reset - clears internal buffers and resets chip state, handle stays open
+    [void] Reset() {
+        $this.Logger.WriteInfo("Reset()")
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new("Device not open. Call Connect() first.")
+        }
+        if (-not $this._connection -or -not $this._connection.Device) {
+            throw [System.InvalidOperationException]::new("No underlying device handle available")
+        }
+        $status = $this._connection.Device.ResetDevice()
+        $this.Logger.WriteInfo("ResetDevice status=$status")
+        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
+            throw "ResetDevice failed: $status"
+        }
+    }
+
+    # USB port cycle - equivalent to physically unplugging and replugging the device.
+    # Triggers re-enumeration so EEPROM changes (e.g. CBUS mode) take effect without
+    # a manual replug. D2XX automatically closes the handle after CyclePort succeeds.
+    # Call Connect() again after this to reopen.
+    [void] CyclePort() {
+        $this.Logger.WriteInfo("CyclePort()")
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new("Device not open. Call Connect() first.")
+        }
+        if (-not $this._connection -or -not $this._connection.Device) {
+            throw [System.InvalidOperationException]::new("No underlying device handle available")
+        }
+        # CyclePort calls FT_Close internally on success - mark as closed regardless
+        $status = $this._connection.Device.CyclePort()
+        $this.IsOpen       = $false
+        $this._connection  = $null
+        $this.Logger.WriteInfo("CyclePort status=$status (handle released)")
+        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
+            throw "CyclePort failed: $status"
+        }
+        $this.Logger.WriteInfo("USB port cycled - device will re-enumerate. Call Connect() to reopen.")
+    }
 }
