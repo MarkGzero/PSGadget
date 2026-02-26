@@ -217,12 +217,175 @@ function Get-FtdiGpioPins {
         } else {
             # Stub mode - return simulated pin states
             $stubValue = 0x55  # Alternating pattern for testing
-            Write-Verbose "ACBUS pin states: 0x{0:X2} (STUB MODE)" -f $stubValue
+            Write-Verbose ("ACBUS pin states: 0x{0:X2} (STUB MODE)" -f $stubValue)
             return [byte]$stubValue
         }
         
     } catch {
         Write-Error "Failed to read FTDI GPIO pins: $_"
         return [byte]0
+    }
+}
+
+function Initialize-MpsseI2C {
+    <#
+    .SYNOPSIS
+    Initializes FTDI device for I2C communication via MPSSE.
+    
+    .DESCRIPTION
+    Sets up the FTDI device for I2C bit-banging using MPSSE engine.
+    Configures clock frequency and I2C pin mapping.
+    
+    .PARAMETER DeviceHandle
+    Handle to the opened FTDI device
+    
+    .PARAMETER ClockFrequency
+    I2C clock frequency in Hz (default: 100000 for standard mode)
+    
+    .EXAMPLE
+    Initialize-MpsseI2C -DeviceHandle $handle -ClockFrequency 100000
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Object]$DeviceHandle,
+        
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(1000, 400000)]
+        [int]$ClockFrequency = 100000
+    )
+    
+    try {
+        # Validate device handle
+        if (-not $DeviceHandle -or -not $DeviceHandle.IsOpen) {
+            throw "Device handle is invalid or device is not open"
+        }
+        
+        if ($script:FtdiInitialized -and $DeviceHandle.GetType().Name -eq 'FTDI') {
+            # Reset MPSSE
+            [byte[]]$resetCommand = @(0xAA)
+            [uint32]$bytesWritten = 0
+            $status = $DeviceHandle.Write($resetCommand, $resetCommand.Length, [ref]$bytesWritten)
+            
+            if ($status -ne $script:FTDI_OK) {
+                throw "Failed to reset MPSSE: $status"
+            }
+            
+            Start-Sleep -Milliseconds 50
+            
+            # Set clock frequency
+            # MPSSE clock = 60MHz base clock divided by ((1+ClockDivisor)*2)
+            $clockDivisor = [math]::Floor((60000000 / ($ClockFrequency * 2)) - 1)
+            $clockDivisor = [math]::Max(0, [math]::Min(65535, $clockDivisor))
+            
+            [byte[]]$clockCommand = @(
+                0x86,  # Set clock frequency
+                [byte]($clockDivisor -band 0xFF),
+                [byte](($clockDivisor -shr 8) -band 0xFF)
+            )
+            
+            $status = $DeviceHandle.Write($clockCommand, $clockCommand.Length, [ref]$bytesWritten)
+            if ($status -ne $script:FTDI_OK) {
+                throw "Failed to set I2C clock frequency: $status"
+            }
+            
+            Write-Verbose "I2C initialized at $ClockFrequency Hz (divisor: $clockDivisor)"
+            return $true
+        } else {
+            # Stub mode
+            Write-Verbose "I2C initialized at $ClockFrequency Hz (STUB MODE)"
+            return $true
+        }
+        
+    } catch {
+        Write-Error "Failed to initialize MPSSE I2C: $_"
+        return $false
+    }
+}
+
+function Send-MpsseI2CWrite {
+    <#
+    .SYNOPSIS
+    Sends I2C write command via MPSSE.
+    
+    .DESCRIPTION
+    Writes data to an I2C device using MPSSE bit-banging.
+    Handles I2C start condition, address, data, and stop condition.
+    
+    .PARAMETER DeviceHandle
+    Handle to the opened FTDI device
+    
+    .PARAMETER Address
+    7-bit I2C slave address
+    
+    .PARAMETER Data
+    Byte array of data to write
+    
+    .EXAMPLE
+    Send-MpsseI2CWrite -DeviceHandle $handle -Address 0x3C -Data @(0x00, 0xAE)
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Object]$DeviceHandle,
+        
+        [Parameter(Mandatory = $true)]
+        [ValidateRange(0, 127)]
+        [byte]$Address,
+        
+        [Parameter(Mandatory = $true)]
+        [byte[]]$Data
+    )
+    
+    try {
+        if (-not $DeviceHandle -or -not $DeviceHandle.IsOpen) {
+            throw "Device handle is invalid or device is not open"
+        }
+        
+        if ($script:FtdiInitialized -and $DeviceHandle.GetType().Name -eq 'FTDI') {
+            # Build I2C transaction
+            [System.Collections.Generic.List[byte]]$transaction = @()
+            
+            # I2C Start condition
+            $transaction.AddRange(@(0x80, 0x03, 0x03))  # Set SDA/SCL high
+            $transaction.AddRange(@(0x80, 0x01, 0x03))  # Set SDA low (start)
+            $transaction.AddRange(@(0x80, 0x00, 0x03))  # Set SCL low
+            
+            # Write address byte with write bit (bit 0 = 0)
+            $addressByte = ($Address -shl 1) -bor 0x00
+            $transaction.AddRange(@(0x11, 0x07, $addressByte))  # Clock out 8 bits
+            
+            # Write data bytes
+            foreach ($byte in $Data) {
+                $transaction.AddRange(@(0x11, 0x07, $byte))  # Clock out 8 bits
+            }
+            
+            # I2C Stop condition
+            $transaction.AddRange(@(0x80, 0x00, 0x03))  # Set SDA/SCL low
+            $transaction.AddRange(@(0x80, 0x01, 0x03))  # Set SCL high
+            $transaction.AddRange(@(0x80, 0x03, 0x03))  # Set SDA high (stop)
+            
+            # Send transaction
+            [uint32]$bytesWritten = 0
+            $command = $transaction.ToArray()
+            $status = $DeviceHandle.Write($command, $command.Length, [ref]$bytesWritten)
+            
+            if ($status -eq $script:FTDI_OK -and $bytesWritten -eq $command.Length) {
+                Write-Verbose ("I2C write successful: Address=0x{0:X2}, {1} bytes" -f $Address, $Data.Length)
+                return $true
+            } else {
+                throw "I2C write failed: Status=$status, BytesWritten=$bytesWritten"
+            }
+        } else {
+            # Stub mode
+            Write-Verbose ("I2C write: Address=0x{0:X2}, {1} bytes (STUB MODE)" -f $Address, $Data.Length)
+            return $true
+        }
+        
+    } catch {
+        Write-Error "Failed to send I2C write: $_"
+        return $false
     }
 }

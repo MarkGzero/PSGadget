@@ -7,10 +7,6 @@
 		{
 			"name": "psgadget_reference [READ-ONLY]",
 			"path": "../../psgadget_reference"
-		},
-		{
-			"name": "summitpiserver [READ-ONLY]",
-			"path": "../../summitpiserver"
 		}
 	],
 	"settings": {

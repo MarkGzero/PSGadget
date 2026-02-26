@@ -24,7 +24,11 @@
         'Connect-PsGadgetMpy',
         'Set-PsGadgetGpio',
         'Get-PsGadgetFtdiEeprom',
-        'Set-PsGadgetFt232rCbusMode'
+        'Set-PsGadgetFt232rCbusMode',
+        'Connect-PsGadgetSsd1306',
+        'Clear-PsGadgetSsd1306',
+        'Write-PsGadgetSsd1306',
+        'Set-PsGadgetSsd1306Cursor'
     )
     
     # No cmdlets, variables, or aliases exported
@@ -38,6 +42,7 @@
         'Classes/PsGadgetLogger.ps1',
         'Classes/PsGadgetFtdi.ps1', 
         'Classes/PsGadgetMpy.ps1',
+        'Classes/PsGadgetSsd1306.ps1',
         'Private/Ftdi.Backend.ps1',
         'Private/Ftdi.Cbus.ps1',
         'Private/Ftdi.Mpsse.ps1',
@@ -47,13 +52,17 @@
         'Private/Initialize-PsGadgetEnvironment.ps1',
         'Private/Invoke-NativeProcess.ps1',
         'Private/Mpy.Backend.ps1',
+        'Public/Clear-PsGadgetSsd1306.ps1',
         'Public/Connect-PsGadgetFtdi.ps1',
         'Public/Connect-PsGadgetMpy.ps1',
+        'Public/Connect-PsGadgetSsd1306.ps1',
         'Public/Get-PsGadgetFtdiEeprom.ps1',
         'Public/List-PsGadgetFtdi.ps1',
         'Public/List-PsGadgetMpy.ps1',
         'Public/Set-PsGadgetFt232rCbusMode.ps1',
         'Public/Set-PsGadgetGpio.ps1',
+        'Public/Set-PsGadgetSsd1306Cursor.ps1',
+        'Public/Write-PsGadgetSsd1306.ps1',
         'lib/net48/FTD2XX_NET.dll',
         'lib/net48/FTD2XX_NET.xml',
         'lib/netstandard20/FTD2XX_NET.dll',
@@ -70,7 +79,7 @@
             LicenseUri = 'https://github.com/MarkGzero/PsGadget/blob/main/LICENSE'
             ProjectUri = 'https://github.com/MarkGzero/PsGadget'
             IconUri = ''
-            ReleaseNotes = 'v0.2.0: FT232R CBUS GPIO support via EEPROM (replaces FT_PROG). New: Get-PsGadgetFtdiEeprom, Set-PsGadgetFt232rCbusMode. Set-PsGadgetGpio now dispatches to CBUS bit-bang for FT232R devices.'
+            ReleaseNotes = 'v0.3.0: SSD1306 OLED display support via FTDI I2C. New: Connect-PsGadgetSsd1306, Clear-PsGadgetSsd1306, Write-PsGadgetSsd1306, Set-PsGadgetSsd1306Cursor. Includes I2C MPSSE implementation and 6x8 ASCII font rendering.'
         }
     }
 }
