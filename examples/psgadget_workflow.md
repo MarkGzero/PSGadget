@@ -243,17 +243,89 @@ These are valid values for the `-Mode` parameter of `Set-PsGadgetFt232rCbusMode`
 
 ---
 
+## OOP Class Interface
+
+PSGadget exposes an object-oriented interface via `New-PsGadgetFtdi`, which returns a
+`PsGadgetFtdi` instance whose methods wrap the underlying D2XX connection.
+
+> **Note**: Because PSGadget uses dot-sourced class files inside the module, the
+> `[PsGadgetFtdi]` type is not visible in the caller's global scope after
+> `Import-Module`. Always use `New-PsGadgetFtdi` to create instances.
+
+```powershell
+# Create a device object and connect
+$dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"
+$dev.Connect()           # opens D2XX connection, populates Type/GpioMethod/etc.
+
+# FT232R CBUS GPIO (pins 0-3)
+$dev.SetPin(0, "HIGH")   # CBUS0 HIGH
+$dev.SetPin(1, $true)    # bool overload: $true = HIGH, $false = LOW
+$dev.SetPins(@(0, 1), "HIGH")   # set multiple pins at once
+$dev.SetPins(@(0, 1), $false)   # clear multiple pins
+
+# FT232H MPSSE GPIO (pins 0-7 = ACBUS0-7)
+$dev.SetPin(2, "HIGH")   # ACBUS2
+$dev.SetPins(@(2, 4), "LOW")
+
+# Pulse a pin HIGH for 500 ms then revert to LOW
+$dev.PulsePin(0, "HIGH", 500)
+
+# Raw device I/O
+$dev.Write([byte[]] @(0x01, 0x82, 0xFF, 0x00))
+$buf = $dev.Read(4)
+
+# Inspect state
+$dev.Type        # e.g. "FT232R"
+$dev.GpioMethod  # e.g. "CBUS"
+$dev.SerialNumber
+$dev.IsOpen
+
+# Always close when done
+$dev.Close()
+```
+
+### Available PsGadgetFtdi methods
+
+| Method                                   | Description                                |
+|------------------------------------------|--------------------------------------------|
+| `Connect()`                              | Open the device connection                 |
+| `Close()`                                | Close the device connection                |
+| `SetPin(int pin, string state)`          | Set pin HIGH/LOW/H/L/1/0                   |
+| `SetPin(int pin, bool high)`             | Set pin via boolean                        |
+| `SetPins(int[] pins, string state)`      | Set multiple pins simultaneously           |
+| `SetPins(int[] pins, bool high)`         | Set multiple pins via boolean              |
+| `PulsePin(int pin, string state, int ms)`| Hold state for ms then invert              |
+| `Write(byte[] data)`                     | Write raw bytes to device                  |
+| `Read(int count)`                        | Read raw bytes from device                 |
+
+### Set-PsGadgetGpio -Connection
+
+`Set-PsGadgetGpio` also accepts a `-Connection` object directly from
+`Connect-PsGadgetFtdi`. The caller owns the connection lifecycle (the function
+does not close it).
+
+```powershell
+$conn = Connect-PsGadgetFtdi -SerialNumber "BG01X3GX"
+Set-PsGadgetGpio -Connection $conn -Pins @(0) -State HIGH
+Set-PsGadgetGpio -Connection $conn -Pins @(1) -State HIGH
+Set-PsGadgetGpio -Connection $conn -Pins @(0, 1) -State LOW
+$conn.Close()
+```
+
+---
+
 ## Public Function Quick Reference
 
-| Function                    | Purpose                                              |
-|-----------------------------|------------------------------------------------------|
-| List-PsGadgetFtdi           | Enumerate connected FTDI devices                     |
-| Connect-PsGadgetFtdi        | Open a device connection by index or serial number   |
-| Get-PsGadgetFtdiEeprom      | Read EEPROM contents (FT232R: inspect CBUS modes)    |
-| Set-PsGadgetFt232rCbusMode  | Program FT232R CBUS pins to GPIO mode (one-time)     |
-| Set-PsGadgetGpio            | Set GPIO pin state (works for both FT232H and FT232R)|
-| List-PsGadgetMpy            | Enumerate MicroPython serial ports                   |
-| Connect-PsGadgetMpy         | Open a MicroPython REPL connection                   |
+| Function                    | Purpose                                                       |
+|-----------------------------|---------------------------------------------------------------|
+| New-PsGadgetFtdi            | Create a PsGadgetFtdi device object (OOP entry point)         |
+| List-PsGadgetFtdi           | Enumerate connected FTDI devices                              |
+| Connect-PsGadgetFtdi        | Open a device connection by index or serial number            |
+| Get-PsGadgetFtdiEeprom      | Read EEPROM contents (FT232R: inspect CBUS modes)             |
+| Set-PsGadgetFt232rCbusMode  | Program FT232R CBUS pins to GPIO mode (one-time)              |
+| Set-PsGadgetGpio            | Set GPIO pin state (FT232H and FT232R; -Connection supported) |
+| List-PsGadgetMpy            | Enumerate MicroPython serial ports                            |
+| Connect-PsGadgetMpy         | Open a MicroPython REPL connection                            |
 
 ---
 
