@@ -8,7 +8,7 @@ function Invoke-FtdiWindowsEnumerate {
     
     try {
         # Check if FTDI assembly is available, but try to use it anyway if types exist
-        $ftdiAssemblyAvailable = $script:FtdiInitialized -or ([System.Type]::GetType("FTD2XX_NET.FTDI") -ne $null)
+        $ftdiAssemblyAvailable = $script:FtdiInitialized -or ($null -ne [System.Type]::GetType("FTD2XX_NET.FTDI"))
         
         if (-not $ftdiAssemblyAvailable) {
             throw [System.NotImplementedException]::new("FTDI assembly not loaded - Windows FTDI enumeration not available")
@@ -195,11 +195,11 @@ function Invoke-FtdiWindowsEnumerateVcp {
         foreach ($comboKey in $comboKeys) {
             # Key name pattern: VID_0403+PID_6001+{SERIAL}
             if ($comboKey.PSChildName -match 'VID_([0-9A-Fa-f]{4})\+PID_([0-9A-Fa-f]{4})\+(.+)$') {
-                $vid    = $Matches[1].ToUpper()
-                $pid    = $Matches[2].ToUpper()
-                $serial = $Matches[3]
+                $vid      = $Matches[1].ToUpper()
+                $pidHex   = $Matches[2].ToUpper()
+                $serial   = $Matches[3]
 
-                $typeName = if ($pidTypeMap.ContainsKey($pid)) { $pidTypeMap[$pid] } else { "FT-Unknown (PID $pid)" }
+                $typeName = if ($pidTypeMap.ContainsKey($pidHex)) { $pidTypeMap[$pidHex] } else { "FT-Unknown (PID $pidHex)" }
 
                 # Each combo key has one or more instance sub-keys (typically '0000')
                 $instanceKeys = Get-ChildItem $comboKey.PSPath -ErrorAction SilentlyContinue
@@ -228,13 +228,13 @@ function Invoke-FtdiWindowsEnumerateVcp {
                         LocationId     = 0
                         IsOpen         = $false
                         Flags          = '0x00000000'
-                        DeviceId       = "0x0403$pid"
+                        DeviceId       = "0x0403$pidHex"
                         Handle         = $null
                         Driver         = 'ftdibus.sys (VCP)'
                         Platform       = 'Windows'
                         ComPort        = $comPort
                         VID            = $vid
-                        PID            = $pid
+                        PID            = $pidHex
                         GpioMethod     = $caps.GpioMethod
                         GpioPins       = $caps.GpioPins
                         HasMpsse       = $caps.HasMpsse
