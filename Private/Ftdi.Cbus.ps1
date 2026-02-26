@@ -121,13 +121,13 @@ function Get-FtdiFt232rEeprom {
             InvertDSR       = $eeprom.InvertDSR
             InvertDCD       = $eeprom.InvertDCD
             InvertRI        = $eeprom.InvertRI
-            # CBUS pin mode assignments - cast to enum type to get named string
-            # (.ToString() on the raw field returns the integer if PS doesn't infer the enum type)
-            Cbus0           = ([FTD2XX_NET.FTDI+FT_CBUS_OPTIONS][int]$eeprom.Cbus0).ToString()
-            Cbus1           = ([FTD2XX_NET.FTDI+FT_CBUS_OPTIONS][int]$eeprom.Cbus1).ToString()
-            Cbus2           = ([FTD2XX_NET.FTDI+FT_CBUS_OPTIONS][int]$eeprom.Cbus2).ToString()
-            Cbus3           = ([FTD2XX_NET.FTDI+FT_CBUS_OPTIONS][int]$eeprom.Cbus3).ToString()
-            Cbus4           = ([FTD2XX_NET.FTDI+FT_CBUS_OPTIONS][int]$eeprom.Cbus4).ToString()
+            # CBUS pin mode assignments - use GetNestedType() to resolve the enum reliably.
+            # PS type literals with '+' (nested types) fail on some PS versions.
+            Cbus0           = [System.Enum]::ToObject([FTD2XX_NET.FTDI].GetNestedType('FT_CBUS_OPTIONS'), [int]$eeprom.Cbus0).ToString()
+            Cbus1           = [System.Enum]::ToObject([FTD2XX_NET.FTDI].GetNestedType('FT_CBUS_OPTIONS'), [int]$eeprom.Cbus1).ToString()
+            Cbus2           = [System.Enum]::ToObject([FTD2XX_NET.FTDI].GetNestedType('FT_CBUS_OPTIONS'), [int]$eeprom.Cbus2).ToString()
+            Cbus3           = [System.Enum]::ToObject([FTD2XX_NET.FTDI].GetNestedType('FT_CBUS_OPTIONS'), [int]$eeprom.Cbus3).ToString()
+            Cbus4           = [System.Enum]::ToObject([FTD2XX_NET.FTDI].GetNestedType('FT_CBUS_OPTIONS'), [int]$eeprom.Cbus4).ToString()
             # Flag: driver mode (true = D2XX, false = VCP)
             RIsD2XX         = $eeprom.RIsD2XX
         }
@@ -276,8 +276,9 @@ function Set-FtdiFt232rCbusPinMode {
             throw "ReadFT232REEPROM failed: $status"
         }
 
-        # Resolve FT_CBUS_OPTIONS enum value by name
-        $cbusEnumType = [FTD2XX_NET.FTDI+FT_CBUS_OPTIONS]
+        # Resolve FT_CBUS_OPTIONS enum value by name.
+        # Use GetNestedType() - PS type literals with '+' (nested types) fail on some PS versions.
+        $cbusEnumType = [FTD2XX_NET.FTDI].GetNestedType('FT_CBUS_OPTIONS')
         $targetMode   = [System.Enum]::Parse($cbusEnumType, $Mode)
 
         $pinNames = $Pins | ForEach-Object { "CBUS$_" }
