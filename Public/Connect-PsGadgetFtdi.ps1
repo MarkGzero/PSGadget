@@ -54,16 +54,16 @@ function Connect-PsGadgetFtdi {
         # Get available devices for validation.
         # D2XX GetNumberOfDevices returns 0 on rapid back-to-back calls (known driver quirk).
         # Retry up to 3 times with a short sleep to work around this.
-        $devices = $null
+        $devices = @()
         for ($attempt = 1; $attempt -le 3; $attempt++) {
-            $devices = Get-FtdiDeviceList
-            if ($devices -and $devices.Count -gt 0) { break }
+            $devices = @(Get-FtdiDeviceList)
+            if ($devices.Count -gt 0) { break }
             if ($attempt -lt 3) {
                 Write-Verbose "Get-FtdiDeviceList returned empty on attempt $attempt; retrying after 150ms..."
                 Start-Sleep -Milliseconds 150
             }
         }
-        if (-not $devices -or $devices.Count -eq 0) {
+        if ($devices.Count -eq 0) {
             throw "No FTDI devices found. Run List-PsGadgetFtdi to check available devices."
         }
         
