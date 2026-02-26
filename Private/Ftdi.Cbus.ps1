@@ -27,22 +27,21 @@
 #Requires -Version 5.1
 
 # FT_CBUS_OPTIONS integer-to-name and name-to-integer lookup tables.
-# These are FTD2XX_NET enum ordinals as returned by ReadFT232REEPROM.
-# The net48 assembly enum order differs from the FT232R datasheet table 3.9:
-# - Datasheet table order: TXDEN PWRON TXLED RXLED TXRXLED SLEEP CLK48 CLK24 CLK12 CLK6 IOMODE
-# - FTD2XX_NET net48 enum: IOMODE=5, SLEEP=6 (verified by ReadFT232REEPROM + FT_Prog + hardware)
+# Values match the FTD2XX_NET FT_CBUS_OPTIONS enum (net48 and netstandard20).
+# Reference: FTD2XX_NET source + confirmed by ReadFT232REEPROM on FT232R with
+# CBUS0/1 programmed to I/O MODE via FT_Prog (returns byte 10 = FT_CBUS_IOMODE).
 $script:FT_CBUS_NAMES = @{
     0  = 'FT_CBUS_TXDEN'
-    1  = 'FT_CBUS_PWRON'
+    1  = 'FT_CBUS_PWREN'
     2  = 'FT_CBUS_RXLED'
     3  = 'FT_CBUS_TXLED'
     4  = 'FT_CBUS_TXRXLED'
-    5  = 'FT_CBUS_IOMODE'
-    6  = 'FT_CBUS_SLEEP'
-    7  = 'FT_CBUS_CLK48'
-    8  = 'FT_CBUS_CLK24'
-    9  = 'FT_CBUS_CLK12'
-    10 = 'FT_CBUS_CLK6'
+    5  = 'FT_CBUS_SLEEP'
+    6  = 'FT_CBUS_CLK48'
+    7  = 'FT_CBUS_CLK24'
+    8  = 'FT_CBUS_CLK12'
+    9  = 'FT_CBUS_CLK6'
+    10 = 'FT_CBUS_IOMODE'
     11 = 'FT_CBUS_BITBANG_WR'
     12 = 'FT_CBUS_BITBANG_RD'
 }
