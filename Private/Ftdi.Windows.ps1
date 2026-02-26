@@ -287,10 +287,8 @@ function Invoke-FtdiWindowsOpen {
             }
         }
 
-        $targetDevice = $DeviceInfo
-        
         # Configure device for MPSSE mode if supported
-        if ($targetDevice.HasMpsse) {
+        if ($DeviceInfo.HasMpsse) {
             Write-Verbose "Configuring device for MPSSE mode..."
             
             # Reset the device
@@ -311,7 +309,7 @@ function Invoke-FtdiWindowsOpen {
             # Set timeouts
             $ftdi.SetTimeouts(5000, 5000) | Out-Null  # 5 second read/write timeouts
         } else {
-            Write-Verbose "Device uses $($targetDevice.GpioMethod) GPIO (no MPSSE setup needed on open)"
+            Write-Verbose "Device uses $($DeviceInfo.GpioMethod) GPIO (no MPSSE setup needed on open)"
             $ftdi.SetTimeouts(5000, 5000) | Out-Null
         }
         
