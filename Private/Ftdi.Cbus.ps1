@@ -26,6 +26,30 @@
 
 #Requires -Version 5.1
 
+# FT_CBUS_OPTIONS integer-to-name and name-to-integer lookup tables.
+# Used instead of enum reflection because FTD2XX_NET may expose Cbus0-4 as
+# plain bytes (not enum values) depending on the assembly build and PS version.
+$script:FT_CBUS_NAMES = @{
+    0  = 'FT_CBUS_TXDEN'
+    1  = 'FT_CBUS_PWRON'
+    2  = 'FT_CBUS_RXLED'
+    3  = 'FT_CBUS_TXLED'
+    4  = 'FT_CBUS_TXRXLED'
+    5  = 'FT_CBUS_SLEEP'
+    6  = 'FT_CBUS_CLK48'
+    7  = 'FT_CBUS_CLK24'
+    8  = 'FT_CBUS_CLK12'
+    9  = 'FT_CBUS_CLK6'
+    10 = 'FT_CBUS_IOMODE'
+    11 = 'FT_CBUS_BITBANG_WR'
+    12 = 'FT_CBUS_BITBANG_RD'
+    13 = 'FT_CBUS_TXDEN'
+}
+$script:FT_CBUS_VALUES = @{}
+foreach ($k in $script:FT_CBUS_NAMES.Keys) {
+    $script:FT_CBUS_VALUES[$script:FT_CBUS_NAMES[$k]] = [byte]$k
+}
+
 function Get-FtdiFt232rEeprom {
     <#
     .SYNOPSIS
@@ -121,13 +145,13 @@ function Get-FtdiFt232rEeprom {
             InvertDSR       = $eeprom.InvertDSR
             InvertDCD       = $eeprom.InvertDCD
             InvertRI        = $eeprom.InvertRI
-            # CBUS pin mode assignments - $eeprom.CbusN is already typed as FT_CBUS_OPTIONS,
-            # so .ToString() returns the enum member name directly without any cast.
-            Cbus0           = $eeprom.Cbus0.ToString()
-            Cbus1           = $eeprom.Cbus1.ToString()
-            Cbus2           = $eeprom.Cbus2.ToString()
-            Cbus3           = $eeprom.Cbus3.ToString()
-            Cbus4           = $eeprom.Cbus4.ToString()
+            # CBUS pin mode assignments - use lookup table; Cbus0-4 may be plain bytes
+            # in some FTD2XX_NET builds, making enum reflection unreliable.
+            Cbus0           = if ($script:FT_CBUS_NAMES.ContainsKey([int]$eeprom.Cbus0)) { $script:FT_CBUS_NAMES[[int]$eeprom.Cbus0] } else { "UNKNOWN($($eeprom.Cbus0))" }
+            Cbus1           = if ($script:FT_CBUS_NAMES.ContainsKey([int]$eeprom.Cbus1)) { $script:FT_CBUS_NAMES[[int]$eeprom.Cbus1] } else { "UNKNOWN($($eeprom.Cbus1))" }
+            Cbus2           = if ($script:FT_CBUS_NAMES.ContainsKey([int]$eeprom.Cbus2)) { $script:FT_CBUS_NAMES[[int]$eeprom.Cbus2] } else { "UNKNOWN($($eeprom.Cbus2))" }
+            Cbus3           = if ($script:FT_CBUS_NAMES.ContainsKey([int]$eeprom.Cbus3)) { $script:FT_CBUS_NAMES[[int]$eeprom.Cbus3] } else { "UNKNOWN($($eeprom.Cbus3))" }
+            Cbus4           = if ($script:FT_CBUS_NAMES.ContainsKey([int]$eeprom.Cbus4)) { $script:FT_CBUS_NAMES[[int]$eeprom.Cbus4] } else { "UNKNOWN($($eeprom.Cbus4))" }
             # Flag: driver mode (true = D2XX, false = VCP)
             RIsD2XX         = $eeprom.RIsD2XX
         }
@@ -276,10 +300,13 @@ function Set-FtdiFt232rCbusPinMode {
             throw "ReadFT232REEPROM failed: $status"
         }
 
-        # Resolve FT_CBUS_OPTIONS enum value by name.
-        # Get the enum type from an existing property value - avoids reflection on nested types.
-        $cbusEnumType = $eeprom.Cbus0.GetType()
-        $targetMode   = [System.Enum]::Parse($cbusEnumType, $Mode)
+        # Resolve FT_CBUS_OPTIONS value by name using lookup table.
+        # Cbus0-4 may be plain bytes in some FTD2XX_NET builds; avoid enum reflection.
+        if (-not $script:FT_CBUS_VALUES.ContainsKey($Mode)) {
+            $ftdi.Close() | Out-Null
+            throw "Unknown CBUS mode '$Mode'. Valid values: $($script:FT_CBUS_VALUES.Keys -join ', ')"
+        }
+        $targetMode = $script:FT_CBUS_VALUES[$Mode]
 
         $pinNames = $Pins | ForEach-Object { "CBUS$_" }
         $action   = "Set $($pinNames -join ', ') to $Mode on device index $Index"
