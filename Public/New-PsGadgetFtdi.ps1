@@ -22,8 +22,12 @@ function New-PsGadgetFtdi {
     .PARAMETER Index
     FTDI device index (0-based) from List-PsGadgetFtdi.
 
+    .PARAMETER LocationId
+    FTDI USB LocationId (hub+port address) from List-PsGadgetFtdi.
+    More stable than Index across re-plugs when using a fixed USB port.
+
     .EXAMPLE
-    # Serial number workflow (preferred - stable across USB re-plug)
+    # Serial number workflow (preferred - stable regardless of port)
     $dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"
     $dev.Connect()
     $dev.SetPin(0, "HIGH")   # CBUS0 HIGH
@@ -39,6 +43,14 @@ function New-PsGadgetFtdi {
     $dev.SetPin(2, $true)    # bool overload - $true = HIGH
     $dev.Close()
 
+    .EXAMPLE
+    # LocationId workflow (stable for fixed USB port, e.g. demo rigs)
+    List-PsGadgetFtdi | Select-Object Index, SerialNumber, LocationId
+    $dev = New-PsGadgetFtdi -LocationId 197634
+    $dev.Connect()
+    $dev.SetPin(0, "HIGH")
+    $dev.Close()
+
     .OUTPUTS
     PsGadgetFtdi
     #>
@@ -52,12 +64,22 @@ function New-PsGadgetFtdi {
 
         [Parameter(Mandatory = $true, ParameterSetName = 'ByIndex', Position = 0)]
         [ValidateRange(0, 127)]
-        [int]$Index
+        [int]$Index,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'ByLocation', Position = 0)]
+        [ValidateNotNullOrEmpty()]
+        [string]$LocationId
     )
 
     if ($PSCmdlet.ParameterSetName -eq 'BySerial') {
         return [PsGadgetFtdi]::new($SerialNumber)
-    } else {
+    } elseif ($PSCmdlet.ParameterSetName -eq 'ByIndex') {
         return [PsGadgetFtdi]::new($Index)
+    } else {
+        # ByLocation: create via index constructor with -1, then set LocationId property
+        $dev = [PsGadgetFtdi]::new(-1)
+        $dev.LocationId   = $LocationId
+        $dev.Description  = "FTDI @ Location $LocationId"
+        return $dev
     }
 }

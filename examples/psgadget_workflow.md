@@ -16,10 +16,10 @@ Import-Module ./PSGadget.psd1 -Force
 List-PsGadgetFtdi | Format-Table
 
 # Example output:
-# Index  Description          SerialNumber  Type    GpioMethod  HasMpsse
-# -----  -----------          ------------  ----    ----------  --------
-#   0    USB Serial Converter FT4ABCDE      FT232H  MPSSE       True
-#   1    USB Serial Adapter   FT1XYZAB      FT232R  CBUS        False
+# Index  Description          SerialNumber  LocationId  Type    GpioMethod  HasMpsse
+# -----  -----------          ------------  ----------  ----    ----------  --------
+#   0    USB Serial Converter FT4ABCDE      197634      FT232H  MPSSE       True
+#   1    USB Serial Adapter   FT1XYZAB      197635      FT232R  CBUS        False
 ```
 
 ---
@@ -89,25 +89,26 @@ as the FT232H -- the dispatch is automatic based on the device's GpioMethod.
 When both VCP and D2XX drivers are installed (standard Windows setup), each physical FTDI device appears **twice** in `List-PsGadgetFtdi`:
 
 ```powershell
-List-PsGadgetFtdi | Format-Table Index, Type, Driver, SerialNumber, ComPort
+List-PsGadgetFtdi | Format-Table Index, Type, Driver, SerialNumber, LocationId, ComPort
 
 # Example output for one physical device:
-# Index Type   Driver              SerialNumber ComPort
-# ----- ----   ------              ------------ -------
-#   0   FT232R ftd2xx.dll          BG01X3GX            # <- Use this for PSGadget
-#   3   FT232R ftdibus.sys (VCP)   BG01X3GXA   COM3    # <- Same device, VCP view
+# Index Type   Driver              SerialNumber LocationId ComPort
+# ----- ----   ------              ------------ ---------- -------
+#   0   FT232R ftd2xx.dll          BG01X3GX     197634            # <- Use this for PSGadget
+#   3   FT232R ftdibus.sys (VCP)   BG01X3GXA    0          COM3    # <- Same device, VCP view
 ```
 
 **Key observations:**
-- **Same physical device** = Same LocationId, SerialNumber with/without "A" suffix
+- **Same physical device** = Same LocationId (D2XX), SerialNumber with/without "A" suffix
 - **D2XX entry** (no "A" suffix): Use this index for PSGadget EEPROM/GPIO functions
 - **VCP entry** ("A" suffix): Available for serial terminal applications
+- **LocationId**: USB hub+port address — stable for a fixed physical port, even after re-plug
 - **No driver switching needed** - Both modes coexist perfectly!
 
 **Find your D2XX-enabled device:**
 ```powershell
 # Look for devices with ftd2xx.dll driver - these are ready for PSGadget
-List-PsGadgetFtdi | Where-Object Driver -eq "ftd2xx.dll" | Format-Table Index, SerialNumber
+List-PsGadgetFtdi | Where-Object Driver -eq "ftd2xx.dll" | Format-Table Index, SerialNumber, LocationId
 ```
 
 ### Step 2 - Inspect current EEPROM (optional, recommended first time)
@@ -265,6 +266,11 @@ PSGadget exposes an object-oriented interface via `New-PsGadgetFtdi`, which retu
 $dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"
 $dev.Connect()           # opens D2XX connection, populates Type/GpioMethod/etc.
 
+# Identify by USB port location (stable for fixed demo rig wiring)
+# List-PsGadgetFtdi | Select-Object Index, SerialNumber, LocationId
+$dev = New-PsGadgetFtdi -LocationId 197634
+$dev.Connect()
+
 # FT232R CBUS GPIO (pins 0-3)
 $dev.SetPin(0, "HIGH")   # CBUS0 HIGH
 $dev.SetPin(1, $true)    # bool overload: $true = HIGH, $false = LOW
@@ -326,9 +332,9 @@ $conn.Close()
 
 | Function                    | Purpose                                                       |
 |-----------------------------|---------------------------------------------------------------|
-| New-PsGadgetFtdi            | Create a PsGadgetFtdi device object (OOP entry point)         |
-| List-PsGadgetFtdi           | Enumerate connected FTDI devices                              |
-| Connect-PsGadgetFtdi        | Open a device connection by index or serial number            |
+| New-PsGadgetFtdi            | Create a PsGadgetFtdi device object (OOP entry point; -SerialNumber, -Index, or -LocationId) |
+| List-PsGadgetFtdi           | Enumerate connected FTDI devices (shows Index, SerialNumber, LocationId)                      |
+| Connect-PsGadgetFtdi        | Open a device connection by index, serial number, or LocationId |
 | Get-PsGadgetFtdiEeprom      | Read EEPROM contents (FT232R: inspect CBUS modes)             |
 | Set-PsGadgetFt232rCbusMode  | Program FT232R CBUS pins to GPIO mode (one-time)              |
 | Set-PsGadgetGpio            | Set GPIO pin state (FT232H and FT232R; -Connection supported) |

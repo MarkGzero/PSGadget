@@ -5,6 +5,7 @@
 class PsGadgetFtdi {
     [int]$Index
     [string]$SerialNumber
+    [string]$LocationId
     [string]$Description
     [string]$Type
     [string]$GpioMethod
@@ -15,19 +16,21 @@ class PsGadgetFtdi {
     # Constructor - connect by serial number (preferred)
     PsGadgetFtdi([string]$SerialNumber) {
         $this.SerialNumber = $SerialNumber
-        $this.Index = -1
-        $this.IsOpen = $false
-        $this.Description = "FTDI $SerialNumber"
+        $this.LocationId   = ''
+        $this.Index        = -1
+        $this.IsOpen       = $false
+        $this.Description  = "FTDI $SerialNumber"
         $this.Logger = [PsGadgetLogger]::new()
         $this.Logger.WriteInfo("PsGadgetFtdi created for serial: $SerialNumber")
     }
 
     # Constructor - connect by device index
     PsGadgetFtdi([int]$DeviceIndex) {
-        $this.Index = $DeviceIndex
+        $this.Index        = $DeviceIndex
         $this.SerialNumber = ''
-        $this.IsOpen = $false
-        $this.Description = "FTDI device index $DeviceIndex"
+        $this.LocationId   = ''
+        $this.IsOpen       = $false
+        $this.Description  = "FTDI device index $DeviceIndex"
         $this.Logger = [PsGadgetLogger]::new()
         $this.Logger.WriteInfo("PsGadgetFtdi created for index: $DeviceIndex")
     }
@@ -44,7 +47,9 @@ class PsGadgetFtdi {
 
         try {
             $conn = $null
-            if ($this.SerialNumber -ne '') {
+            if ($this.LocationId -ne '') {
+                $conn = Connect-PsGadgetFtdi -LocationId $this.LocationId
+            } elseif ($this.SerialNumber -ne '') {
                 $conn = Connect-PsGadgetFtdi -SerialNumber $this.SerialNumber
             } else {
                 $conn = Connect-PsGadgetFtdi -Index $this.Index

@@ -17,9 +17,10 @@ function Connect-PsGadgetFtdi {
     .PARAMETER SerialNumber
     Alternative to Index - connect to device by its serial number
     
-    .EXAMPLE
-    $Connection = Connect-PsGadgetFtdi -Index 0
-    Set-PsGadgetGpio -DeviceIndex 0 -Pins @(2) -State HIGH
+    .PARAMETER LocationId
+    Alternative to Index/SerialNumber - connect by USB LocationId (hub+port address).
+    LocationId is stable for a fixed physical USB port. Use List-PsGadgetFtdi to find the value.
+
     $Connection.Close()
     
     .EXAMPLE
@@ -27,6 +28,11 @@ function Connect-PsGadgetFtdi {
     # Use connection for GPIO or serial operations
     $Connection.Close()
     
+    .EXAMPLE
+    $Connection = Connect-PsGadgetFtdi -LocationId 197634
+    # Stable USB port addressing - same port always opens the same physical device
+    $Connection.Close()
+
     .OUTPUTS
     System.Object
     A connection object with platform-specific device handle and control methods.
@@ -38,7 +44,10 @@ function Connect-PsGadgetFtdi {
         [int]$Index,
         
         [Parameter(Mandatory = $true, ParameterSetName = 'BySerial')]
-        [string]$SerialNumber
+        [string]$SerialNumber,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'ByLocation')]
+        [string]$LocationId
     )
     
     try {
@@ -58,10 +67,17 @@ function Connect-PsGadgetFtdi {
             }
             $deviceIndex = $Index
             $targetDevice = $devices[$Index]
-        } else {
+        } elseif ($PSCmdlet.ParameterSetName -eq 'BySerial') {
             $targetDevice = $devices | Where-Object { $_.SerialNumber -eq $SerialNumber }
             if (-not $targetDevice) {
                 throw "No device found with serial number '$SerialNumber'"
+            }
+            $deviceIndex = $targetDevice.Index
+        } else {
+            # ByLocation - match on LocationId (shown by List-PsGadgetFtdi)
+            $targetDevice = $devices | Where-Object { "$($_.LocationId)" -eq $LocationId } | Select-Object -First 1
+            if (-not $targetDevice) {
+                throw "No device found with LocationId '$LocationId'. Run List-PsGadgetFtdi to see available LocationIds."
             }
             $deviceIndex = $targetDevice.Index
         }
