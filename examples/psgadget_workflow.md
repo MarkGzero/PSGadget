@@ -213,6 +213,91 @@ See: https://markgzero.github.io/2025/11/09/ft232rnl-sigrok-pulseview-windows.ht
 
 ---
 
+## SSD1306 OLED Display (FT232H via MPSSE I2C)
+
+The SSD1306 is a 128x64 monochrome OLED controller, commonly used on
+0.96" and 1.3" I2C display modules. PSGadget drives it over I2C using
+the FT232H MPSSE engine — no third-party library required.
+
+### Hardware Wiring
+
+| FT232H pin     | MPSSE signal | SSD1306 pin |
+|----------------|--------------|-------------|
+| ADBUS0         | TCK / SCK    | SCL         |
+| ADBUS1         | TDI / DO     | SDA         |
+| 3.3V           | Power        | VCC         |
+| GND            | Ground       | GND         |
+
+Most modules use I2C address **0x3C**. Modules with the ADDR pin pulled
+high use **0x3D**.
+
+### Display Layout
+
+The 128x64 display is divided into 8 horizontal **pages** (rows), each
+8 pixels tall. One character from the built-in 6x8 font occupies 6
+pixels wide, giving ~21 characters per row at normal size.
+
+| Page | Pixel rows | Typical use       |
+|------|------------|-------------------|
+| 0    | 0 - 7      | Header / title    |
+| 1    | 8 - 15     | Status line 1     |
+| 2    | 16 - 23   | Status line 2     |
+| 3    | 24 - 31   | Status line 3     |
+| 4    | 32 - 39   | Status line 4     |
+| 5    | 40 - 47   | Status line 5     |
+| 6    | 48 - 55   | Status line 6     |
+| 7    | 56 - 63   | Footer            |
+
+### Commands
+
+```powershell
+# 1. Connect FTDI device (must be FT232H with HasMpsse = True)
+$ftdi = Connect-PsGadgetFtdi -Index 0
+
+# 2. Initialize SSD1306 (default address 0x3C)
+$display = Connect-PsGadgetSsd1306 -FtdiDevice $ftdi
+
+# Use 0x3D if your module has ADDR pin pulled high
+$display = Connect-PsGadgetSsd1306 -FtdiDevice $ftdi -Address 0x3D
+
+# 3. Clear entire display
+Clear-PsGadgetSsd1306 -Display $display
+
+# Clear a single page (row)
+Clear-PsGadgetSsd1306 -Display $display -Page 2
+
+# 4. Write text
+Write-PsGadgetSsd1306 -Display $display -Text "Hello World" -Page 0
+Write-PsGadgetSsd1306 -Display $display -Text "Centered"    -Page 2 -Align center
+Write-PsGadgetSsd1306 -Display $display -Text "Right"       -Page 4 -Align right
+
+# 5. Large text (2x font — doubles each column horizontally)
+Write-PsGadgetSsd1306 -Display $display -Text "BIG" -Page 0 -Align center -FontSize 2
+
+# 6. Inverted text (dark text on white background)
+Write-PsGadgetSsd1306 -Display $display -Text "ALARM" -Page 4 -Align center -Invert
+
+# 7. Cursor positioning (for raw data or precise layout)
+Set-PsGadgetSsd1306Cursor -Display $display -Column 32 -Page 3
+
+# 8. Live status loop
+for ($i = 0; $i -lt 60; $i++) {
+    $time = Get-Date -Format "HH:mm:ss"
+    Clear-PsGadgetSsd1306 -Display $display -Page 1
+    Write-PsGadgetSsd1306 -Display $display -Text $time -Page 1 -Align center -FontSize 2
+    Start-Sleep -Seconds 1
+}
+
+# 9. Always close the FTDI device when done
+$ftdi.Close()
+```
+
+> **See also**: [examples/Example-Ssd1306.ps1](Example-Ssd1306.ps1) for a
+> complete runnable script including a live clock, alignment demo, and
+> scrolling status screen.
+
+---
+
 ## Device Capability Comparison
 
 | Feature              | FT232H          | FT232R               |
@@ -226,6 +311,7 @@ See: https://markgzero.github.io/2025/11/09/ft232rnl-sigrok-pulseview-windows.ht
 | GpioMethod value     | MPSSE           | CBUS                 |
 | HasMpsse             | True            | False                |
 | SPI / I2C / JTAG     | Yes (MPSSE)     | No                   |
+| SSD1306 OLED display | Yes             | No                   |
 | Async bit-bang ADBUS | No              | Not yet implemented  |
 
 ---
@@ -338,6 +424,10 @@ $conn.Close()
 | Get-PsGadgetFtdiEeprom      | Read EEPROM contents (FT232R: inspect CBUS modes)             |
 | Set-PsGadgetFt232rCbusMode  | Program FT232R CBUS pins to GPIO mode (one-time)              |
 | Set-PsGadgetGpio            | Set GPIO pin state (FT232H and FT232R; -Connection supported) |
+| Connect-PsGadgetSsd1306     | Init SSD1306 OLED over I2C; returns display object (-FtdiDevice, -Address) |
+| Clear-PsGadgetSsd1306       | Clear full display or a single page (-Display, optional -Page) |
+| Write-PsGadgetSsd1306       | Write text to a page (-Text, -Page, -Align, -FontSize, -Invert) |
+| Set-PsGadgetSsd1306Cursor   | Set cursor position for raw writes (-Column, -Page)           |
 | List-PsGadgetMpy            | Enumerate MicroPython serial ports                            |
 | Connect-PsGadgetMpy         | Open a MicroPython REPL connection                            |
 
