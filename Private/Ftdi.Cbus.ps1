@@ -27,9 +27,10 @@
 #Requires -Version 5.1
 
 # FT_CBUS_OPTIONS integer-to-name and name-to-integer lookup tables.
-# Values are from the FTD2XX_NET net48 assembly (FT232R EEPROM structure).
-# Note: FTD2XX_NET net48 enum values differ from the raw D2XX C header values.
-# Verified against FT_Prog and hardware: 5 = FT_CBUS_IOMODE in this build.
+# These are FTD2XX_NET enum ordinals as returned by ReadFT232REEPROM.
+# The net48 assembly enum order differs from the FT232R datasheet table 3.9:
+# - Datasheet table order: TXDEN PWRON TXLED RXLED TXRXLED SLEEP CLK48 CLK24 CLK12 CLK6 IOMODE
+# - FTD2XX_NET net48 enum: IOMODE=5, SLEEP=6 (verified by ReadFT232REEPROM + FT_Prog + hardware)
 $script:FT_CBUS_NAMES = @{
     0  = 'FT_CBUS_TXDEN'
     1  = 'FT_CBUS_PWRON'
@@ -44,7 +45,6 @@ $script:FT_CBUS_NAMES = @{
     10 = 'FT_CBUS_CLK6'
     11 = 'FT_CBUS_BITBANG_WR'
     12 = 'FT_CBUS_BITBANG_RD'
-    13 = 'FT_CBUS_TXDEN'
 }
 $script:FT_CBUS_VALUES = @{}
 foreach ($k in $script:FT_CBUS_NAMES.Keys) {
