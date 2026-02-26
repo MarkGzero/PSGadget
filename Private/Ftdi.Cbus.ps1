@@ -115,6 +115,7 @@ function Get-FtdiFt232rEeprom {
         }
 
         $eeprom = [FTD2XX_NET.FTDI+FT232R_EEPROM_STRUCTURE]::new()
+        $status = $ftdi.ReadFT232REEPROM($eeprom)
         $ftdi.Close() | Out-Null
 
         if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
