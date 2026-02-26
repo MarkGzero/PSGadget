@@ -80,7 +80,8 @@ as the FT232H -- the dispatch is automatic based on the device's GpioMethod.
 | 1                  | CBUS1       |                      |
 | 2                  | CBUS2       |                      |
 | 3                  | CBUS3       |                      |
-| 4-7                | (invalid)   | Error thrown; use 0-3 only |
+| 4                  | CBUS4       | EEPROM-configurable only (Set-PsGadgetFt232rCbusMode); cannot be driven at runtime via Set-PsGadgetGpio |
+| 5-7                | (invalid)   | Error thrown         |
 
 ### Step 1 - Identify D2XX-Enabled Device
 
@@ -125,7 +126,7 @@ $ee | Select-Object Cbus0, Cbus1, Cbus2, Cbus3
 ### Step 3 - Program EEPROM for GPIO (one time per device)
 
 ```powershell
-# Configure all four CBUS pins as GPIO (default and most common):
+# Configure all four bit-bangable CBUS pins as GPIO (default and most common):
 # Use the Index with ftd2xx.dll driver from Step 1
 Set-PsGadgetFt232rCbusMode -Index 0
 
@@ -137,7 +138,14 @@ Set-PsGadgetFt232rCbusMode -Index 0 -Pins @(0, 1)
 
 # Set a pin to a specific non-GPIO CBUS function:
 Set-PsGadgetFt232rCbusMode -Index 0 -Pins @(0) -Mode FT_CBUS_RXLED
+
+# Configure CBUS4 to an EEPROM function (note: CBUS4 cannot be bit-banged at runtime):
+Set-PsGadgetFt232rCbusMode -Index 0 -Pins @(4) -Mode FT_CBUS_PWRON
 ```
+
+> **CBUS4 note**: The FT232R has 5 CBUS pins (CBUS0-4). Only CBUS0-3 can be driven at
+> runtime via `Set-PsGadgetGpio`. CBUS4 can be assigned an EEPROM function above but the
+> D2XX CBUS bit-bang mask (8 bits: 4 direction + 4 value) does not encode a 5th pin.
 
 **IMPORTANT**: Replug the USB device after writing EEPROM. The new settings do not
 take effect until the device re-enumerates.

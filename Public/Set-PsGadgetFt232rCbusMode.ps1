@@ -92,7 +92,7 @@ function Set-PsGadgetFt232rCbusMode {
         [string]$SerialNumber,
 
         [Parameter(Mandatory = $false, Position = 1)]
-        [ValidateRange(0, 3)]
+        [ValidateRange(0, 4)]
         [int[]]$Pins = @(0, 1, 2, 3),
 
         [Parameter(Mandatory = $false, Position = 2)]

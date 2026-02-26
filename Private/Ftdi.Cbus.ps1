@@ -215,7 +215,7 @@ function Set-FtdiFt232rCbusPinMode {
         [int]$Index,
 
         [Parameter(Mandatory = $true)]
-        [ValidateRange(0, 3)]
+        [ValidateRange(0, 4)]
         [int[]]$Pins,
 
         [Parameter(Mandatory = $false)]
@@ -281,6 +281,7 @@ function Set-FtdiFt232rCbusPinMode {
                 1 { $eeprom.Cbus1 = $targetMode }
                 2 { $eeprom.Cbus2 = $targetMode }
                 3 { $eeprom.Cbus3 = $targetMode }
+                4 { $eeprom.Cbus4 = $targetMode }  # EEPROM-configurable; not runtime bit-bangable
             }
         }
 

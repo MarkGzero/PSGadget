@@ -39,9 +39,9 @@ function Get-FtdiChipCapabilities {
         '^FT232R(L|NL)?$' {
             return @{
                 GpioMethod     = 'CBUS'
-                GpioPins       = 'CBUS0-3 (CBUS bit-bang), ADBUS0-7 (async bit-bang)'
+                GpioPins       = 'CBUS0-4 (5 pins; CBUS0-3 runtime bit-bang, CBUS4 EEPROM-config only), ADBUS0-7 (async bit-bang)'
                 HasMpsse       = $false
-                CapabilityNote = 'No MPSSE. CBUS bit-bang (mode 0x20): requires FT_PROG EEPROM config to set CBUS0-3 as "CBUS I/O". Async bit-bang (mode 0x01): uses ADBUS0-7 (UART lines), no EEPROM change needed.'
+                CapabilityNote = 'No MPSSE. Device has CBUS0-4 (5 pins). CBUS bit-bang (mode 0x20) runtime: CBUS0-3 only (D2XX mask is 8 bits, 4 direction + 4 value). CBUS4 is EEPROM-configurable (Set-PsGadgetFt232rCbusMode -Pins @(4)) but cannot be driven at runtime via SetBitMode. Async bit-bang (mode 0x01): uses ADBUS0-7 (UART lines), no EEPROM change needed.'
             }
         }
         '^FT231X$|^FT230X$|^FT-X' {
