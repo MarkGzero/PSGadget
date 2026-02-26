@@ -1,7 +1,7 @@
 @{
     # Module metadata
     RootModule = 'PSGadget.psm1'
-    ModuleVersion = '0.3.0'
+    ModuleVersion = '0.3.1'
     GUID = 'a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6'
     
     # PowerShell version requirements
@@ -25,6 +25,7 @@
         'Set-PsGadgetGpio',
         'Get-PsGadgetFtdiEeprom',
         'Set-PsGadgetFt232rCbusMode',
+        'Set-PsGadgetFtdiMode',
         'Connect-PsGadgetSsd1306',
         'Clear-PsGadgetSsd1306',
         'Write-PsGadgetSsd1306',
@@ -60,6 +61,7 @@
         'Public/List-PsGadgetFtdi.ps1',
         'Public/List-PsGadgetMpy.ps1',
         'Public/Set-PsGadgetFt232rCbusMode.ps1',
+        'Public/Set-PsGadgetFtdiMode.ps1',
         'Public/Set-PsGadgetGpio.ps1',
         'Public/Set-PsGadgetSsd1306Cursor.ps1',
         'Public/Write-PsGadgetSsd1306.ps1',

@@ -166,8 +166,8 @@ function Set-PsGadgetFt232rCbusMode {
         $result = Set-FtdiFt232rCbusPinMode -Index $targetIndex -Pins $Pins -Mode $Mode -SerialNumber $targetDev.SerialNumber
 
         if ($result.Success) {
-            Write-Host "FT232R EEPROM updated: $pinNames set to $Mode." -ForegroundColor Green
-            Write-Host "ACTION REQUIRED: Disconnect and reconnect the USB device for changes to take effect." -ForegroundColor Yellow
+            Write-Verbose "FT232R EEPROM updated: $pinNames set to $Mode."
+            Write-Verbose "ACTION REQUIRED: Disconnect and reconnect the USB device for changes to take effect."
         }
 
         return $result
