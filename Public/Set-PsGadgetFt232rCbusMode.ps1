@@ -91,6 +91,10 @@ function Set-PsGadgetFt232rCbusMode {
         [Parameter(Mandatory = $true, ParameterSetName = 'BySerial')]
         [string]$SerialNumber,
 
+        [Parameter(Mandatory = $true, ParameterSetName = 'PsGadget', Position = 0)]
+        [ValidateNotNull()]
+        [PsGadgetFtdi]$PsGadget,
+
         [Parameter(Mandatory = $false, Position = 1)]
         [ValidateRange(0, 4)]
         [int[]]$Pins = @(0, 1, 2, 3),
@@ -115,6 +119,8 @@ function Set-PsGadgetFt232rCbusMode {
                 throw "No FTDI device found with serial number '$SerialNumber'"
             }
             $targetIndex = $match.Index
+        } elseif ($PSCmdlet.ParameterSetName -eq 'PsGadget') {
+            $targetIndex = $PsGadget.Index
         }
 
         # Validate that the target is an FT232R family device

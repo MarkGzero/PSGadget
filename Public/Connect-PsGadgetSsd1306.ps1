@@ -29,10 +29,14 @@ function Connect-PsGadgetSsd1306 {
     .OUTPUTS
     PsGadgetSsd1306 object if successful, $null if failed
     #>
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'ByConnection')]
     param(
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'ByConnection', Position = 0)]
         [System.Object]$FtdiDevice,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'PsGadget', Position = 0)]
+        [ValidateNotNull()]
+        [PsGadgetFtdi]$PsGadget,
         
         [Parameter(Mandatory = $false)]
         [ValidateRange(0x08, 0x77)]
@@ -43,6 +47,14 @@ function Connect-PsGadgetSsd1306 {
     )
     
     try {
+        # Resolve the underlying connection object
+        if ($PSCmdlet.ParameterSetName -eq 'PsGadget') {
+            if (-not $PsGadget.IsOpen -or -not $PsGadget._connection) {
+                throw "PsGadgetFtdi is not open. Call .Connect() first."
+            }
+            $FtdiDevice = $PsGadget._connection
+        }
+
         # Validate FTDI device
         if (-not $FtdiDevice -or -not $FtdiDevice.IsOpen) {
             throw "FTDI device is not valid or not open"

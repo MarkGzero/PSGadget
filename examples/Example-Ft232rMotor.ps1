@@ -37,12 +37,16 @@ Import-Module "$PSScriptRoot/../PSGadget.psd1" -Force
 Write-Host "Connected FTDI devices:"
 List-PsGadgetFtdi | Format-Table Index, Type, SerialNumber, GpioMethod, HasMpsse
 
-# ── 1. EEPROM setup check ─────────────────────────────────────────────────
+# ── 1. Create device object ───────────────────────────────────────────────
+
+$DeviceIndex = 1   # change to match your device index (see List-PsGadgetFtdi output)
+$dev = New-PsGadgetFtdi -Index $DeviceIndex
+
+# ── 2. EEPROM setup check ─────────────────────────────────────────────────
 # Read EEPROM and verify CBUS0 is already set to FT_CBUS_IOMODE.
 # If not, offer to program it automatically.
 
-$DeviceIndex = 1   # change to match your device index (see List-PsGadgetFtdi output)
-$eeprom = Get-PsGadgetFtdiEeprom -Index $DeviceIndex
+$eeprom = Get-PsGadgetFtdiEeprom -PsGadget $dev
 
 Write-Host ""
 Write-Host "EEPROM CBUS pin modes:"
@@ -56,22 +60,15 @@ if ($eeprom.Cbus0 -ne 'FT_CBUS_IOMODE') {
     Write-Warning "CBUS0 is '$($eeprom.Cbus0)', not FT_CBUS_IOMODE."
     Write-Warning "EEPROM setup is required before motor control will work."
     Write-Host ""
-    Write-Host "Run this command to configure CBUS0 as GPIO, then replug the USB cable:"
-    Write-Host "  Set-PsGadgetFt232rCbusMode -Index $DeviceIndex -Pins @(0)"
-    Write-Host ""
     $ans = Read-Host "Program EEPROM now? [y/N]"
     if ($ans -match '^[Yy]') {
-        Set-PsGadgetFt232rCbusMode -Index $DeviceIndex -Pins @(0)
+        Set-PsGadgetFt232rCbusMode -PsGadget $dev -Pins @(0)
         Write-Host ""
         Write-Host "Cycling USB port to apply EEPROM changes (no manual replug needed)..."
-        $cycleConn = Connect-PsGadgetFtdi -Index $DeviceIndex
-        if ($cycleConn) {
-            $cycleConn.CyclePort()
-            Write-Host "Port cycled and reconnected. Re-run this script to continue."
-            $cycleConn.Close()
-        } else {
-            Write-Host "[ACTION REQUIRED] Disconnect and reconnect the USB cable, then run this script again."
-        }
+        $dev.Connect()
+        $dev.CyclePort()
+        $dev.Close()
+        Write-Host "Port cycled. Re-run this script to continue."
     } else {
         Write-Host "Aborting. Replug device after running Set-PsGadgetFt232rCbusMode."
     }
@@ -81,34 +78,19 @@ if ($eeprom.Cbus0 -ne 'FT_CBUS_IOMODE') {
 Write-Host "CBUS0 is FT_CBUS_IOMODE - ready for GPIO control."
 Write-Host ""
 
-# ── 2. Open connection once ───────────────────────────────────────────────
+# ── 3. Connect and run motor test ────────────────────────────────────────
 
-$conn = Connect-PsGadgetFtdi -Index $DeviceIndex
-if (-not $conn) {
-    Write-Error "Failed to open device $DeviceIndex."
-    return
-}
+$dev.Connect()
 
 try {
-    # ── 3. Basic test: pin HIGH for 3 seconds ─────────────────────────────
-
-    Write-Host "Connection object:"
-    Write-Host "  Type:       $($conn.Type)"
-    Write-Host "  GpioMethod: $($conn.GpioMethod)"
-    Write-Host "  IsOpen:     $($conn.IsOpen)"
-    Write-Host "  Device:     $($conn.Device)"
-    Write-Host ""
-
-    $VerbosePreference = 'Continue'
-
     Write-Host "--- Test: CBUS0 HIGH for 3 seconds ---"
-    Set-PsGadgetGpio -Connection $conn -Pins @(0) -State HIGH
+    Set-PsGadgetGpio -PsGadget $dev -Pins @(0) -State HIGH
     Write-Host "CBUS0 set HIGH. Motor should be running..."
     Start-Sleep -Seconds 3
-    Set-PsGadgetGpio -Connection $conn -Pins @(0) -State LOW
+    Set-PsGadgetGpio -PsGadget $dev -Pins @(0) -State LOW
     Write-Host "CBUS0 set LOW. Motor stopped."
 
 } finally {
-    $conn.Close()
+    $dev.Close()
     Write-Host "Connection closed."
 }

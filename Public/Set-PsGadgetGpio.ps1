@@ -92,6 +92,10 @@ function Set-PsGadgetGpio {
         [Parameter(Mandatory = $true, ParameterSetName = 'ByConnection', Position = 0)]
         [ValidateNotNull()]
         [object]$Connection,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'PsGadget', Position = 0)]
+        [ValidateNotNull()]
+        [PsGadgetFtdi]$PsGadget,
         
         [Parameter(Mandatory = $true, Position = 1)]
         [ValidateRange(0, 7)]
@@ -117,6 +121,14 @@ function Set-PsGadgetGpio {
                 throw "The supplied connection is not open. Call Connect-PsGadgetFtdi (or [PsGadgetFtdi].Connect()) first."
             }
             Write-Verbose "Using caller-supplied connection: $($Connection.Description) ($($Connection.SerialNumber))"
+        } elseif ($PSCmdlet.ParameterSetName -eq 'PsGadget') {
+            # Caller provides a PsGadgetFtdi class instance - unwrap its internal connection
+            $ownsConnection = $false
+            if (-not $PsGadget.IsOpen -or -not $PsGadget._connection) {
+                throw "PsGadgetFtdi is not open. Call .Connect() first."
+            }
+            $Connection = $PsGadget._connection
+            Write-Verbose "Using PsGadgetFtdi connection: $($Connection.Description) ($($Connection.SerialNumber))"
         } else {
             # Get available devices
             $devices = Get-FtdiDeviceList

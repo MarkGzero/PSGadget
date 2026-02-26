@@ -23,23 +23,24 @@ List-PsGadgetFtdi | Format-Table Index, Type, SerialNumber, LocationId, HasMpsse
 # ── 2. Connect FTDI ─────────────────────────────────────────────────────────
 # Use the index of your FT232H (HasMpsse = True).
 
-$ftdi = Connect-PsGadgetFtdi -Index 0
+$dev = New-PsGadgetFtdi -Index 0
+$dev.Connect()
 
-if (-not $ftdi) {
+if (-not $dev.IsOpen) {
     Write-Error "Failed to open FTDI device. Check USB connection and Index."
     return
 }
 
-Write-Host ("Connected: {0} [{1}]" -f $ftdi.Description, $ftdi.Type)
+Write-Host ("Connected: {0} [{1}]" -f $dev.Description, $dev.Type)
 
 # ── 3. Connect SSD1306 ──────────────────────────────────────────────────────
 # Default address 0x3C.  Use -Address 0x3D if your module wires ADDR pin high.
 
-$display = Connect-PsGadgetSsd1306 -FtdiDevice $ftdi
+$display = Connect-PsGadgetSsd1306 -PsGadget $dev
 
 if (-not $display) {
     Write-Error "Failed to initialize SSD1306. Check I2C wiring and address."
-    $ftdi.Close()
+    $dev.Close()
     return
 }
 
@@ -127,6 +128,6 @@ Start-Sleep -Seconds 3
 # ── 10. Clear and close ─────────────────────────────────────────────────────
 
 Clear-PsGadgetSsd1306 -Display $display | Out-Null
-$ftdi.Close()
+$dev.Close()
 
 Write-Host "Done. Device closed."

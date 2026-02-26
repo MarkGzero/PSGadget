@@ -54,11 +54,15 @@ function Get-PsGadgetFtdiEeprom {
         [int]$Index,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'BySerial')]
-        [string]$SerialNumber
+        [string]$SerialNumber,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'PsGadget', Position = 0)]
+        [ValidateNotNull()]
+        [PsGadgetFtdi]$PsGadget
     )
 
     try {
-        # Resolve device index when SerialNumber is supplied
+        # Resolve device index
         $targetIndex = $Index
         if ($PSCmdlet.ParameterSetName -eq 'BySerial') {
             $devices = Get-FtdiDeviceList
@@ -67,6 +71,8 @@ function Get-PsGadgetFtdiEeprom {
                 throw "No FTDI device found with serial number '$SerialNumber'"
             }
             $targetIndex = $match.Index
+        } elseif ($PSCmdlet.ParameterSetName -eq 'PsGadget') {
+            $targetIndex = $PsGadget.Index
         }
 
         # Identify device type so we can call the right EEPROM reader
