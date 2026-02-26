@@ -185,7 +185,7 @@ function Get-FtdiFt232rEeprom {
             Cbus0          = 'FT_CBUS_TXLED'
             Cbus1          = 'FT_CBUS_RXLED'
             Cbus2          = 'FT_CBUS_TXDEN'
-            Cbus3          = 'FT_CBUS_PWRON'
+            Cbus3          = 'FT_CBUS_PWREN'
             Cbus4          = 'FT_CBUS_SLEEP'
             RIsD2XX        = $false
         }
@@ -213,7 +213,7 @@ function Set-FtdiFt232rCbusPinMode {
         FT_CBUS_TXLED        - Tx LED (pulses on transmit)
         FT_CBUS_RXLED        - Rx LED (pulses on receive)
         FT_CBUS_TXRXLED      - Tx/Rx LED
-        FT_CBUS_PWRON        - Power-on signal
+        FT_CBUS_PWREN        - Power-on signal (PWREN#, active low)
         FT_CBUS_SLEEP        - Sleep indicator
         FT_CBUS_CLK48        - 48 MHz clock output
         FT_CBUS_CLK24        - 24 MHz clock output
@@ -252,7 +252,7 @@ function Set-FtdiFt232rCbusPinMode {
 
         [Parameter(Mandatory = $false)]
         [ValidateSet(
-            'FT_CBUS_TXDEN','FT_CBUS_PWRON','FT_CBUS_RXLED','FT_CBUS_TXLED',
+            'FT_CBUS_TXDEN','FT_CBUS_PWREN','FT_CBUS_RXLED','FT_CBUS_TXLED',
             'FT_CBUS_TXRXLED','FT_CBUS_SLEEP','FT_CBUS_CLK48','FT_CBUS_CLK24',
             'FT_CBUS_CLK12','FT_CBUS_CLK6','FT_CBUS_IOMODE',
             'FT_CBUS_BITBANG_WR','FT_CBUS_BITBANG_RD'

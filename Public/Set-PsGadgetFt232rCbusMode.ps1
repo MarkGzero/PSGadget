@@ -29,7 +29,7 @@ function Set-PsGadgetFt232rCbusMode {
         FT_CBUS_TXLED        Pulses on Tx data
         FT_CBUS_RXLED        Pulses on Rx data
         FT_CBUS_TXRXLED      Pulses on Tx or Rx data
-        FT_CBUS_PWRON        Power-on signal
+        FT_CBUS_PWREN        Power-on signal (PWREN#, active low)
         FT_CBUS_SLEEP        Sleep indicator
         FT_CBUS_CLK48        48 MHz clock output
         FT_CBUS_CLK24        24 MHz clock output
@@ -97,7 +97,7 @@ function Set-PsGadgetFt232rCbusMode {
 
         [Parameter(Mandatory = $false, Position = 2)]
         [ValidateSet(
-            'FT_CBUS_TXDEN','FT_CBUS_PWRON','FT_CBUS_RXLED','FT_CBUS_TXLED',
+            'FT_CBUS_TXDEN','FT_CBUS_PWREN','FT_CBUS_RXLED','FT_CBUS_TXLED',
             'FT_CBUS_TXRXLED','FT_CBUS_SLEEP','FT_CBUS_CLK48','FT_CBUS_CLK24',
             'FT_CBUS_CLK12','FT_CBUS_CLK6','FT_CBUS_IOMODE',
             'FT_CBUS_BITBANG_WR','FT_CBUS_BITBANG_RD'
