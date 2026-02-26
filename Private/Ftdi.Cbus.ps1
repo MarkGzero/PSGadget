@@ -79,11 +79,17 @@ function Get-FtdiFt232rEeprom {
         if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
             $ftdi.Close() | Out-Null
             $openMethod = if ($SerialNumber -ne '') { "OpenByIndex($Index) and OpenBySerialNumber('$SerialNumber')" } else { "OpenByIndex($Index)" }
+            # FT_DEVICE_NOT_OPENED (3) when trying to open usually means another handle is already open.
+            # The D2XX library will not allow a second handle on the same device.
+            if ($status -eq [FTD2XX_NET.FTDI+FT_STATUS]::FT_DEVICE_NOT_OPENED) {
+                throw ("Device is already open - close the existing connection first. " +
+                       "If you have a `$dev or `$conn variable, call .Close() on it. " +
+                       "Otherwise restart the PowerShell session to release all handles.")
+            }
             throw "Failed to open device via $openMethod : $status"
         }
 
         $eeprom = [FTD2XX_NET.FTDI+FT232R_EEPROM_STRUCTURE]::new()
-        $status = $ftdi.ReadFT232REEPROM($eeprom)
         $ftdi.Close() | Out-Null
 
         if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
@@ -115,12 +121,13 @@ function Get-FtdiFt232rEeprom {
             InvertDSR       = $eeprom.InvertDSR
             InvertDCD       = $eeprom.InvertDCD
             InvertRI        = $eeprom.InvertRI
-            # CBUS pin mode assignments (FT_CBUS_OPTIONS enum value names)
-            Cbus0           = $eeprom.Cbus0.ToString()
-            Cbus1           = $eeprom.Cbus1.ToString()
-            Cbus2           = $eeprom.Cbus2.ToString()
-            Cbus3           = $eeprom.Cbus3.ToString()
-            Cbus4           = $eeprom.Cbus4.ToString()
+            # CBUS pin mode assignments - cast to enum type to get named string
+            # (.ToString() on the raw field returns the integer if PS doesn't infer the enum type)
+            Cbus0           = ([FTD2XX_NET.FTDI+FT_CBUS_OPTIONS][int]$eeprom.Cbus0).ToString()
+            Cbus1           = ([FTD2XX_NET.FTDI+FT_CBUS_OPTIONS][int]$eeprom.Cbus1).ToString()
+            Cbus2           = ([FTD2XX_NET.FTDI+FT_CBUS_OPTIONS][int]$eeprom.Cbus2).ToString()
+            Cbus3           = ([FTD2XX_NET.FTDI+FT_CBUS_OPTIONS][int]$eeprom.Cbus3).ToString()
+            Cbus4           = ([FTD2XX_NET.FTDI+FT_CBUS_OPTIONS][int]$eeprom.Cbus4).ToString()
             # Flag: driver mode (true = D2XX, false = VCP)
             RIsD2XX         = $eeprom.RIsD2XX
         }
@@ -252,6 +259,12 @@ function Set-FtdiFt232rCbusPinMode {
         if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
             $ftdi.Close() | Out-Null
             $openMethod = if ($SerialNumber -ne '') { "OpenByIndex($Index) and OpenBySerialNumber('$SerialNumber')" } else { "OpenByIndex($Index)" }
+            # FT_DEVICE_NOT_OPENED (3) when trying to open usually means another handle is already open.
+            if ($status -eq [FTD2XX_NET.FTDI+FT_STATUS]::FT_DEVICE_NOT_OPENED) {
+                throw ("Device is already open - close the existing connection first. " +
+                       "If you have a `$dev or `$conn variable, call .Close() on it. " +
+                       "Otherwise restart the PowerShell session to release all handles.")
+            }
             throw "Failed to open device via $openMethod : $status"
         }
 
