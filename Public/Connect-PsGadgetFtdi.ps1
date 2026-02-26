@@ -92,7 +92,7 @@ function Connect-PsGadgetFtdi {
         # Call platform-specific opening function
         if ($PSVersionTable.PSVersion.Major -le 5 -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
             Write-Verbose "Using Windows FTDI backend for connection"
-            $connection = Invoke-FtdiWindowsOpen -Index $deviceIndex -DeviceInfo $targetDevice
+            $connection = Invoke-FtdiWindowsOpen -DeviceInfo $targetDevice
         } else {
             Write-Verbose "Using Unix FTDI backend for connection"
             $connection = Invoke-FtdiUnixOpen -Index $deviceIndex

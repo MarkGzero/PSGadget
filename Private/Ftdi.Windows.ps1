@@ -254,13 +254,10 @@ function Invoke-FtdiWindowsOpen {
     [CmdletBinding()]
     [OutputType([System.Object])]
     param(
+        # Resolved device info from Invoke-FtdiWindowsEnumerate / Connect-PsGadgetFtdi.
+        # We open by SerialNumber so no second enumeration is needed.
         [Parameter(Mandatory = $true)]
-        [int]$Index,
-
-        # Optional: pass already-resolved device info to skip a second enumeration.
-        # Connect-PsGadgetFtdi always provides this; callers that don't can omit it.
-        [Parameter(Mandatory = $false)]
-        [object]$DeviceInfo = $null
+        [PSCustomObject]$DeviceInfo
     )
     
     try {
@@ -268,39 +265,29 @@ function Invoke-FtdiWindowsOpen {
         if (-not $script:FtdiInitialized) {
             throw [System.NotImplementedException]::new("FTDI assembly not loaded - cannot open device")
         }
-        
-        # Use caller-supplied device info when available; avoid a second GetDeviceList call
-        # because D2XX can return 0 devices on rapid back-to-back enumerations.
-        if ($DeviceInfo) {
-            $targetDevice = $DeviceInfo
-        } else {
-            $devices = Invoke-FtdiWindowsEnumerate
-            if ($Index -lt 0 -or $Index -ge $devices.Count) {
-                throw "Device index $Index is out of range. Available devices: 0-$($devices.Count - 1)"
-            }
-            $targetDevice = $devices[$Index]
-        }
-        Write-Verbose "Opening FTDI device: $($targetDevice.Description) ($($targetDevice.SerialNumber))"
+
+        Write-Verbose "Opening FTDI device: $($DeviceInfo.Description) ($($DeviceInfo.SerialNumber))"
         
         # Create new FTDI instance for this connection
         $ftdi = [FTD2XX_NET.FTDI]::new()
-        
-        # Try to open by index first
-        $status = $ftdi.OpenByIndex([uint32]$Index)
-        
+
+        # Open by serial number - avoids a second GetDeviceList call.
+        # D2XX returns 0 devices on rapid back-to-back enumerations.
+        $status = $ftdi.OpenBySerialNumber($DeviceInfo.SerialNumber)
+
         if ($status -ne $script:FTDI_OK) {
-            # Try alternative opening methods
-            Write-Verbose "OpenByIndex failed, trying OpenBySerialNumber..."
+            # Fall back to index if serial number open failed and index is valid
+            Write-Verbose "OpenBySerialNumber failed ($status), trying OpenByIndex $($DeviceInfo.Index)..."
             $ftdi.Close() | Out-Null
-            
             $ftdi = [FTD2XX_NET.FTDI]::new()
-            $status = $ftdi.OpenBySerialNumber($targetDevice.SerialNumber)
-            
+            $status = $ftdi.OpenByIndex([uint32]$DeviceInfo.Index)
             if ($status -ne $script:FTDI_OK) {
                 $ftdi.Close() | Out-Null
                 throw "Failed to open FTDI device: $status"
             }
         }
+
+        $targetDevice = $DeviceInfo
         
         # Configure device for MPSSE mode if supported
         if ($targetDevice.HasMpsse) {
@@ -330,16 +317,17 @@ function Invoke-FtdiWindowsOpen {
         
         # Create connection object with device info
         $connection = [PSCustomObject]@{
-            Device      = $ftdi
-            Index       = $Index
-            SerialNumber = $targetDevice.SerialNumber
-            Description  = $targetDevice.Description
-            Type         = $targetDevice.Type
+            Device       = $ftdi
+            Index        = $DeviceInfo.Index
+            SerialNumber = $DeviceInfo.SerialNumber
+            Description  = $DeviceInfo.Description
+            Type         = $DeviceInfo.Type
+            LocationId   = $DeviceInfo.LocationId
             IsOpen       = $true
-            GpioMethod   = $targetDevice.GpioMethod
-            GpioPins     = $targetDevice.GpioPins
-            HasMpsse     = $targetDevice.HasMpsse
-            MpsseEnabled = $targetDevice.HasMpsse
+            GpioMethod   = $DeviceInfo.GpioMethod
+            GpioPins     = $DeviceInfo.GpioPins
+            HasMpsse     = $DeviceInfo.HasMpsse
+            MpsseEnabled = $DeviceInfo.HasMpsse
             Platform     = "Windows"
         }
         
@@ -361,17 +349,18 @@ function Invoke-FtdiWindowsOpen {
             return $this.Device.Read($buffer, $length, $bytesRead)
         }
         
-        Write-Verbose "Successfully opened FTDI device $Index"
+        Write-Verbose "Successfully opened FTDI device $($DeviceInfo.SerialNumber)"
         return $connection
         
     } catch [System.NotImplementedException] {
         # Return stub connection for development
-        Write-Verbose "Creating stub connection for device $Index (Windows)"
+        $stubSerial = if ($DeviceInfo) { $DeviceInfo.SerialNumber } else { 'WINSTUB' }
+        Write-Verbose "Creating stub connection for device $stubSerial (Windows)"
         
         return [PSCustomObject]@{
             Device = $null
-            Index = $Index
-            SerialNumber = "WINSTUB$Index"
+            Index = if ($DeviceInfo) { $DeviceInfo.Index } else { -1 }
+            SerialNumber = $stubSerial
             Description = "Windows STUB Connection"
             Type = "FT232H"
             IsOpen = $true
