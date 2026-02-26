@@ -82,7 +82,49 @@ as the FT232H -- the dispatch is automatic based on the device's GpioMethod.
 | 3                  | CBUS3       |                      |
 | 4-7                | (invalid)   | Error thrown; use 0-3 only |
 
-### Step 1 - Inspect current EEPROM (optional, recommended first time)
+### Step 1 - Ensure D2XX Driver Access
+
+**CRITICAL**: EEPROM programming requires D2XX API access. If `List-PsGadgetFtdi` shows your FT232R devices with `ftdibus.sys (VCP)` driver, you must switch them to D2XX driver first.
+
+**Check driver status:**
+```powershell
+List-PsGadgetFtdi | Format-Table Index, Type, Driver, SerialNumber
+
+# If you see "ftdibus.sys (VCP)" for FT232R devices, they need driver switching
+# Example problem output:
+#   1 FT232R ftdibus.sys (VCP) B001BT11A    # <- Cannot access EEPROM
+#   0 FT232H ftd2xx.dll       CT9UMHFA      # <- Can access EEPROM
+```
+
+**To switch from VCP to D2XX driver:**
+
+**Option A: Programmatic VCP Unloading (Experimental)**
+```powershell
+# Attempt programmatic VCP unloading for your specific device
+Invoke-PsGadgetFtdiVcpUnload -SerialNumber "BG01B0I1A"
+
+# Check if it worked
+List-PsGadgetFtdi | Where-Object SerialNumber -eq "BG01B0I1A" | Format-Table Driver
+
+# If still VCP, try different methods
+Invoke-PsGadgetFtdiVcpUnload -SerialNumber "BG01B0I1A" -Method CyclePort
+Invoke-PsGadgetFtdiVcpUnload -SerialNumber "BG01B0I1A" -Method Windows
+```
+
+**Option B: Manual Driver Switching**
+
+1. Download and install [FTDI's CDM driver package](https://ftdichip.com/drivers/) (includes both VCP and D2XX)
+2. Use Windows Device Manager to switch driver:
+   - Right-click device under "Ports (COM & LPT)"
+   - Update Driver → Browse → Let me pick → Select "USB Serial Converter" (D2XX)
+   - Or use FTDI's CDM Uninstaller GUI to switch driver modes
+
+**Alternative: Use Zadig for WinUSB (logic analyzer use)**
+- Download [Zadig](https://zadig.akeo.ie/) to install WinUSB driver 
+- Note: WinUSB blocks both PSGadget (D2XX) and serial apps (VCP)
+- Only use WinUSB if primary use is logic analyzer tools like sigrok/Pulseview
+
+### Step 2 - Inspect current EEPROM (optional, recommended first time)
 
 ```powershell
 $ee = Get-PsGadgetFtdiEeprom -Index 1
@@ -94,7 +136,7 @@ $ee | Select-Object Cbus0, Cbus1, Cbus2, Cbus3
 # FT_CBUS_TXLED  FT_CBUS_RXLED  FT_CBUS_PWRON FT_CBUS_SLEEP
 ```
 
-### Step 2 - Program EEPROM for GPIO (one time per device)
+### Step 3 - Program EEPROM for GPIO (one time per device)
 
 ```powershell
 # Configure all four CBUS pins as GPIO (default and most common):
@@ -113,7 +155,7 @@ Set-PsGadgetFt232rCbusMode -Index 1 -Pins @(0) -Mode FT_CBUS_RXLED
 **IMPORTANT**: Replug the USB device after writing EEPROM. The new settings do not
 take effect until the device re-enumerates.
 
-### Step 3 - Verify after replug
+### Step 4 - Verify after replug
 
 ```powershell
 Get-PsGadgetFtdiEeprom -Index 1 | Select-Object Cbus0, Cbus1, Cbus2, Cbus3
@@ -124,7 +166,7 @@ Get-PsGadgetFtdiEeprom -Index 1 | Select-Object Cbus0, Cbus1, Cbus2, Cbus3
 # FT_CBUS_IOMODE FT_CBUS_IOMODE FT_CBUS_IOMODE FT_CBUS_IOMODE
 ```
 
-### Step 4 - Runtime GPIO
+### Step 5 - Runtime GPIO
 
 ```powershell
 # Set CBUS0 and CBUS1 HIGH
@@ -140,6 +182,33 @@ Set-PsGadgetGpio -DeviceIndex 1 -Pins @(0, 1) -State LOW
 # Set-PsGadgetGpio -DeviceIndex 1 -Pins @(4) -State HIGH
 # ERROR: Pin(s) [4] are out of range for CBUS bit-bang. FT232R CBUS GPIO supports CBUS0-3 only.
 ```
+
+---
+
+### Troubleshooting FT232R Issues
+
+**Error: "Failed to open device via OpenByIndex and OpenBySerialNumber: FT_DEVICE_NOT_FOUND"**
+
+This error occurs when the device is using VCP driver instead of D2XX driver. Check device list:
+```powershell
+List-PsGadgetFtdi | ft Index, Type, Driver, SerialNumber
+```
+
+If you see `ftdibus.sys (VCP)` instead of `ftd2xx.dll`, return to Step 1 above to switch drivers.
+
+**Driver Switching Reference:**
+- **D2XX mode**: Enables PSGadget EEPROM functions (`Get-PsGadgetFtdiEeprom`, `Set-PsGadgetFt232rCbusMode`) 
+- **VCP mode**: Enables serial communication (COM ports for terminal apps)
+- **WinUSB mode**: Enables logic analyzer tools (sigrok/Pulseview) but blocks PSGadget
+
+**Multiple Device Management:**
+Each FTDI device maintains its driver independently. You can have:
+- FT232H#1 in D2XX mode (for PSGadget GPIO)
+- FT232R#1 in D2XX mode (for PSGadget EEPROM programming and GPIO) 
+- FT232R#2 in VCP mode (for serial terminal)
+- FT232R#3 in WinUSB mode (for logic analyzer)
+
+See: https://markgzero.github.io/2025/11/09/ft232rnl-sigrok-pulseview-windows.html
 
 ---
 
@@ -184,15 +253,16 @@ These are valid values for the `-Mode` parameter of `Set-PsGadgetFt232rCbusMode`
 
 ## Public Function Quick Reference
 
-| Function                    | Purpose                                              |
-|-----------------------------|------------------------------------------------------|
-| List-PsGadgetFtdi           | Enumerate connected FTDI devices                     |
-| Connect-PsGadgetFtdi        | Open a device connection by index or serial number   |
-| Get-PsGadgetFtdiEeprom      | Read EEPROM contents (FT232R: inspect CBUS modes)    |
-| Set-PsGadgetFt232rCbusMode  | Program FT232R CBUS pins to GPIO mode (one-time)     |
-| Set-PsGadgetGpio            | Set GPIO pin state (works for both FT232H and FT232R)|
-| List-PsGadgetMpy            | Enumerate MicroPython serial ports                   |
-| Connect-PsGadgetMpy         | Open a MicroPython REPL connection                   |
+| Function                      | Purpose                                              |
+|-------------------------------|------------------------------------------------------|
+| List-PsGadgetFtdi             | Enumerate connected FTDI devices                     |
+| Connect-PsGadgetFtdi          | Open a device connection by index or serial number   |
+| Get-PsGadgetFtdiEeprom        | Read EEPROM contents (FT232R: inspect CBUS modes)    |
+| Set-PsGadgetFt232rCbusMode    | Program FT232R CBUS pins to GPIO mode (one-time)     |
+| Invoke-PsGadgetFtdiVcpUnload  | Programmatically unload VCP driver (experimental)    |
+| Set-PsGadgetGpio              | Set GPIO pin state (works for both FT232H and FT232R)|
+| List-PsGadgetMpy              | Enumerate MicroPython serial ports                   |
+| Connect-PsGadgetMpy           | Open a MicroPython REPL connection                   |
 
 ---
 

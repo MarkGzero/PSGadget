@@ -23,7 +23,8 @@
         'Connect-PsGadgetMpy',
         'Set-PsGadgetGpio',
         'Get-PsGadgetFtdiEeprom',
-        'Set-PsGadgetFt232rCbusMode'
+        'Set-PsGadgetFt232rCbusMode',
+        'Invoke-PsGadgetFtdiVcpUnload'
     )
     
     # No cmdlets, variables, or aliases exported
