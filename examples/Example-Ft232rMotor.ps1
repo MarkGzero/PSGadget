@@ -1,9 +1,23 @@
 # Example-Ft232rMotor.ps1
 # DC motor control via FT232R CBUS0 bit-bang GPIO.
 #
+# Tested with: FT232 breakout board (FT232R / FT232RNL)
+#
 # Hardware wiring:
 #   CBUS0  -> motor terminal +
 #   GND    -> motor terminal -
+#
+# IMPORTANT - board VCCIO voltage selection:
+#   Many FT232 breakout boards ship with VCCIO set to 3.3V, causing CBUS pins to
+#   output only 3.3V - not enough to drive most motors.
+#
+#   Boards with a 3-pin "5V | VCCIO | 3V3" jumper header:
+#     Place a jumper cap bridging 5V and VCCIO to select 5V output.
+#
+#   Waveshare USB-TO-TTL-FT232:
+#     Move the SMD solder jumper on the back from 3.3V to 5V.
+#
+#   After changing the jumper, replug the USB cable.
 #
 # NOTE: FT232R CBUS pins supply ~4 mA max. This is suitable for small pager/
 #       coin vibration motors. For larger motors, drive a transistor or motor
@@ -27,7 +41,7 @@ List-PsGadgetFtdi | Format-Table Index, Type, SerialNumber, GpioMethod, HasMpsse
 # Read EEPROM and verify CBUS0 is already set to FT_CBUS_IOMODE.
 # If not, offer to program it automatically.
 
-$DeviceIndex = 0
+$DeviceIndex = 1   # change to match your device index (see List-PsGadgetFtdi output)
 $eeprom = Get-PsGadgetFtdiEeprom -Index $DeviceIndex
 
 Write-Host ""
@@ -49,7 +63,15 @@ if ($eeprom.Cbus0 -ne 'FT_CBUS_IOMODE') {
     if ($ans -match '^[Yy]') {
         Set-PsGadgetFt232rCbusMode -Index $DeviceIndex -Pins @(0)
         Write-Host ""
-        Write-Host "[ACTION REQUIRED] Disconnect and reconnect the USB cable, then run this script again."
+        Write-Host "Cycling USB port to apply EEPROM changes (no manual replug needed)..."
+        $cycleConn = Connect-PsGadgetFtdi -Index $DeviceIndex
+        if ($cycleConn) {
+            $cycleConn.CyclePort()
+            Write-Host "Port cycled and reconnected. Re-run this script to continue."
+            $cycleConn.Close()
+        } else {
+            Write-Host "[ACTION REQUIRED] Disconnect and reconnect the USB cable, then run this script again."
+        }
     } else {
         Write-Host "Aborting. Replug device after running Set-PsGadgetFt232rCbusMode."
     }
@@ -68,55 +90,23 @@ if (-not $conn) {
 }
 
 try {
-    # ── 3. Simple ON/OFF demo ─────────────────────────────────────────────
+    # ── 3. Basic test: pin HIGH for 3 seconds ─────────────────────────────
 
-    Write-Host "--- Demo 1: Motor ON for 2 seconds ---"
+    Write-Host "Connection object:"
+    Write-Host "  Type:       $($conn.Type)"
+    Write-Host "  GpioMethod: $($conn.GpioMethod)"
+    Write-Host "  IsOpen:     $($conn.IsOpen)"
+    Write-Host "  Device:     $($conn.Device)"
+    Write-Host ""
+
+    $VerbosePreference = 'Continue'
+
+    Write-Host "--- Test: CBUS0 HIGH for 3 seconds ---"
     Set-PsGadgetGpio -Connection $conn -Pins @(0) -State HIGH
-    Start-Sleep -Milliseconds 2000
+    Write-Host "CBUS0 set HIGH. Motor should be running..."
+    Start-Sleep -Seconds 3
     Set-PsGadgetGpio -Connection $conn -Pins @(0) -State LOW
-    Write-Host "Motor stopped."
-    Start-Sleep -Milliseconds 1000
-
-    # ── 4. Pulse pattern: 3 short bursts ────────────────────────────────
-
-    Write-Host "--- Demo 2: 3 short pulses ---"
-    for ($i = 0; $i -lt 3; $i++) {
-        Set-PsGadgetGpio -Connection $conn -Pins @(0) -State HIGH
-        Start-Sleep -Milliseconds 300
-        Set-PsGadgetGpio -Connection $conn -Pins @(0) -State LOW
-        Start-Sleep -Milliseconds 400
-    }
-    Write-Host "Pulses done."
-    Start-Sleep -Milliseconds 500
-
-    # ── 5. Soft-PWM speed ramp (approximate - limited by PS/D2XX latency) ─
-    #
-    # True PWM is not possible via CBUS bit-bang (no hardware timer), but a
-    # rough software PWM can give an impression of varying speed on small motors.
-    # Period ~20 ms, duty cycle sweeps 10% -> 90% -> 10%.
-
-    Write-Host "--- Demo 3: Soft-PWM speed ramp (10% -> 90% -> 10%) ---"
-    Write-Host "(Note: actual frequency is limited by USB latency; effect is approximate)"
-
-    $periodMs = 20
-    $steps    = @(1, 2, 3, 4, 5, 6, 7, 8, 9, 8, 7, 6, 5, 4, 3, 2, 1)  # duty tenths
-
-    foreach ($duty in $steps) {
-        $onMs  = [int]($periodMs * $duty / 10)
-        $offMs = $periodMs - $onMs
-
-        # Run each duty step for ~300 ms worth of cycles
-        $cycles = [int](300 / $periodMs)
-        for ($c = 0; $c -lt $cycles; $c++) {
-            Set-PsGadgetGpio -Connection $conn -Pins @(0) -State HIGH
-            Start-Sleep -Milliseconds $onMs
-            Set-PsGadgetGpio -Connection $conn -Pins @(0) -State LOW
-            if ($offMs -gt 0) { Start-Sleep -Milliseconds $offMs }
-        }
-    }
-
-    Write-Host "Ramp done. Motor off."
-    Set-PsGadgetGpio -Connection $conn -Pins @(0) -State LOW
+    Write-Host "CBUS0 set LOW. Motor stopped."
 
 } finally {
     $conn.Close()

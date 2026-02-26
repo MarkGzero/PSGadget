@@ -346,6 +346,52 @@ function Invoke-FtdiWindowsOpen {
             param([byte[]]$buffer, [int]$length, [ref]$bytesRead)
             return $this.Device.Read($buffer, $length, $bytesRead)
         }
+
+        # Soft reset - clears internal buffers and restores chip state; handle stays open
+        $connection | Add-Member -MemberType ScriptMethod -Name 'Reset' -Value {
+            if (-not $this.IsOpen -or -not $this.Device) {
+                throw "Device is not open. Call Connect-PsGadgetFtdi first."
+            }
+            $status = $this.Device.ResetDevice()
+            if ([int]$status -ne 0) { throw "ResetDevice failed: $status" }
+        }
+
+        # USB port cycle - equivalent to a physical replug; triggers re-enumeration so
+        # EEPROM changes (e.g. CBUS mode) take effect without manually unplugging the cable.
+        # Automatically reconnects after re-enumeration so the connection object stays usable.
+        $connection | Add-Member -MemberType ScriptMethod -Name 'CyclePort' -Value {
+            if (-not $this.IsOpen -or -not $this.Device) {
+                throw "Device is not open. Call Connect-PsGadgetFtdi first."
+            }
+            $serial = $this.SerialNumber
+            $status = $this.Device.CyclePort()
+            $this.IsOpen = $false
+            $this.Device = $null
+            if ([int]$status -ne 0) { throw "CyclePort failed: $status" }
+
+            # Poll until device reappears by serial number (max 5 seconds, 250ms intervals)
+            Write-Verbose "USB port cycled for $serial - polling for re-enumeration..."
+            $newConn    = $null
+            $deadline   = (Get-Date).AddSeconds(5)
+            while ((Get-Date) -lt $deadline) {
+                Start-Sleep -Milliseconds 250
+                try {
+                    $newConn = Connect-PsGadgetFtdi -SerialNumber $serial -ErrorAction SilentlyContinue
+                    if ($newConn -and $newConn.IsOpen) { break }
+                } catch {
+                    # device not yet visible - keep polling
+                }
+            }
+
+            # Reconnect by serial number so the object stays usable
+            if (-not $newConn) {
+                throw "CyclePort succeeded but reconnect to '$serial' failed. Try Connect-PsGadgetFtdi manually."
+            }
+            $this.Device       = $newConn.Device
+            $this.IsOpen       = $newConn.IsOpen
+            $this.MpsseEnabled = $newConn.MpsseEnabled
+            Write-Verbose "Reconnected to $serial after port cycle."
+        }
         
         Write-Verbose "Successfully opened FTDI device $($DeviceInfo.SerialNumber)"
         return $connection
