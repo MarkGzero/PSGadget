@@ -27,20 +27,21 @@
 #Requires -Version 5.1
 
 # FT_CBUS_OPTIONS integer-to-name and name-to-integer lookup tables.
-# Used instead of enum reflection because FTD2XX_NET may expose Cbus0-4 as
-# plain bytes (not enum values) depending on the assembly build and PS version.
+# Values are from the FTD2XX_NET net48 assembly (FT232R EEPROM structure).
+# Note: FTD2XX_NET net48 enum values differ from the raw D2XX C header values.
+# Verified against FT_Prog and hardware: 5 = FT_CBUS_IOMODE in this build.
 $script:FT_CBUS_NAMES = @{
     0  = 'FT_CBUS_TXDEN'
     1  = 'FT_CBUS_PWRON'
     2  = 'FT_CBUS_RXLED'
     3  = 'FT_CBUS_TXLED'
     4  = 'FT_CBUS_TXRXLED'
-    5  = 'FT_CBUS_SLEEP'
-    6  = 'FT_CBUS_CLK48'
-    7  = 'FT_CBUS_CLK24'
-    8  = 'FT_CBUS_CLK12'
-    9  = 'FT_CBUS_CLK6'
-    10 = 'FT_CBUS_IOMODE'
+    5  = 'FT_CBUS_IOMODE'
+    6  = 'FT_CBUS_SLEEP'
+    7  = 'FT_CBUS_CLK48'
+    8  = 'FT_CBUS_CLK24'
+    9  = 'FT_CBUS_CLK12'
+    10 = 'FT_CBUS_CLK6'
     11 = 'FT_CBUS_BITBANG_WR'
     12 = 'FT_CBUS_BITBANG_RD'
     13 = 'FT_CBUS_TXDEN'
