@@ -255,7 +255,12 @@ function Invoke-FtdiWindowsOpen {
     [OutputType([System.Object])]
     param(
         [Parameter(Mandatory = $true)]
-        [int]$Index
+        [int]$Index,
+
+        # Optional: pass already-resolved device info to skip a second enumeration.
+        # Connect-PsGadgetFtdi always provides this; callers that don't can omit it.
+        [Parameter(Mandatory = $false)]
+        [object]$DeviceInfo = $null
     )
     
     try {
@@ -264,13 +269,17 @@ function Invoke-FtdiWindowsOpen {
             throw [System.NotImplementedException]::new("FTDI assembly not loaded - cannot open device")
         }
         
-        # Get device list to validate index
-        $devices = Invoke-FtdiWindowsEnumerate
-        if ($Index -lt 0 -or $Index -ge $devices.Count) {
-            throw "Device index $Index is out of range. Available devices: 0-$($devices.Count - 1)"
+        # Use caller-supplied device info when available; avoid a second GetDeviceList call
+        # because D2XX can return 0 devices on rapid back-to-back enumerations.
+        if ($DeviceInfo) {
+            $targetDevice = $DeviceInfo
+        } else {
+            $devices = Invoke-FtdiWindowsEnumerate
+            if ($Index -lt 0 -or $Index -ge $devices.Count) {
+                throw "Device index $Index is out of range. Available devices: 0-$($devices.Count - 1)"
+            }
+            $targetDevice = $devices[$Index]
         }
-        
-        $targetDevice = $devices[$Index]
         Write-Verbose "Opening FTDI device: $($targetDevice.Description) ($($targetDevice.SerialNumber))"
         
         # Create new FTDI instance for this connection
