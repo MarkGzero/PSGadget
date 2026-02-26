@@ -180,7 +180,7 @@ class PsGadgetFtdi {
         }
         $status = $this._connection.Device.ResetDevice()
         $this.Logger.WriteInfo("ResetDevice status=$status")
-        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
+        if ([int]$status -ne 0) {
             throw "ResetDevice failed: $status"
         }
     }
@@ -202,7 +202,7 @@ class PsGadgetFtdi {
         $this.IsOpen       = $false
         $this._connection  = $null
         $this.Logger.WriteInfo("CyclePort status=$status (handle released)")
-        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
+        if ([int]$status -ne 0) {
             throw "CyclePort failed: $status"
         }
         $this.Logger.WriteInfo("USB port cycled - device will re-enumerate. Call Connect() to reopen.")
