@@ -452,7 +452,7 @@ function Set-FtdiCbusBits {
         Write-Verbose ("CBUS bit-bang: pins=[{0}] state={1} dir=0x{2:X1} val=0x{3:X1} mask=0x{4:X2}" -f
             ($Pins -join ','), $State, $dirNibble, $valNibble, $mask)
 
-        if ($script:FtdiInitialized -and $Connection.Device -ne $null) {
+        if ($script:FtdiInitialized -and $null -ne $Connection.Device) {
             $status = $Connection.Device.SetBitMode($mask, 0x20)
 
             if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
