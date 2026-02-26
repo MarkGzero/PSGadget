@@ -121,13 +121,13 @@ function Get-FtdiFt232rEeprom {
             InvertDSR       = $eeprom.InvertDSR
             InvertDCD       = $eeprom.InvertDCD
             InvertRI        = $eeprom.InvertRI
-            # CBUS pin mode assignments - use GetNestedType() to resolve the enum reliably.
-            # PS type literals with '+' (nested types) fail on some PS versions.
-            Cbus0           = [System.Enum]::ToObject([FTD2XX_NET.FTDI].GetNestedType('FT_CBUS_OPTIONS'), [int]$eeprom.Cbus0).ToString()
-            Cbus1           = [System.Enum]::ToObject([FTD2XX_NET.FTDI].GetNestedType('FT_CBUS_OPTIONS'), [int]$eeprom.Cbus1).ToString()
-            Cbus2           = [System.Enum]::ToObject([FTD2XX_NET.FTDI].GetNestedType('FT_CBUS_OPTIONS'), [int]$eeprom.Cbus2).ToString()
-            Cbus3           = [System.Enum]::ToObject([FTD2XX_NET.FTDI].GetNestedType('FT_CBUS_OPTIONS'), [int]$eeprom.Cbus3).ToString()
-            Cbus4           = [System.Enum]::ToObject([FTD2XX_NET.FTDI].GetNestedType('FT_CBUS_OPTIONS'), [int]$eeprom.Cbus4).ToString()
+            # CBUS pin mode assignments - $eeprom.CbusN is already typed as FT_CBUS_OPTIONS,
+            # so .ToString() returns the enum member name directly without any cast.
+            Cbus0           = $eeprom.Cbus0.ToString()
+            Cbus1           = $eeprom.Cbus1.ToString()
+            Cbus2           = $eeprom.Cbus2.ToString()
+            Cbus3           = $eeprom.Cbus3.ToString()
+            Cbus4           = $eeprom.Cbus4.ToString()
             # Flag: driver mode (true = D2XX, false = VCP)
             RIsD2XX         = $eeprom.RIsD2XX
         }
@@ -277,8 +277,8 @@ function Set-FtdiFt232rCbusPinMode {
         }
 
         # Resolve FT_CBUS_OPTIONS enum value by name.
-        # Use GetNestedType() - PS type literals with '+' (nested types) fail on some PS versions.
-        $cbusEnumType = [FTD2XX_NET.FTDI].GetNestedType('FT_CBUS_OPTIONS')
+        # Get the enum type from an existing property value - avoids reflection on nested types.
+        $cbusEnumType = $eeprom.Cbus0.GetType()
         $targetMode   = [System.Enum]::Parse($cbusEnumType, $Mode)
 
         $pinNames = $Pins | ForEach-Object { "CBUS$_" }
