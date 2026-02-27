@@ -21,9 +21,10 @@ throughout to find the depth that matches your background.
 ## What You Need
 
 - An FT232R or FT232RNL USB breakout board (Waveshare USB-TO-TTL-FT232, SparkFun, etc.)
-- A small DC motor rated for 3.3-5V and less than 4 mA current draw
-  - Safe choices: pager (coin) vibration motors, small pancake motors
-  - For anything larger: use a transistor (2N2222, BC547) or motor driver IC (DRV8833) as a buffer
+- A small DC motor rated for 3.3-5V
+- A small NPN transistor: 2N2222, BC547, or S8050 (handles up to 600mA)
+- A 1k ohm resistor (base resistor)
+- Breadboard and jumper wires
 - Windows PC with FTDI CDM drivers installed, USB cable
 - PowerShell 5.1 or later
 - PSGadget module cloned locally
@@ -60,17 +61,63 @@ pins output only 3.3V, which is often insufficient to run a motor at full speed 
 
 After changing the jumper, unplug and replug the USB cable before continuing.
 
-### Wiring diagram (direct connection, small motor only)
+### Why the 5V pin moves the motor but CBUS0 does not
+
+This is the most common confusion when wiring a motor to an FT232R board.
+
+The CBUS0 pin and the board's 5V power pin measure nearly identical voltage (both ~5V),
+but they are fundamentally different in current capacity:
+
+| Pin | Voltage | Max current |
+|---|---|---|
+| 5V (USB power) | ~5V | ~500mA (from the USB host) |
+| CBUS0 (GPIO) | ~5V | ~4mA (CBUS output stage limit) |
+
+When you connect a motor directly to CBUS0, the pin tries to hold 5V but can only push
+4mA. The motor's inrush current collapses the pin voltage and the motor stalls -- even
+though `Set-PsGadgetGpio` reports success and the pin reads correctly with no load.
+
+The fix is to use CBUS0 as a **signal** (not a power source) and let the transistor
+borrow current from the 5V rail to actually drive the motor.
+
+> **Beginner**: Think of CBUS0 as a light switch, not a battery. It can flip something
+> on or off, but you still need a power source behind it to do the actual work.
+
+### Wiring: transistor driver (recommended for all motors)
+
+CBUS0 sources ~4mA maximum. Most motors -- even tiny pager/coin vibration motors --
+draw more than that under load, causing the pin voltage to sag and the motor to stall.
+Drive a small NPN transistor from CBUS0 instead and power the motor from the USB 5V pin.
+
+```
+FT232R breakout
+  CBUS0 ---[1k resistor]--- Base  (NPN: 2N2222 / BC547 / S8050)
+  5V    -------------------- Motor (+)
+                             Motor (-) --- Collector
+                             Emitter  --- GND
+  GND   -------------------- GND
+```
+
+The 1k resistor limits the current from CBUS0 to ~4mA (well within spec).
+The transistor then switches the full motor current from the 5V rail.
+
+> **Engineer**: Add a 1N4148 freewheeling diode across the motor terminals (cathode to
+> motor+) to clamp the back-EMF spike when the transistor switches off. It is optional
+> for a coin vibration motor but good practice for any inductive load.
+
+### Direct connection (sub-4mA loads only)
+
+A direct wire from CBUS0 to the motor works only if the motor draws less than 4mA at
+all times -- this includes startup inrush current. Most motors exceed this limit.
 
 ```
 FT232R breakout
   CBUS0 ---[motor+]---[motor-]--- GND
 ```
 
-> **Engineer**: No flyback diode is needed for a direct pager motor because the inductance is
-> negligible and the current is within the CBUS output stage's built-in clamp. For any
-> inductive load driven through a transistor, always add a 1N4148 freewheeling diode
-> across the motor terminals.
+If the motor does not spin with a direct connection even though
+`Set-PsGadgetGpio` reports success and the pin reads the correct voltage unloaded,
+the motor current exceeds the CBUS0 limit. Use the transistor circuit above.
 
 ---
 
@@ -234,7 +281,7 @@ With the EEPROM programmed, you can now switch CBUS0 (and other configured pins)
 Import-Module C:\path\to\PSGadget\PSGadget.psd1 -Force
 
 # Create device object using serial number (stable across USB port changes)
-$dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"   # use your serial number
+$dev = New-PsGadgetFtdi -SerialNumber "BG01B0I1"   # use your serial number
 $dev.Connect()
 
 try {
@@ -323,10 +370,22 @@ Use one of those Index values.
 
 ### Motor does not move
 
-- Check the VCCIO jumper -- most boards default to 3.3V which may be too low
+First confirm the pin is actually toggling (no motor connected):
+
+```powershell
+Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State HIGH
+# Probe CBUS0 to GND with a multimeter - should read ~5V
+Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State LOW
+# Should read 0V
+```
+
+If voltage toggles correctly but motor still does not spin, the motor current
+exceeds the 4mA CBUS0 limit. Use the transistor wiring (see Hardware Wiring section).
+
+Other checks:
 - Run `Get-PsGadgetFtdiEeprom -Index 0 | Select-Object Cbus0` to confirm `FT_CBUS_IOMODE`
-- Verify wiring: motor positive to CBUS0, motor negative to GND
-- Measure CBUS0 with a multimeter -- it should swing between 0V and VCCIO when you toggle
+- Check the VCCIO jumper -- most boards default to 3.3V which may be too low
+- Verify the transistor wiring: 1k from CBUS0 to Base, motor between 5V and Collector, Emitter to GND
 
 ### Motor spins but is very weak
 
