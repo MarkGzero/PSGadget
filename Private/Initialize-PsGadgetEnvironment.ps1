@@ -22,9 +22,10 @@ function Initialize-PsGadgetEnvironment {
         if (-not (Test-Path -Path $LogsDirectory)) {
             $null = New-Item -Path $LogsDirectory -ItemType Directory -Force -ErrorAction Stop
         }
-        
-        # Silent success - no output needed
-        
+
+        # Load user configuration from ~/.psgadget/config.json (creates defaults if missing)
+        Initialize-PsGadgetConfig
+
     } catch {
         # Log error but don't fail module import
         Write-Warning "Failed to initialize PsGadget environment: $($_.Exception.Message)"

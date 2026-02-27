@@ -71,12 +71,29 @@ function Set-PsGadgetFt232rCbusMode {
     # Preview what would change without writing:
     Set-PsGadgetFt232rCbusMode -Index 0 -WhatIf
 
+    .PARAMETER HighDriveIOs
+    Override the ftdi.highDriveIOs config setting for this call.
+    When omitted, the value from Get-PsGadgetConfig is used (default: $false).
+    $true doubles CBUS drive strength from 4 mA to 8 mA.
+
+    .PARAMETER PullDownEnable
+    Override the ftdi.pullDownEnable config setting for this call.
+    When omitted, the value from Get-PsGadgetConfig is used (default: $false).
+    $true adds weak pull-downs on all I/O pins during USB suspend.
+
+    .PARAMETER RIsD2XX
+    Override the ftdi.rIsD2XX config setting for this call.
+    When omitted, the value from Get-PsGadgetConfig is used (default: $false).
+    $true makes the device enumerate as D2XX-only (no duplicate COM port).
+
     .NOTES
     - Only CBUS pins 0-3 are configurable. CBUS4 is a special-purpose pin.
     - After a successful write, the function prompts to cycle the USB port
       automatically. Accepting is equivalent to physically unplugging and replugging.
     - The result object includes a PortCycled property indicating whether the port
       was cycled automatically (True) or left for manual replug (False).
+    - HighDriveIOs, PullDownEnable, and RIsD2XX default to the values in
+      ~/.psgadget/config.json (see Get-Help about_PsGadgetConfig).
     - To verify the EEPROM after cycling/replugging, use Get-PsGadgetFtdiEeprom.
     - This function only works on Windows with the D2XX driver loaded.
     #>
@@ -109,7 +126,17 @@ function Set-PsGadgetFt232rCbusMode {
             'FT_CBUS_CLK12','FT_CBUS_CLK6','FT_CBUS_IOMODE',
             'FT_CBUS_BITBANG_WR','FT_CBUS_BITBANG_RD'
         )]
-        [string]$Mode = 'FT_CBUS_IOMODE'
+        [string]$Mode = 'FT_CBUS_IOMODE',
+
+        # EEPROM flag overrides -- when omitted the value from config.json is used.
+        [Parameter(Mandatory = $false)]
+        [System.Nullable[bool]]$HighDriveIOs,
+
+        [Parameter(Mandatory = $false)]
+        [System.Nullable[bool]]$PullDownEnable,
+
+        [Parameter(Mandatory = $false)]
+        [System.Nullable[bool]]$RIsD2XX
     )
 
     try {
@@ -166,7 +193,17 @@ function Set-PsGadgetFt232rCbusMode {
             return $null
         }
 
-        $result = Set-FtdiFt232rCbusPinMode -Index $targetIndex -Pins $Pins -Mode $Mode -SerialNumber $targetDev.SerialNumber
+        # Resolve EEPROM flags: explicit param wins over config default
+        $cfg = $script:PsGadgetConfig
+        $resolvedHighDriveIOs   = if ($null -ne $HighDriveIOs)   { [bool]$HighDriveIOs }   else { $cfg.ftdi.highDriveIOs }
+        $resolvedPullDownEnable = if ($null -ne $PullDownEnable)  { [bool]$PullDownEnable }  else { $cfg.ftdi.pullDownEnable }
+        $resolvedRIsD2XX        = if ($null -ne $RIsD2XX)         { [bool]$RIsD2XX }         else { $cfg.ftdi.rIsD2XX }
+
+        $result = Set-FtdiFt232rCbusPinMode -Index $targetIndex -Pins $Pins -Mode $Mode `
+            -SerialNumber $targetDev.SerialNumber `
+            -HighDriveIOs $resolvedHighDriveIOs `
+            -PullDownEnable $resolvedPullDownEnable `
+            -RIsD2XX $resolvedRIsD2XX
 
         if ($result.Success) {
             Write-Verbose "FT232R EEPROM updated: $pinNames set to $Mode."

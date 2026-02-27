@@ -1,7 +1,7 @@
 @{
     # Module metadata
     RootModule = 'PSGadget.psm1'
-    ModuleVersion = '0.3.1'
+    ModuleVersion = '0.3.2'
     GUID = 'a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6'
     
     # PowerShell version requirements
@@ -26,6 +26,8 @@
         'Get-PsGadgetFtdiEeprom',
         'Set-PsGadgetFt232rCbusMode',
         'Set-PsGadgetFtdiMode',
+        'Get-PsGadgetConfig',
+        'Set-PsGadgetConfig',
         'Connect-PsGadgetSsd1306',
         'Clear-PsGadgetSsd1306',
         'Write-PsGadgetSsd1306',
@@ -50,6 +52,7 @@
         'Private/Ftdi.Unix.ps1',
         'Private/Ftdi.Windows.ps1',
         'Private/Initialize-FtdiAssembly.ps1',
+        'Private/Initialize-PsGadgetConfig.ps1',
         'Private/Initialize-PsGadgetEnvironment.ps1',
         'Private/Invoke-NativeProcess.ps1',
         'Private/Mpy.Backend.ps1',
@@ -57,9 +60,11 @@
         'Public/Connect-PsGadgetFtdi.ps1',
         'Public/Connect-PsGadgetMpy.ps1',
         'Public/Connect-PsGadgetSsd1306.ps1',
+        'Public/Get-PsGadgetConfig.ps1',
         'Public/Get-PsGadgetFtdiEeprom.ps1',
         'Public/List-PsGadgetFtdi.ps1',
         'Public/List-PsGadgetMpy.ps1',
+        'Public/Set-PsGadgetConfig.ps1',
         'Public/Set-PsGadgetFt232rCbusMode.ps1',
         'Public/Set-PsGadgetFtdiMode.ps1',
         'Public/Set-PsGadgetGpio.ps1',
@@ -81,7 +86,7 @@
             LicenseUri = 'https://github.com/MarkGzero/PsGadget/blob/main/LICENSE'
             ProjectUri = 'https://github.com/MarkGzero/PsGadget'
             IconUri = ''
-            ReleaseNotes = 'v0.3.0: SSD1306 OLED display support via FTDI I2C. New: Connect-PsGadgetSsd1306, Clear-PsGadgetSsd1306, Write-PsGadgetSsd1306, Set-PsGadgetSsd1306Cursor. Includes I2C MPSSE implementation and 6x8 ASCII font rendering.'
+            ReleaseNotes = 'v0.3.2: User config system at ~/.psgadget/config.json. New: Get-PsGadgetConfig, Set-PsGadgetConfig. Set-PsGadgetFt232rCbusMode now reads ftdi.highDriveIOs, ftdi.pullDownEnable, ftdi.rIsD2XX from config as defaults.'
         }
     }
 }

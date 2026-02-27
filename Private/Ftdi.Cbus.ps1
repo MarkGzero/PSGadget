@@ -261,7 +261,18 @@ function Set-FtdiFt232rCbusPinMode {
 
         # Optional serial number used as fallback when OpenByIndex fails (e.g. device in VCP mode)
         [Parameter(Mandatory = $false)]
-        [string]$SerialNumber = ''
+        [string]$SerialNumber = '',
+
+        # Additional EEPROM fields to write alongside the CBUS pin modes.
+        # Pass $null (default) to leave the existing EEPROM value unchanged.
+        [Parameter(Mandatory = $false)]
+        [System.Nullable[bool]]$HighDriveIOs = $null,
+
+        [Parameter(Mandatory = $false)]
+        [System.Nullable[bool]]$PullDownEnable = $null,
+
+        [Parameter(Mandatory = $false)]
+        [System.Nullable[bool]]$RIsD2XX = $null
     )
 
     try {
@@ -327,6 +338,11 @@ function Set-FtdiFt232rCbusPinMode {
             }
         }
 
+        # Apply additional EEPROM fields sourced from config (or explicit param overrides)
+        if ($null -ne $HighDriveIOs)   { $eeprom.HighDriveIOs   = [bool]$HighDriveIOs }
+        if ($null -ne $PullDownEnable)  { $eeprom.PullDownEnable  = [bool]$PullDownEnable }
+        if ($null -ne $RIsD2XX)         { $eeprom.RIsD2XX         = [bool]$RIsD2XX }
+
         $status = $ftdi.WriteFT232REEPROM($eeprom)
         $ftdi.Close() | Out-Null
 
@@ -338,21 +354,27 @@ function Set-FtdiFt232rCbusPinMode {
         Write-Warning "EEPROM written. Disconnect and reconnect the USB device for the changes to take effect."
 
         return [PSCustomObject]@{
-            Success     = $true
-            DeviceIndex = $Index
-            PinsChanged = $Pins
-            NewMode     = $Mode
-            Message     = "EEPROM written. Replug device to activate."
+            Success        = $true
+            DeviceIndex    = $Index
+            PinsChanged    = $Pins
+            NewMode        = $Mode
+            HighDriveIOs   = $eeprom.HighDriveIOs
+            PullDownEnable = $eeprom.PullDownEnable
+            RIsD2XX        = $eeprom.RIsD2XX
+            Message        = "EEPROM written. Replug device to activate."
         }
 
     } catch [System.NotImplementedException] {
         Write-Verbose "Set-FtdiFt232rCbusPinMode: FTDI assembly not loaded - stub mode (no EEPROM written)"
         return [PSCustomObject]@{
-            Success     = $true
-            DeviceIndex = $Index
-            PinsChanged = $Pins
-            NewMode     = $Mode
-            Message     = "STUB: EEPROM write simulated (assembly not loaded)"
+            Success        = $true
+            DeviceIndex    = $Index
+            PinsChanged    = $Pins
+            NewMode        = $Mode
+            HighDriveIOs   = if ($null -ne $HighDriveIOs)   { [bool]$HighDriveIOs }   else { $false }
+            PullDownEnable = if ($null -ne $PullDownEnable)  { [bool]$PullDownEnable }  else { $false }
+            RIsD2XX        = if ($null -ne $RIsD2XX)         { [bool]$RIsD2XX }         else { $false }
+            Message        = "STUB: EEPROM write simulated (assembly not loaded)"
         }
     } catch {
         Write-Error "Set-FtdiFt232rCbusPinMode failed: $_"
