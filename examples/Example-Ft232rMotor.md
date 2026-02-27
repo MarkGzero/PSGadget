@@ -28,7 +28,7 @@ throughout to find the depth that matches your background.
 - PowerShell 5.1 or later
 - PSGadget module cloned locally
 
-> **Beginner**: An FT232R is a small chip (usually on a breakout board the size of a thumb drive)
+> **Beginner**: An FT232R is a small chip (usually on a breakout board the size of a thumb drive... or your thumbnail)
 > that lets your computer talk to hardware over USB. It has a few pins you can turn HIGH (on)
 > or LOW (off) under software control -- that is what GPIO means. We are going to use one of
 > those pins to switch a tiny motor on and off.
@@ -125,15 +125,15 @@ Before programming anything, read the current EEPROM to see how CBUS pins are co
 
 ```powershell
 $ee = Get-PsGadgetFtdiEeprom -Index 0    # use your D2XX index
-$ee | Select-Object Cbus0, Cbus1, Cbus2, Cbus3
+$ee | Select-Object Cbus0, Cbus1, Cbus2, Cbus3,Cbus4
 ```
 
 Factory default output:
 
 ```
-Cbus0          Cbus1          Cbus2         Cbus3
------          -----          -----         -----
-FT_CBUS_TXLED  FT_CBUS_RXLED  FT_CBUS_PWRON FT_CBUS_SLEEP
+Cbus0          Cbus1          Cbus2         Cbus3          Cbus4
+-----          -----          -----         -----          -----
+FT_CBUS_TXLED  FT_CBUS_RXLED  FT_CBUS_PWRON FT_CBUS_SLEEP  FT_CBUS_UNUSED
 ```
 
 If CBUS0 already shows `FT_CBUS_IOMODE`, the device was already programmed -- skip to Step 4.
@@ -175,12 +175,27 @@ Program all four CBUS pins to GPIO mode (most flexible):
 Set-PsGadgetFt232rCbusMode -Index 0
 ```
 
-After the command completes, **unplug and replug the USB cable** (or use `CyclePort` --
-see the OOP approach below). The new EEPROM settings do not take effect until the device
-re-enumerates on the USB bus.
+After writing, the function will display a prompt:
 
-> **Beginner**: After running this command, unplug the USB cable from your computer, wait
-> two seconds, and plug it back in. This resets the chip and loads the new settings.
+```
+EEPROM written successfully.
+The new CBUS pin settings will not take effect until the device re-enumerates on the USB bus.
+
+You have two options:
+  [Y] Cycle the USB port automatically right now (no cable unplug needed)
+  [N] Unplug and replug the USB cable manually, then continue
+
+Apply EEPROM Changes
+Cycle the USB port now to apply the new settings?
+[Y] Yes  [N] No  [?] Help (default is "Y"):
+```
+
+- **Press Y (or Enter)** to cycle the port automatically. No cable unplug required.
+- **Press N** if you prefer to unplug and replug the USB cable manually.
+
+> **Beginner**: Just press Enter (or Y) when prompted. The chip will briefly
+> disconnect and reconnect on its own, and you will see a confirmation message
+> when it is done. No need to touch the cable.
 
 > **Engineer**: The FT232R's EEPROM is 128 x 16-bit EEPROM. CBUS mode fields are stored in
 > words 0x18-0x1A. Write cycles are limited to roughly 10,000 per device lifetime, but
@@ -256,22 +271,24 @@ Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State HIGH -DurationMs 500
 
 ---
 
-## Automated EEPROM Setup With Port Cycle (No Manual Replug)
+## Unattended / Scripted Setup
 
-If you are scripting an unattended setup, use `CyclePort` to apply EEPROM changes
-without physically unplugging the device:
+For unattended automation (CI pipelines, deployment scripts), use `-Confirm:$false` to
+skip both the EEPROM write confirmation and the port-cycle prompt:
+
+```powershell
+Set-PsGadgetFt232rCbusMode -Index 0 -Pins @(0) -Confirm:$false
+```
+
+This writes the EEPROM and cycles the port without any interactive prompts. The returned
+object's `PortCycled` property will be `True` on success.
+
+To cycle the port later from an already-connected device object:
 
 ```powershell
 $dev = New-PsGadgetFtdi -Index 0
 $dev.Connect()
-
-Set-PsGadgetFt232rCbusMode -PsGadget $dev -Pins @(0)
-
-Write-Host "Cycling USB port to apply EEPROM changes..."
-$dev.CyclePort()   # triggers USB re-enumeration; polls until device returns
-$dev.Close()
-
-Write-Host "Done. Run the motor control block above."
+$dev.CyclePort()   # triggers USB re-enumeration; the device handle is released automatically
 ```
 
 > **Beginner**: `CyclePort` tells the chip to disconnect and reconnect itself on the USB bus

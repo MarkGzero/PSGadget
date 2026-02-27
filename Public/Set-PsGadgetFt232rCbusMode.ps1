@@ -13,15 +13,15 @@ function Set-PsGadgetFt232rCbusMode {
     FT_CBUS_IOMODE (or any other supported FT_CBUS_OPTIONS function).
 
     This is a one-time setup step that replaces the need for FTDI's FT_PROG tool.
-    After writing, you must disconnect and reconnect the USB device for the new
-    EEPROM settings to take effect.
+    After writing, the function will prompt you to either cycle the USB port
+    automatically (no cable unplug required) or replug the cable manually.
 
     Once CBUS pins are set to FT_CBUS_IOMODE, Set-PsGadgetGpio can control them
     directly without any additional EEPROM changes.
 
     Workflow:
         1. Run Set-PsGadgetFt232rCbusMode once per device to enable GPIO on CBUS pins.
-        2. Reconnect the USB device.
+        2. Accept the prompt to cycle the port, or unplug and replug the USB cable.
         3. Use Set-PsGadgetGpio -DeviceIndex N -Pins @(0..3) -State HIGH/LOW freely.
 
     Available -Mode values:
@@ -73,8 +73,11 @@ function Set-PsGadgetFt232rCbusMode {
 
     .NOTES
     - Only CBUS pins 0-3 are configurable. CBUS4 is a special-purpose pin.
-    - The EEPROM change does NOT take effect until the USB device is replugged.
-    - To verify the EEPROM after replugging, use Get-PsGadgetFtdiEeprom.
+    - After a successful write, the function prompts to cycle the USB port
+      automatically. Accepting is equivalent to physically unplugging and replugging.
+    - The result object includes a PortCycled property indicating whether the port
+      was cycled automatically (True) or left for manual replug (False).
+    - To verify the EEPROM after cycling/replugging, use Get-PsGadgetFtdiEeprom.
     - This function only works on Windows with the D2XX driver loaded.
     #>
 
@@ -167,7 +170,65 @@ function Set-PsGadgetFt232rCbusMode {
 
         if ($result.Success) {
             Write-Verbose "FT232R EEPROM updated: $pinNames set to $Mode."
-            Write-Verbose "ACTION REQUIRED: Disconnect and reconnect the USB device for changes to take effect."
+
+            # Inform the user and offer automatic port cycling.
+            Write-Host ""
+            Write-Host "EEPROM written successfully."
+            Write-Host "The new CBUS pin settings will not take effect until the device re-enumerates on the USB bus."
+            Write-Host ""
+            Write-Host "You have two options:"
+            Write-Host "  [Y] Cycle the USB port automatically right now (no cable unplug needed)"
+            Write-Host "  [N] Unplug and replug the USB cable manually, then continue"
+            Write-Host ""
+
+            $choices = [System.Management.Automation.Host.ChoiceDescription[]]@(
+                [System.Management.Automation.Host.ChoiceDescription]::new(
+                    '&Yes',
+                    'Cycle the USB port now. The device will briefly disconnect and reconnect automatically without needing to physically unplug the cable.'
+                )
+                [System.Management.Automation.Host.ChoiceDescription]::new(
+                    '&No',
+                    'Skip automatic cycling. Unplug and replug the USB cable manually, then continue.'
+                )
+            )
+
+            $choice = $Host.UI.PromptForChoice(
+                'Apply EEPROM Changes',
+                'Cycle the USB port now to apply the new settings?',
+                $choices,
+                0   # default = Yes
+            )
+
+            if ($choice -eq 0) {
+                Write-Host ""
+                Write-Host "Cycling USB port on $($targetDev.Description) ($($targetDev.SerialNumber))..."
+                try {
+                    $cycleDevice = [PsGadgetFtdi]::new([int]$targetIndex)
+                    $cycleDevice.Connect()
+                    $cycleDevice.CyclePort()
+
+                    Write-Host ""
+                    Write-Host "Port cycled successfully. The device has re-enumerated with the new EEPROM settings."
+                    Write-Host "You can now use Set-PsGadgetGpio or Connect-PsGadgetFtdi immediately."
+                    Write-Host ""
+                    Write-Host "To verify the new settings:"
+                    Write-Host "  Get-PsGadgetFtdiEeprom -Index $targetIndex | Select-Object Cbus0, Cbus1, Cbus2, Cbus3"
+
+                    $result | Add-Member -MemberType NoteProperty -Name 'PortCycled' -Value $true -Force
+                } catch {
+                    Write-Warning "CyclePort failed: $_"
+                    Write-Warning "Please unplug and replug the USB cable manually to apply the new EEPROM settings."
+                    $result | Add-Member -MemberType NoteProperty -Name 'PortCycled' -Value $false -Force
+                }
+            } else {
+                Write-Host ""
+                Write-Host "ACTION REQUIRED: Unplug and replug the USB cable to activate the new EEPROM settings."
+                Write-Host ""
+                Write-Host "After replugging, verify the change with:"
+                Write-Host "  Get-PsGadgetFtdiEeprom -Index $targetIndex | Select-Object Cbus0, Cbus1, Cbus2, Cbus3"
+                Write-Host ""
+                $result | Add-Member -MemberType NoteProperty -Name 'PortCycled' -Value $false -Force
+            }
         }
 
         return $result
