@@ -107,11 +107,55 @@ Never modify exports in [PSGadget.psd1](PSGadget.psd1) without updating the corr
 
 ## Examples and Workflow Documentation
 
+### Four Audience Personas
+
+All documentation and walkthroughs in `examples/` are written with four readers in mind.
+When adding or updating example files, include content that serves each persona, using
+clearly labeled callout blocks (`> **Beginner**:`, `> **Scripter**:`, `> **Engineer**:`, optional
+`> **Pro**:` for advanced notes). Tailor the depth as follows:
+
+- **Beginner** - Complete beginner. No assumed knowledge of USB, drivers, microcontrollers,
+  or PowerShell beyond "open a terminal". Needs every concept explained, every command
+  justified. Use plain language, avoid jargon without definition.
+
+- **Scripter** - PowerShell amateur with limited hardware integration knowledge.
+  Comfortable writing scripts, knows module import, pipelines, objects. Does not know
+  about GPIO, I2C, FTDI drivers, EEPROM, or how USB hardware enumeration works. Explain
+  hardware concepts; assume PowerShell syntax is already understood.
+
+- **Engineer** - Community college background in basic mechanical and electrical engineering.
+  Understands circuits, voltage levels, digital I/O, I2C/SPI protocols, datasheets, and
+  pin-level hardware concepts. Less familiar with the Windows driver stack, PowerShell
+  module system, and D2XX API. Explain software and tooling; assume hardware knowledge.
+
+- **Pro** - Savvy with both PowerShell and hardware/electronics. Reads reference tables
+  and command lists; does not need step-by-step instructions. Include a Quick Reference
+  section at the bottom of each walkthrough.
+
+### Example File Format
+
+Examples in `examples/` are **Markdown walkthroughs** (`.md`), not executable `.ps1` scripts.
+Each walkthrough follows this structure:
+
+1. Title and one-sentence purpose
+2. Persona audience block (list all four personas)
+3. What You Need (hardware + software prerequisites)
+4. Hardware Background (with Engineer and Beginner callouts where relevant)
+5. Step-by-step instructions with persona callouts embedded inline
+6. Complete copy-paste script block at the end (runnable code)
+7. Troubleshooting section
+8. Quick Reference section for Pro
+
+Name example files `Example-<Feature>.md`. When a `.ps1` example is needed as a companion
+runnable file (e.g. for automation or CI), name it `Example-<Feature>.ps1` and cross-reference
+it from the markdown.
+
+### Workflow Reference
+
 **Maintain [examples/psgadget_workflow.md](../examples/psgadget_workflow.md) as a living reference document.**
 
 Rules for keeping it current:
 - When a new device type gains GPIO or other public-API support, add an H2 section for it following the existing FT232H / FT232R pattern (enumerate -> setup steps -> commands -> pin map).
 - When a public function is added, renamed, or its parameters change, update both the inline code examples for the affected device section AND the Public Function Quick Reference table at the bottom of the file.
 - When a device's capability changes (e.g., async bit-bang for FT232R is implemented), update the Device Capability Comparison table and remove any "not yet implemented" notes.
-- The `examples/` folder is also the home for any future per-feature example scripts (`.ps1` files). Name them `Example-<Feature>.ps1`.
 - After every session that changes public behavior, verify the workflow file is still accurate by re-reading it alongside the current public function signatures.
