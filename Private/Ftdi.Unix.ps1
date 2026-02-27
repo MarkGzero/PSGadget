@@ -5,59 +5,131 @@ function Invoke-FtdiUnixEnumerate {
     [CmdletBinding()]
     [OutputType([System.Object[]])]
     param()
-    
-    try {
-        # TODO: Implement Unix FTDI enumeration using libftdi or USB device enumeration
-        # Could use lsusb, libftdi bindings, or direct USB device inspection
-        
-        throw [System.NotImplementedException]::new("Unix FTDI enumeration not yet implemented")
-        
-    } catch [System.NotImplementedException] {
-        # Return enhanced stub data for Unix development matching Windows format.
-        # Includes FT232R stub so CBUS GPIO code paths can be exercised on Linux.
-        $caps232H  = Get-FtdiChipCapabilities -TypeName 'FT232H'
-        $caps232R  = Get-FtdiChipCapabilities -TypeName 'FT232R'
 
-        return @(
-            [PSCustomObject]@{
-                Index          = 0
-                Type           = 'FT232H'
-                Description    = 'FT232H USB-Serial (Unix STUB)'
-                SerialNumber   = 'UNIXSTUB001'
-                LocationId     = '/dev/ttyUSB0'
-                IsOpen         = $false
-                Flags          = '0x00000000'
-                DeviceId       = '0x04036014'
-                Handle         = $null
-                Driver         = 'libftdi (STUB)'
-                Platform       = 'Unix'
-                GpioMethod     = $caps232H.GpioMethod
-                GpioPins       = $caps232H.GpioPins
-                HasMpsse       = $caps232H.HasMpsse
-                CapabilityNote = $caps232H.CapabilityNote
-            },
-            [PSCustomObject]@{
-                Index          = 1
-                Type           = 'FT232R'
-                Description    = 'FT232R USB UART (Unix STUB)'
-                SerialNumber   = 'UNIXSTUB002'
-                LocationId     = '/dev/ttyUSB1'
-                IsOpen         = $false
-                Flags          = '0x00000000'
-                DeviceId       = '0x04036001'
-                Handle         = $null
-                Driver         = 'libftdi (STUB)'
-                Platform       = 'Unix'
-                GpioMethod     = $caps232R.GpioMethod
-                GpioPins       = $caps232R.GpioPins
-                HasMpsse       = $caps232R.HasMpsse
-                CapabilityNote = $caps232R.CapabilityNote
-            }
-        )
-    } catch {
-        Write-Warning "Unix FTDI enumeration failed: $($_.Exception.Message)"
-        return @()
+    # FTDI USB Product ID -> chip type name
+    $ftdiPidMap = @{
+        '6001' = 'FT232R'
+        '6010' = 'FT2232H'
+        '6011' = 'FT4232H'
+        '6014' = 'FT232H'
+        '6015' = 'FT-X Series'
+        '0600' = 'FT232BM'
+        '0601' = 'FT245BM'
     }
+
+    $sysDevicesPath = '/sys/bus/usb/devices'
+
+    # If sysfs is not available (non-Linux Unix / container), fall back to stubs.
+    if (-not (Test-Path $sysDevicesPath)) {
+        Write-Verbose "sysfs not available; returning Unix stub devices"
+        return Invoke-FtdiUnixStubs
+    }
+
+    try {
+        $found = @()
+
+        Get-ChildItem -Path $sysDevicesPath -Directory -ErrorAction Stop | ForEach-Object {
+            $devDir    = $_.FullName
+            $vendorFile = Join-Path $devDir 'idVendor'
+
+            # Only process FTDI devices (VID 0403)
+            if (-not (Test-Path $vendorFile)) { return }
+            $vid = (Get-Content $vendorFile -Raw -ErrorAction SilentlyContinue).Trim()
+            if ($vid -ne '0403') { return }
+
+            $pid     = (Get-Content (Join-Path $devDir 'idProduct') -Raw -ErrorAction SilentlyContinue).Trim()
+            $serial  = (Get-Content (Join-Path $devDir 'serial')    -Raw -ErrorAction SilentlyContinue).Trim()
+            $product = (Get-Content (Join-Path $devDir 'product')   -Raw -ErrorAction SilentlyContinue).Trim()
+            $busNum  = (Get-Content (Join-Path $devDir 'busnum')    -Raw -ErrorAction SilentlyContinue).Trim()
+            $devNum  = (Get-Content (Join-Path $devDir 'devnum')    -Raw -ErrorAction SilentlyContinue).Trim()
+
+            # Find associated /dev/ttyUSBx by looking for ttyUSB* nodes under this device tree
+            $ttyDirs = Get-ChildItem -Path $devDir -Recurse -Filter 'ttyUSB*' -Directory -ErrorAction SilentlyContinue
+            $locationId = if ($ttyDirs) { "/dev/$($ttyDirs[0].Name)" } else { "usb-bus$busNum-dev$devNum" }
+
+            # If the kernel ftdi_sio (VCP) driver claimed the device, a ttyUSBx will exist.
+            # D2XX / libftdi requires that driver to be unbound first.
+            $isVcp = [bool]$ttyDirs
+
+            $typeName   = if ($ftdiPidMap.ContainsKey($pid)) { $ftdiPidMap[$pid] } else { "FTDI-$pid" }
+            $caps       = Get-FtdiChipCapabilities -TypeName $typeName
+            $deviceId   = '0x{0}{1}' -f $vid.ToUpper(), $pid.ToUpper()
+
+            $found += [PSCustomObject]@{
+                Index          = $found.Count
+                Type           = $typeName
+                Description    = if ($product) { $product } else { "FTDI $typeName" }
+                SerialNumber   = if ($serial)  { $serial }  else { '' }
+                LocationId     = $locationId
+                IsOpen         = $false
+                Flags          = '0x00000000'
+                DeviceId       = $deviceId
+                Handle         = $null
+                Driver         = if ($isVcp) { 'ftdi_sio (VCP)' } else { 'sysfs' }
+                Platform       = 'Unix'
+                IsVcp          = $isVcp
+                GpioMethod     = $caps.GpioMethod
+                GpioPins       = $caps.GpioPins
+                HasMpsse       = $caps.HasMpsse
+                CapabilityNote = $caps.CapabilityNote
+            }
+        }
+
+        if ($found.Count -eq 0) {
+            Write-Verbose "No FTDI devices found via sysfs; returning Unix stub devices"
+            return Invoke-FtdiUnixStubs
+        }
+
+        return $found
+
+    } catch {
+        Write-Warning "Unix sysfs enumeration failed: $($_.Exception.Message)"
+        return Invoke-FtdiUnixStubs
+    }
+}
+
+function Invoke-FtdiUnixStubs {
+    # Returns hardcoded stub device objects for dev/CI environments with no hardware.
+    $caps232H = Get-FtdiChipCapabilities -TypeName 'FT232H'
+    $caps232R = Get-FtdiChipCapabilities -TypeName 'FT232R'
+    return @(
+        [PSCustomObject]@{
+            Index          = 0
+            Type           = 'FT232H'
+            Description    = 'FT232H USB-Serial (Unix STUB)'
+            SerialNumber   = 'UNIXSTUB001'
+            LocationId     = '/dev/ttyUSB0'
+            IsOpen         = $false
+            Flags          = '0x00000000'
+            DeviceId       = '0x040300006014'
+            Handle         = $null
+            Driver         = 'libftdi (STUB)'
+            Platform       = 'Unix'
+            IsVcp          = $false
+            GpioMethod     = $caps232H.GpioMethod
+            GpioPins       = $caps232H.GpioPins
+            HasMpsse       = $caps232H.HasMpsse
+            CapabilityNote = $caps232H.CapabilityNote
+        },
+        [PSCustomObject]@{
+            Index          = 1
+            Type           = 'FT232R'
+            Description    = 'FT232R USB UART (Unix STUB)'
+            SerialNumber   = 'UNIXSTUB002'
+            LocationId     = '/dev/ttyUSB1'
+            IsOpen         = $false
+            Flags          = '0x00000000'
+            DeviceId       = '0x040300006001'
+            Handle         = $null
+            Driver         = 'libftdi (STUB)'
+            Platform       = 'Unix'
+            IsVcp          = $false
+            GpioMethod     = $caps232R.GpioMethod
+            GpioPins       = $caps232R.GpioPins
+            HasMpsse       = $caps232R.HasMpsse
+            CapabilityNote = $caps232R.CapabilityNote
+        }
+    )
 }
 
 function Invoke-FtdiUnixOpen {
