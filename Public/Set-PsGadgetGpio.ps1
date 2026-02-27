@@ -191,6 +191,23 @@ function Set-PsGadgetGpio {
                     $pinLabel = "ACBUS pins [$($Pins -join ', ')]"
                 }
 
+                'IoT' {
+                    # FT232H via .NET IoT GpioController (PS 7.4+ / .NET 8+ backend)
+                    # PsGadget ACBUS pin 0-7 -> IoT GpioController pin 8-15 (C0-C7)
+                    if (-not $Connection.GpioController) {
+                        throw "IoT connection is missing GpioController. Re-open the device with Connect-PsGadgetFtdi."
+                    }
+                    $iotParams = @{
+                        GpioController = $Connection.GpioController
+                        Pins           = $Pins
+                        State          = $State
+                    }
+                    if ($DurationMs) { $iotParams.DurationMs = $DurationMs }
+
+                    $success  = Set-FtdiIotGpioPins @iotParams
+                    $pinLabel = "ACBUS pins [$($Pins -join ', ')] (IoT)"
+                }
+
                 'CBUS' {
                     # FT232R / FT231X / FT230X - CBUS bit-bang via SetBitMode 0x20
                     # Validate pin range - CBUS bit-bang only supports CBUS0-3

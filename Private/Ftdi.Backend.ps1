@@ -79,13 +79,32 @@ function Get-FtdiDeviceList {
     try {
         Write-Verbose "Enumerating FTDI devices via platform-specific backend..."
         
-        # Determine platform and call appropriate implementation
-        if ($PSVersionTable.PSVersion.Major -le 5 -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
-            Write-Verbose "Using Windows FTDI backend"
-            $devices = Invoke-FtdiWindowsEnumerate
-        } else {
-            Write-Verbose "Using Unix FTDI backend"  
-            $devices = Invoke-FtdiUnixEnumerate
+        # Determine platform and call appropriate implementation.
+        # IoT backend is tried first on PS7.4+/.NET8+.  If it throws (e.g. libftd2xx.so
+        # absent on a Linux dev machine with no physical device) fall through to the
+        # platform-specific backend so that Unix stubs remain active.
+        $devices = $null
+        if ($script:IotBackendAvailable) {
+            Write-Verbose "Using IoT .NET backend for enumeration"
+            try {
+                $devices = Invoke-FtdiIotEnumerate
+            } catch {
+                Write-Verbose "IoT backend unavailable ($($_.Exception.GetType().Name)); falling back to platform-specific backend"
+                $devices = $null
+            }
+            if (-not $devices -or @($devices).Count -eq 0) {
+                Write-Verbose "IoT enumeration returned no devices; falling back to platform-specific backend"
+                $devices = $null
+            }
+        }
+        if ($null -eq $devices) {
+            if ($PSVersionTable.PSVersion.Major -le 5 -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
+                Write-Verbose "Using Windows FTDI backend"
+                $devices = Invoke-FtdiWindowsEnumerate
+            } else {
+                Write-Verbose "Using Unix FTDI backend"
+                $devices = Invoke-FtdiUnixEnumerate
+            }
         }
         
         # Validate and enrich device list

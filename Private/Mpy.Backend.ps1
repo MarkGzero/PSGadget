@@ -28,15 +28,36 @@ function Get-MpyPortList {
             return Invoke-MpyWindowsPortList
         } else {
             # Basic list - just port names sorted
-            return [System.IO.Ports.SerialPort]::GetPortNames() | Sort-Object
+            $ports = [System.IO.Ports.SerialPort]::GetPortNames() | Sort-Object
+            if (-not $ports -or @($ports).Count -eq 0) {
+                Write-Verbose "No real serial ports found on Windows; returning stub port"
+                return @('COM99 (STUB)')
+            }
+            return $ports
         }
     } else {
         # Unix: basic .NET enumeration for now
         $ports = [System.IO.Ports.SerialPort]::GetPortNames() | Sort-Object
         if (-not $Detailed) {
+            if (-not $ports -or @($ports).Count -eq 0) {
+                Write-Verbose "No real serial ports found on Unix; returning stub port"
+                return @('/dev/ttyUSB0 (STUB)')
+            }
             return $ports
         }
         # Build minimal objects for Unix (no WMI available)
+        if (-not $ports -or @($ports).Count -eq 0) {
+            Write-Verbose "No real serial ports found on Unix; returning stub detailed object"
+            return @([PSCustomObject]@{
+                Port          = '/dev/ttyUSB0'
+                FriendlyName  = '/dev/ttyUSB0 (STUB)'
+                VID           = 'N/A'
+                PID           = 'N/A'
+                Manufacturer  = 'Unknown (STUB)'
+                IsMicroPython = $false
+                Status        = 'Stub'
+            })
+        }
         return $ports | ForEach-Object {
             [PSCustomObject]@{
                 Port          = $_

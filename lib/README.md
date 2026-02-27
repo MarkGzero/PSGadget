@@ -6,15 +6,20 @@ This directory contains the FTDI D2XX .NET wrapper assemblies required for PsGad
 
 ```
 lib/
-├── net48/              # .NET Framework 4.8 assemblies (PowerShell 5.1)
-│   ├── FTD2XX_NET.dll
-│   └── FTD2XX_NET.xml  # XML documentation
-├── netstandard20/      # .NET Standard 2.0 assemblies (PowerShell 7+)
-│   ├── FTD2XX_NET.dll
-│   ├── FTD2XX_NET.xml  # XML documentation
-│   └── FTD2XX_NET.deps.json
-└── native/             # Native FTDI drivers
-    └── FTD2XX.dll      # FTDI D2XX driver library
++-- net48/              # .NET Framework 4.8 assemblies (PowerShell 5.1 / ISE)
+|   +-- FTD2XX_NET.dll
+|   +-- FTD2XX_NET.xml  # XML documentation
++-- netstandard20/      # .NET Standard 2.0 assemblies (PowerShell 7.0 - 7.3)
+|   +-- FTD2XX_NET.dll
+|   +-- FTD2XX_NET.xml  # XML documentation
+|   +-- FTD2XX_NET.deps.json
++-- net8/               # .NET IoT assemblies (PowerShell 7.4+ / .NET 8+)
+|   +-- System.Device.Gpio.dll              # GPIO / I2C / SPI abstractions
+|   +-- Iot.Device.Bindings.dll             # FT232H driver + 400+ device bindings
+|   +-- UnitsNet.dll                        # Physical units (required by Iot.Device.Bindings)
+|   +-- Microsoft.Extensions.Logging.Abstractions.dll  # Logging interface
++-- native/             # Native FTDI drivers (Windows)
+    +-- FTD2XX.dll      # FTDI D2XX driver library
 ```
 
 ## Assembly Information
@@ -27,25 +32,42 @@ lib/
   - Extract `net48/FTD2XX_NET.dll` -> `lib/net48/`
   - Extract `netstandard20/FTD2XX_NET.dll` -> `lib/netstandard20/`
 
+**System.Device.Gpio.dll** (v4.1.0, NuGet: System.Device.Gpio): Microsoft .NET IoT GPIO abstraction
+- Provides `GpioController`, `I2cDevice`, `SpiDevice`, `PwmChannel` standard interfaces
+- Platform-independent - works on Windows, Linux, macOS
+
+**Iot.Device.Bindings.dll** (v4.1.0, NuGet: Iot.Device.Bindings): Microsoft .NET IoT device drivers
+- Includes `Ft232HDevice` for FT232H / FT2232H / FT4232H GPIO + I2C + SPI via D2XX
+- Includes 400+ pre-built device bindings (sensors, displays, ADCs, etc.)
+- All bindings use the standard `System.Device.Gpio` interfaces -- any binding works with FT232H
+
 **FTD2XX.dll**: Native FTDI D2XX driver library (installed with the CDM package)
 - Low-level USB communication with FTDI devices
-- FTD2XX_NET.dll depends on this native library at runtime
-- Installed system-wide by the FTDI CDM driver package (see below)
+- Both FTD2XX_NET.dll and Iot.Device.Bindings.dll depend on this at runtime
+- Installed system-wide by the FTDI CDM driver package (see Downloads)
 
 ## Version Requirements
 
-- **PowerShell 5.1**: Uses net48/FTD2XX_NET.dll (.NET Framework 4.8)
-- **PowerShell 7+**: Uses netstandard20/FTD2XX_NET.dll (.NET Standard 2.0)
+- **PowerShell 5.1 / ISE**: Uses `net48/FTD2XX_NET.dll` (.NET Framework 4.8)
+- **PowerShell 7.0 - 7.3**: Uses `netstandard20/FTD2XX_NET.dll` (.NET Standard 2.0)
+- **PowerShell 7.4+ / .NET 8+**: Uses `net8/` IoT DLLs (primary) + `netstandard20/FTD2XX_NET.dll` (FT232R CBUS fallback, Windows only)
+
+The correct path is selected automatically by `Initialize-FtdiAssembly.ps1` at module import.
+No user configuration is needed -- all three environments produce an identical public API.
 
 ## Downloads
 
-| Component | What it provides | Download |
-|-----------|-----------------|----------|
-| FTD2XX_NET managed wrapper (v1.3.4) | `FTD2XX_NET.dll` for net48 and netstandard20 | https://ftdichip.com/wp-content/uploads/2026/01/FTD2XX_NET_v1.3.4.zip |
-| FTDI CDM driver package | Native `FTD2XX.dll` + VCP drivers, installs system-wide | https://ftdichip.com/drivers/d2xx-drivers/ |
+| Component | What it provides | Bundled? | Download |
+|-----------|-----------------|----------|----------|
+| FTD2XX_NET managed wrapper (v1.3.4) | `FTD2XX_NET.dll` for net48 and netstandard20 | Yes | https://ftdichip.com/wp-content/uploads/2026/01/FTD2XX_NET_v1.3.4.zip |
+| FTDI CDM driver package | Native `FTD2XX.dll` + VCP drivers, installs system-wide | No (system driver) | https://ftdichip.com/drivers/d2xx-drivers/ |
+| System.Device.Gpio (v4.1.0) | GPIO / I2C / SPI .NET abstractions | Yes (net8/) | https://www.nuget.org/packages/System.Device.Gpio/4.1.0 |
+| Iot.Device.Bindings (v4.1.0) | FT232H driver + 400+ IoT device bindings | Yes (net8/) | https://www.nuget.org/packages/Iot.Device.Bindings/4.1.0 |
+| UnitsNet (v5.74.0) | Physical units library (dep of Iot.Device.Bindings) | Yes (net8/) | https://www.nuget.org/packages/UnitsNet/5.74.0 |
+| Microsoft.Extensions.Logging.Abstractions (v8.0.3) | Logging interface (dep of Iot.Device.Bindings) | Yes (net8/) | https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions/8.0.3 |
 
-Both are required on Windows. The CDM package is installed once per machine.
-The managed wrapper DLLs are bundled in this `lib/` directory.
+The CDM driver package must be installed once per Windows machine.
+All DLL files are bundled in this `lib/` directory and require no manual installation.
 
 ## Licensing
 

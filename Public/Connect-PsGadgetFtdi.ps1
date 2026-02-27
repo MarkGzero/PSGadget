@@ -99,13 +99,30 @@ function Connect-PsGadgetFtdi {
             Write-Warning "Device appears to be in use by another application"
         }
         
-        # Call platform-specific opening function
-        if ($PSVersionTable.PSVersion.Major -le 5 -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
-            Write-Verbose "Using Windows FTDI backend for connection"
-            $connection = Invoke-FtdiWindowsOpen -DeviceInfo $targetDevice
-        } else {
-            Write-Verbose "Using Unix FTDI backend for connection"
-            $connection = Invoke-FtdiUnixOpen -Index $deviceIndex
+        # Call platform/backend-specific opening function.
+        # IoT backend: preferred for MPSSE devices (FT232H family) on PS 7.4+ / .NET 8+.
+        #              For CBUS devices (FT232R) it falls back to FTD2XX_NET automatically.
+        # FTD2XX_NET:  used on PS 5.1, PS ISE, and PS 7.x below .NET 8.
+        # If the IoT open fails (e.g. no physical device on a Linux dev machine),
+        # fall through to the platform stub so development without hardware still works.
+        $connection = $null
+        if ($script:IotBackendAvailable) {
+            Write-Verbose "Using IoT .NET backend for connection"
+            try {
+                $connection = Invoke-FtdiIotOpen -DeviceInfo $targetDevice
+            } catch {
+                Write-Verbose "IoT open failed ($($_.Exception.GetType().Name)); falling back to platform backend"
+                $connection = $null
+            }
+        }
+        if (-not $connection) {
+            if ($PSVersionTable.PSVersion.Major -le 5 -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
+                Write-Verbose "Using Windows FTDI backend for connection"
+                $connection = Invoke-FtdiWindowsOpen -DeviceInfo $targetDevice
+            } else {
+                Write-Verbose "Using Unix FTDI backend for connection"
+                $connection = Invoke-FtdiUnixOpen -Index $deviceIndex
+            }
         }
         
         if (-not $connection) {
