@@ -15,12 +15,27 @@ Import-Module ./PSGadget.psd1 -Force
 # Enumerate all connected FTDI devices
 List-PsGadgetFtdi | Format-Table
 
-# Example output:
+# Example output (Windows):
 # Index  Description          SerialNumber  LocationId  Type    GpioMethod  HasMpsse
 # -----  -----------          ------------  ----------  ----    ----------  --------
 #   0    USB Serial Converter FT4ABCDE      197634      FT232H  MPSSE       True
 #   1    USB Serial Adapter   FT1XYZAB      197635      FT232R  CBUS        False
+
+# Example output (Linux, after rmmod ftdi_sio):
+# Index  Type    Description       SerialNumber  LocationId      IsVcp
+# -----  ----    -----------       ------------  ----------      -----
+#   0    FT232R  FT232R USB UART   BG01B0I1      usb-bus1-dev4   False
 ```
+
+**Linux note**: On Linux, `ftdi_sio` (VCP kernel module) claims FTDI devices
+automatically. Unload it before using GPIO:
+```bash
+sudo rmmod ftdi_sio
+```
+Devices claimed by `ftdi_sio` show as `IsVcp=True` and are hidden from
+`List-PsGadgetFtdi` by default. Use `-ShowVCP` to see them, or unload the
+driver to make them accessible. See [Getting Started - Linux Setup](../docs/wiki/Getting-Started.md#linux-setup)
+for full setup including `libftd2xx.so` installation.
 
 ---
 
