@@ -167,7 +167,9 @@ functions are importable and testable; hardware calls return stub data or throw
 ## Requirements
 
 - PowerShell 5.1 or 7+
-- Windows: FTDI CDM driver package (VCP + D2XX)
+- Windows (two components, both required):
+  - **FTDI CDM driver package** -- installs native `FTD2XX.dll`: [ftdichip.com/drivers/d2xx-drivers/](https://ftdichip.com/drivers/d2xx-drivers/)
+  - **FTD2XX_NET managed wrapper** (v1.3.4, bundled in `lib/`) -- to update: [FTD2XX_NET_v1.3.4.zip](https://ftdichip.com/wp-content/uploads/2026/01/FTD2XX_NET_v1.3.4.zip)
 - Linux/macOS: stub mode only (no D2XX driver)
 - MicroPython functions: `mpremote` on PATH (`pip install mpremote`)
 

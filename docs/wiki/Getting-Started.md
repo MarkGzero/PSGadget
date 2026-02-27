@@ -10,8 +10,8 @@ making your first GPIO call on each supported device type.
 | Requirement | Details |
 |-------------|---------|
 | PowerShell | 5.1 or 7+. Check with `$PSVersionTable.PSVersion` |
-| FTDI CDM drivers (Windows only) | [ftdichip.com/drivers/](https://ftdichip.com/drivers/) -- install both VCP and D2XX options |
-| FTD2XX_NET.dll | Bundled in `lib/` -- no separate download needed |
+| FTDI CDM driver package (Windows only) | Installs native `FTD2XX.dll` system-wide. [ftdichip.com/drivers/d2xx-drivers/](https://ftdichip.com/drivers/d2xx-drivers/) -- select the CDM package, install both VCP and D2XX options |
+| FTD2XX_NET managed wrapper (Windows only) | Bundled in `lib/` -- no install needed. To update, check latest library here: [C# FTD2XX Managed .NET Wrapper](https://ftdichip.com/software-examples/code-examples/csharp-examples/)|
 | mpremote (MicroPython only) | `pip install mpremote` |
 
 > **Linux / macOS**: The module loads and all functions are importable, but

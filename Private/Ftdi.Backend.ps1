@@ -105,6 +105,11 @@ function Get-FtdiDeviceList {
                     $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name HasMpsse       -Value $caps.HasMpsse       -Force
                     $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name CapabilityNote -Value $caps.CapabilityNote -Force
                 }
+                # Stamp IsVcp based on Driver field (VCP devices use ftdibus.sys)
+                if (-not $deviceArray[$i].PSObject.Properties['IsVcp']) {
+                    $isVcp = $deviceArray[$i].Driver -like '*VCP*'
+                    $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name IsVcp -Value $isVcp -Force
+                }
             }
             
             return $deviceArray
@@ -132,6 +137,7 @@ function Get-FtdiDeviceList {
                 Handle         = $null
                 Driver         = if ($isWindows) { 'ftd2xx.dll (STUB)' } else { 'libftdi (STUB)' }
                 Platform       = if ($isWindows) { 'Windows' } else { 'Unix' }
+                IsVcp          = $false
                 GpioMethod     = 'MPSSE'
                 GpioPins       = 'ACBUS0-7, ADBUS0-7'
                 HasMpsse       = $true
@@ -149,6 +155,7 @@ function Get-FtdiDeviceList {
                 Handle         = $null
                 Driver         = if ($isWindows) { 'ftdibus.sys (VCP) (STUB)' } else { 'libftdi (STUB)' }
                 Platform       = if ($isWindows) { 'Windows' } else { 'Unix' }
+                IsVcp          = if ($isWindows) { $true } else { $false }
                 GpioMethod     = 'CBUS'
                 GpioPins       = 'CBUS0-3 (CBUS bit-bang), ADBUS0-7 (async bit-bang)'
                 HasMpsse       = $false

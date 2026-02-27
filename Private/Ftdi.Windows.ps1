@@ -136,6 +136,7 @@ function Invoke-FtdiWindowsEnumerate {
                 Handle         = $null
                 Driver         = "ftd2xx.dll (STUB)"
                 Platform       = "Windows"
+                IsVcp          = $false
                 GpioMethod     = "MPSSE"
                 GpioPins       = "ACBUS0-7, ADBUS0-7"
                 HasMpsse       = $true
@@ -153,6 +154,7 @@ function Invoke-FtdiWindowsEnumerate {
                 Handle         = $null
                 Driver         = "ftdibus.sys (VCP) (STUB)"
                 Platform       = "Windows"
+                IsVcp          = $true
                 GpioMethod     = "CBUS"
                 GpioPins       = "CBUS0-3 (CBUS bit-bang), ADBUS0-7 (async bit-bang)"
                 HasMpsse       = $false
@@ -235,6 +237,7 @@ function Invoke-FtdiWindowsEnumerateVcp {
                         ComPort        = $comPort
                         VID            = $vid
                         PID            = $pidHex
+                        IsVcp          = $true
                         GpioMethod     = $caps.GpioMethod
                         GpioPins       = $caps.GpioPins
                         HasMpsse       = $caps.HasMpsse

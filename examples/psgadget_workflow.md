@@ -86,29 +86,39 @@ as the FT232H -- the dispatch is automatic based on the device's GpioMethod.
 ### Step 1 - Identify D2XX-Enabled Device
 
 **How FTDI Dual Driver Enumeration Works:**
-When both VCP and D2XX drivers are installed (standard Windows setup), each physical FTDI device appears **twice** in `List-PsGadgetFtdi`:
+When both VCP and D2XX drivers are installed (standard Windows setup), Windows loads two drivers per physical FTDI device. `List-PsGadgetFtdi` shows only the D2XX-accessible entry by default:
 
 ```powershell
-List-PsGadgetFtdi | Format-Table Index, Type, Driver, SerialNumber, LocationId, ComPort
+List-PsGadgetFtdi | Format-Table Index, Type, Driver, SerialNumber, LocationId
 
-# Example output for one physical device:
+# Example output (one physical FT232R device):
+# Index Type   Driver     SerialNumber LocationId
+# ----- ----   ------     ------------ ----------
+#   0   FT232R ftd2xx.dll BG01X3GX     197634
+```
+
+To see VCP entries as well (e.g. to find the COM port number for serial terminal use):
+```powershell
+List-PsGadgetFtdi -ShowVCP | Format-Table Index, Type, Driver, SerialNumber, LocationId, ComPort
+
+# Example output with -ShowVCP:
 # Index Type   Driver              SerialNumber LocationId ComPort
 # ----- ----   ------              ------------ ---------- -------
 #   0   FT232R ftd2xx.dll          BG01X3GX     197634            # <- Use this for PSGadget
-#   3   FT232R ftdibus.sys (VCP)   BG01X3GXA    0          COM3    # <- Same device, VCP view
+#   1   FT232R ftdibus.sys (VCP)   BG01X3GXA    0          COM3    # <- Same device, VCP view
 ```
 
 **Key observations:**
-- **Same physical device** = Same LocationId (D2XX), SerialNumber with/without "A" suffix
-- **D2XX entry** (no "A" suffix): Use this index for PSGadget EEPROM/GPIO functions
-- **VCP entry** ("A" suffix): Available for serial terminal applications
+- **Same physical device** = D2XX entry (no "A" suffix) + VCP entry ("A" suffix)
+- **D2XX entry**: Shown by default — use this index for PsGadget EEPROM/GPIO functions
+- **VCP entry**: Hidden by default — shown with `-ShowVCP`; use for serial terminal applications
 - **LocationId**: USB hub+port address — stable for a fixed physical port, even after re-plug
-- **No driver switching needed** - Both modes coexist perfectly!
+- **No driver switching needed** - Both modes coexist!
 
 **Find your D2XX-enabled device:**
 ```powershell
-# Look for devices with ftd2xx.dll driver - these are ready for PSGadget
-List-PsGadgetFtdi | Where-Object Driver -eq "ftd2xx.dll" | Format-Table Index, SerialNumber, LocationId
+# Default output already shows only D2XX devices
+List-PsGadgetFtdi | Format-Table Index, SerialNumber, LocationId
 ```
 
 ### Step 2 - Inspect current EEPROM (optional, recommended first time)
@@ -185,17 +195,20 @@ Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0, 1) -State LOW
 
 **Error: "Failed to open device via OpenByIndex and OpenBySerialNumber: FT_DEVICE_NOT_FOUND"**
 
-This typically means you're trying to use a VCP-only index. Solution:
+This typically means you're trying to use an index that corresponds to a VCP-mode device.
+VCP devices no longer appear in `List-PsGadgetFtdi` by default so this should be rare.
+If it occurs, verify your index against current output:
 ```powershell
-# Check which devices have D2XX access
-List-PsGadgetFtdi | Where-Object Driver -eq "ftd2xx.dll" | Format-Table Index, SerialNumber
+# Default output shows only D2XX-accessible devices
+List-PsGadgetFtdi | Format-Table Index, SerialNumber
 
-# Use one of those Index values instead
+# Use one of those Index values
 Set-PsGadgetFt232rCbusMode -Index <D2XX_INDEX>
 ```
 
 **Understanding Dual Enumeration:**
-- **One physical device** = Two entries in `List-PsGadgetFtdi`
+- `List-PsGadgetFtdi` shows D2XX devices only by default (PsGadget-compatible)
+- Use `List-PsGadgetFtdi -ShowVCP` to see VCP entries and their COM port assignments
 - **ftd2xx.dll entry**: Use for PSGadget EEPROM/GPIO functions
 - **ftdibus.sys (VCP) entry**: Use for serial terminal applications
 - **Serial number pattern**: Same base number, VCP adds "A" suffix
@@ -419,7 +432,7 @@ $conn.Close()
 | Function                    | Purpose                                                       |
 |-----------------------------|---------------------------------------------------------------|
 | New-PsGadgetFtdi            | Create a PsGadgetFtdi device object (OOP entry point; -SerialNumber, -Index, or -LocationId) |
-| List-PsGadgetFtdi           | Enumerate connected FTDI devices (shows Index, SerialNumber, LocationId)                      |
+| List-PsGadgetFtdi           | Enumerate PsGadget-compatible FTDI devices (D2XX only by default; use -ShowVCP to include VCP) |
 | Connect-PsGadgetFtdi        | Open a device connection by index, serial number, or LocationId |
 | Get-PsGadgetFtdiEeprom      | Read EEPROM contents (FT232R: inspect CBUS modes)             |
 | Set-PsGadgetFt232rCbusMode  | Program FT232R CBUS pins to GPIO mode (one-time)              |
