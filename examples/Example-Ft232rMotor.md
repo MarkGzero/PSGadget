@@ -22,8 +22,10 @@ throughout to find the depth that matches your background.
 
 - An FT232R or FT232RNL USB breakout board (Waveshare USB-TO-TTL-FT232, SparkFun, etc.)
 - A small DC motor rated for 3.3-5V
-- A small NPN transistor: 2N2222, BC547, or S8050 (handles up to 600mA)
-- A 1k ohm resistor (base resistor)
+- A transistor -- use whichever you have:
+  - **NPN**: 2N2222, BC547, or S8050 (any of these work; handles up to 600mA)
+  - **PNP**: PN2907 (handles up to 600mA; logic is inverted -- see wiring below)
+- Resistors: 1k ohm (base resistor) -- add a 10k ohm if using PNP
 - Breadboard and jumper wires
 - Windows PC with FTDI CDM drivers installed, USB cable
 - PowerShell 5.1 or later
@@ -87,23 +89,84 @@ borrow current from the 5V rail to actually drive the motor.
 
 CBUS0 sources ~4mA maximum. Most motors -- even tiny pager/coin vibration motors --
 draw more than that under load, causing the pin voltage to sag and the motor to stall.
-Drive a small NPN transistor from CBUS0 instead and power the motor from the USB 5V pin.
+Drive a transistor from CBUS0 instead and power the motor from the USB 5V pin.
+
+Use whichever transistor you have on hand. The circuits differ only in wiring and
+switching logic.
+
+---
+
+#### Option A: NPN transistor (2N2222 / BC547 / S8050) -- recommended for beginners
+
+Simplest wiring. GPIO HIGH = motor ON, GPIO LOW = motor OFF.
+Works with any VCCIO setting (3.3V or 5V).
 
 ```
 FT232R breakout
-  CBUS0 ---[1k resistor]--- Base  (NPN: 2N2222 / BC547 / S8050)
-  5V    -------------------- Motor (+)
-                             Motor (-) --- Collector
-                             Emitter  --- GND
-  GND   -------------------- GND
+  CBUS0 ---[1k]--- Base      (NPN: 2N2222 / BC547 / S8050)
+  5V    ---------- Motor (+)
+                   Motor (-) --- Collector
+                   Emitter   --- GND
+  GND   ---------- GND
 ```
 
-The 1k resistor limits the current from CBUS0 to ~4mA (well within spec).
-The transistor then switches the full motor current from the 5V rail.
+> **Beginner**: The transistor is just a remote-controlled switch. When CBUS0
+> goes HIGH, a tiny signal current flows into the Base, and the transistor closes
+> the path between Collector and Emitter -- letting real motor current flow from
+> the 5V pin. When CBUS0 goes LOW, the switch opens and the motor stops.
 
-> **Engineer**: Add a 1N4148 freewheeling diode across the motor terminals (cathode to
-> motor+) to clamp the back-EMF spike when the transistor switches off. It is optional
-> for a coin vibration motor but good practice for any inductive load.
+> **Engineer**: Add a 1N4148 freewheeling diode across the motor terminals
+> (cathode to motor+, anode to motor-) to clamp the back-EMF spike when the
+> transistor switches off. Optional for a coin vibration motor; good practice for
+> any inductive load.
+
+---
+
+#### Option B: PNP transistor (PN2907) -- inverted logic
+
+Works equally well but the switching logic is reversed:
+GPIO LOW = motor ON, GPIO HIGH = motor OFF.
+
+**Requires VCCIO set to 5V** on your breakout board (see Voltage Selection above).
+A 3.3V GPIO HIGH will not fully turn off the PN2907 with a 5V emitter supply;
+the 10k pull-up resistor from 5V to Base solves this.
+
+```
+FT232R breakout  (VCCIO set to 5V)
+  5V    ---[10k]---+--- Emitter   (PN2907 PNP)
+                   |
+  CBUS0 ---[1k]---'--- Base
+                       Collector --- Motor (+)
+                       Motor (-)  --- GND
+  GND   -------------------------------- GND
+```
+
+> **Beginner**: A PNP transistor is wired "upside down" compared to NPN. The
+> motor power comes in at the top (Emitter, connected to 5V). Pulling the Base
+> LOW turns the motor ON; letting it go HIGH turns it OFF. This is the opposite
+> of the NPN circuit above -- keep that in mind when writing your script.
+>
+> The 10k resistor between 5V and Base is essential. Without it, the 5V on the
+> Emitter would partially turn the transistor on even when the GPIO pin is
+> HIGH, and the motor would run weakly all the time.
+
+> **Engineer**: The 10k/1k resistor divider ensures Vbe = 0V when GPIO is at 5V
+> (both resistors see the same voltage), and Vbe = ~4.5V when GPIO is LOW --
+> well into saturation. With 3.3V VCCIO the divider gives Vbe = ~1.5V on HIGH,
+> which is above the 0.7V threshold and will partially conduct -- set VCCIO to
+> 5V, or use the NPN circuit instead.
+
+The PSGadget commands to control a PNP-switched motor (inverted logic):
+
+```powershell
+$dev = New-PsGadgetFtdi -SerialNumber "YOURSERIAL"
+$dev.SetPins(@(0), 'LOW')   # GPIO LOW = motor ON  (PNP is inverted)
+Start-Sleep -Seconds 2
+$dev.SetPins(@(0), 'HIGH')  # GPIO HIGH = motor OFF
+$dev.Close()
+```
+
+---
 
 ### Direct connection (sub-4mA loads only)
 
@@ -383,7 +446,9 @@ exceeds the 4mA CBUS0 limit. Use the transistor wiring (see Hardware Wiring sect
 Other checks:
 - Run `Get-PsGadgetFtdiEeprom -Index 0 | Select-Object Cbus0` to confirm `FT_CBUS_IOMODE`
 - Check the VCCIO jumper -- most boards default to 3.3V which may be too low
-- Verify the transistor wiring: 1k from CBUS0 to Base, motor between 5V and Collector, Emitter to GND
+- Verify the transistor wiring:
+  - NPN: 1k from CBUS0 to Base, motor between 5V and Collector, Emitter to GND
+  - PNP (PN2907): 10k from 5V to Base, 1k from CBUS0 to Base, motor between Collector and GND, Emitter to 5V (requires VCCIO = 5V)
 
 ### Motor spins but is very weak
 
@@ -413,4 +478,11 @@ Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State HIGH -DurationMs 500
 $dev = New-PsGadgetFtdi -Index 0   # connected immediately
 Set-PsGadgetGpio -PsGadget $dev -Pins @(0) -State HIGH
 $dev.Close()
+
+# Transistor quick reference
+# NPN (2N2222/BC547/S8050)  -- HIGH=ON, LOW=OFF, works at 3.3V or 5V VCCIO
+#   CBUS0 -[1k]- Base | Collector - Motor(-) | Motor(+) - 5V | Emitter - GND
+#
+# PNP (PN2907)             -- LOW=ON, HIGH=OFF, requires VCCIO=5V
+#   CBUS0 -[1k]- Base | 5V -[10k]- Base | Emitter - 5V | Collector - Motor(+) | Motor(-) - GND
 ```

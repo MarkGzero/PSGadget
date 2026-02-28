@@ -114,21 +114,21 @@ When adding or updating example files, include content that serves each persona,
 clearly labeled callout blocks (`> **Beginner**:`, `> **Scripter**:`, `> **Engineer**:`, optional
 `> **Pro**:` for advanced notes). Tailor the depth as follows:
 
-- **Beginner** - Complete beginner. No assumed knowledge of USB, drivers, microcontrollers,
+- **Beginner (Nikola)** - Complete beginner. No assumed knowledge of USB, drivers, microcontrollers,
   or PowerShell beyond "open a terminal". Needs every concept explained, every command
   justified. Use plain language, avoid jargon without definition.
 
-- **Scripter** - PowerShell amateur with limited hardware integration knowledge.
+- **Scripter (Jordan)** - PowerShell amateur with limited hardware integration knowledge.
   Comfortable writing scripts, knows module import, pipelines, objects. Does not know
   about GPIO, I2C, FTDI drivers, EEPROM, or how USB hardware enumeration works. Explain
   hardware concepts; assume PowerShell syntax is already understood.
 
-- **Engineer** - Community college background in basic mechanical and electrical engineering.
+- **Engineer (Izzy)** - Freshman college background in basic mechanical and electrical engineering.
   Understands circuits, voltage levels, digital I/O, I2C/SPI protocols, datasheets, and
   pin-level hardware concepts. Less familiar with the Windows driver stack, PowerShell
-  module system, and D2XX API. Explain software and tooling; assume hardware knowledge.
+  module system, and D2XX API. Explain software and tooling; assume basic hardware knowledge.
 
-- **Pro** - Savvy with both PowerShell and hardware/electronics. Reads reference tables
+- **Pro (Scott)** - Savvy with both PowerShell and hardware/electronics. Reads reference tables
   and command lists; does not need step-by-step instructions. Include a Quick Reference
   section at the bottom of each walkthrough.
 
@@ -140,11 +140,11 @@ Each walkthrough follows this structure:
 1. Title and one-sentence purpose
 2. Persona audience block (list all four personas)
 3. What You Need (hardware + software prerequisites)
-4. Hardware Background (with Engineer and Beginner callouts where relevant)
+4. Hardware Background (with Izzy and Nikola callouts where relevant)
 5. Step-by-step instructions with persona callouts embedded inline
 6. Complete copy-paste script block at the end (runnable code)
 7. Troubleshooting section
-8. Quick Reference section for Pro
+8. Quick Reference section for Scott (Pro)
 
 Name example files `Example-<Feature>.md`. When a `.ps1` example is needed as a companion
 runnable file (e.g. for automation or CI), name it `Example-<Feature>.ps1` and cross-reference
