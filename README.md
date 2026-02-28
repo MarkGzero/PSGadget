@@ -9,7 +9,9 @@ standard PowerShell session. No Arduino IDE. No C. Just cmdlets.
 
 ## What can I do with this?
 
-<div align="center"><img src="docs/images/psgadget2026.jpg" width="100%" alt="SSD1306 OLED display showing text written from PowerShell"></div>
+<div align="center">
+<img src="./docs/images/psgadget2026.png" width="100%" alt="SSD1306 OLED display showing text written from PowerShell">
+</div>
 
 A few things you can do from a PowerShell prompt after plugging in a ~$10 USB adapter:
 
