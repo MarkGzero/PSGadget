@@ -1,9 +1,9 @@
 # PSGadget PowerShell Module
 
 Control LEDs, drive an OLED screen, and talk to microcontrollers -- all from a
-standard PowerShell session. No Arduino IDE. No C. Just cmdlets.
+standard PowerShell session.
 
-**Version**: 0.3.3  |  **PowerShell**: 5.1+  |  **Platforms**: Windows, Linux, macOS
+**PowerShell**: 5.1+  |  **Platforms**: Windows, Linux, macOS
 
 ---
 
