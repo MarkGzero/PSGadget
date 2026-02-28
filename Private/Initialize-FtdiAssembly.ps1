@@ -45,7 +45,7 @@ function Initialize-FtdiAssembly {
                 'Iot.Device.Bindings.dll'
             )
 
-            $iotDir    = Join-Path $ModuleRoot 'lib' 'net8'
+            $iotDir    = Join-Path (Join-Path $ModuleRoot 'lib') 'net8'
             $iotLoaded = $true
 
             foreach ($dll in $iotDlls) {
@@ -78,7 +78,7 @@ function Initialize-FtdiAssembly {
             # On Windows: also load FTD2XX_NET (netstandard20) for FT232R CBUS fallback.
             # On Unix:    FTD2XX_NET is not available; FT232R stays in stub mode.
             if ($isWindows) {
-                $d2xxPath = Join-Path $ModuleRoot 'lib' 'netstandard20' 'FTD2XX_NET.dll'
+                $d2xxPath = Join-Path (Join-Path (Join-Path $ModuleRoot 'lib') 'netstandard20') 'FTD2XX_NET.dll'
                 if (Test-Path $d2xxPath) {
                     try {
                         [void][Reflection.Assembly]::LoadFrom($d2xxPath)
@@ -92,7 +92,7 @@ function Initialize-FtdiAssembly {
                 }
 
                 # Load FtdiSharp for MPSSE I2C/SPI (used by SSD1306 and other I2C devices)
-                $sharpPath = Join-Path $ModuleRoot 'lib' 'ftdisharp' 'FtdiSharp.dll'
+                $sharpPath = Join-Path (Join-Path (Join-Path $ModuleRoot 'lib') 'ftdisharp') 'FtdiSharp.dll'
                 if (Test-Path $sharpPath) {
                     try {
                         [void][Reflection.Assembly]::LoadFrom($sharpPath)
@@ -121,9 +121,9 @@ function Initialize-FtdiAssembly {
             Write-Verbose "Windows PS $psVersion / .NET $dotnetMajor detected - loading FTD2XX_NET.dll"
 
             if ($psVersion -eq 5) {
-                $dllPath = Join-Path $ModuleRoot 'lib' 'net48' 'FTD2XX_NET.dll'
+                $dllPath = Join-Path (Join-Path (Join-Path $ModuleRoot 'lib') 'net48') 'FTD2XX_NET.dll'
             } elseif ($psVersion -ge 7) {
-                $dllPath = Join-Path $ModuleRoot 'lib' 'netstandard20' 'FTD2XX_NET.dll'
+                $dllPath = Join-Path (Join-Path (Join-Path $ModuleRoot 'lib') 'netstandard20') 'FTD2XX_NET.dll'
             } else {
                 Write-Warning "Unsupported PowerShell version: $psVersion"
                 return $false
@@ -149,7 +149,7 @@ function Initialize-FtdiAssembly {
             }
 
             # Load FtdiSharp for MPSSE I2C/SPI (SSD1306 and other I2C devices)
-            $sharpPath = Join-Path $ModuleRoot 'lib' 'ftdisharp' 'FtdiSharp.dll'
+            $sharpPath = Join-Path (Join-Path (Join-Path $ModuleRoot 'lib') 'ftdisharp') 'FtdiSharp.dll'
             if (Test-Path $sharpPath) {
                 try {
                     [void][Reflection.Assembly]::LoadFrom($sharpPath)
