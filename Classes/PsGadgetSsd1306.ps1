@@ -197,9 +197,12 @@ class PsGadgetSsd1306 {
         }
         
         try {
-            # Initialize MPSSE I2C
-            if (-not (Initialize-MpsseI2C -DeviceHandle $this.FtdiDevice -ClockFrequency 100000)) {
-                throw "Failed to initialize MPSSE I2C"
+            # Initialize MPSSE I2C only when using raw D2XX bit-bang path.
+            # FtdiSharp and .NET IoT backends manage their own MPSSE / I2C init.
+            if ($null -eq $this.I2cDevice) {
+                if (-not (Initialize-MpsseI2C -DeviceHandle $this.FtdiDevice -ClockFrequency 100000)) {
+                    throw "Failed to initialize MPSSE I2C"
+                }
             }
             
             # SSD1306 initialization sequence

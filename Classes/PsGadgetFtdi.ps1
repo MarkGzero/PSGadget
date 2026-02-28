@@ -12,6 +12,7 @@ class PsGadgetFtdi : System.IDisposable {
     [bool]$IsOpen
     [PsGadgetLogger]$Logger
     hidden [object]$_connection = $null
+    hidden [object]$_display    = $null
 
     # Constructor - connect by serial number (preferred)
     PsGadgetFtdi([string]$SerialNumber) {
@@ -190,6 +191,34 @@ class PsGadgetFtdi : System.IDisposable {
         if ([int]$status -ne 0) {
             throw "ResetDevice failed: $status"
         }
+    }
+
+    # Write text to the SSD1306 OLED at 0x3C (default) on the connected I2C bus.
+    # Lazily initializes the display on first call; reuses the connection on subsequent calls.
+    # Usage: $r1.Display("Hello World")         # page 0
+    #        $r1.Display("Status: OK", 2)        # page 2
+    #        $r1.Display("Hello", 0, 0x3D)       # alternate address
+    [void] Display([string]$Text) {
+        $this.Display($Text, 0, 0x3C)
+    }
+
+    [void] Display([string]$Text, [int]$Page) {
+        $this.Display($Text, $Page, 0x3C)
+    }
+
+    [void] Display([string]$Text, [int]$Page, [byte]$Address) {
+        $this.Logger.WriteTrace("Display('$Text', page=$Page, addr=0x$($Address.ToString('X2')))") 
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new('Device not open. Call Connect() first.')
+        }
+        # Lazily create or reuse the cached display connection
+        if (-not $this._display -or -not $this._display.IsInitialized) {
+            $this._display = Connect-PsGadgetSsd1306 -FtdiDevice $this._connection -Address $Address
+            if (-not $this._display) {
+                throw [System.InvalidOperationException]::new('Failed to connect to SSD1306 display at 0x' + $Address.ToString('X2'))
+            }
+        }
+        Write-PsGadgetSsd1306 -Display $this._display -Text $Text -Page $Page | Out-Null
     }
 
     # Scan for I2C devices on the bus (0x08 to 0x77).
