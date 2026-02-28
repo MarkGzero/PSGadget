@@ -18,6 +18,8 @@ lib/
 |   +-- Iot.Device.Bindings.dll             # FT232H driver + 400+ device bindings
 |   +-- UnitsNet.dll                        # Physical units (required by Iot.Device.Bindings)
 |   +-- Microsoft.Extensions.Logging.Abstractions.dll  # Logging interface
++-- ftdisharp/          # FtdiSharp (all PS versions, Windows only)
+|   +-- FtdiSharp.dll   # High-level MPSSE I2C/SPI/GPIO wrapper; used by SSD1306 and I2C devices
 +-- native/             # Native FTDI drivers (Windows)
     +-- FTD2XX.dll      # FTDI D2XX driver library
 ```

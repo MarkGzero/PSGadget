@@ -100,13 +100,19 @@ function Connect-PsGadgetFtdi {
         }
         
         # Call platform/backend-specific opening function.
-        # IoT backend: preferred for MPSSE devices (FT232H family) on PS 7.4+ / .NET 8+.
-        #              For CBUS devices (FT232R) it falls back to FTD2XX_NET automatically.
-        # FTD2XX_NET:  used on PS 5.1, PS ISE, and PS 7.x below .NET 8.
-        # If the IoT open fails (e.g. no physical device on a Linux dev machine),
-        # fall through to the platform stub so development without hardware still works.
+        # Priority order on Windows:
+        #   1. FtdiSharp  - preferred for MPSSE devices; handles I2C/SPI natively
+        #   2. IoT backend - PS 7.4+ / .NET 8+
+        #   3. FTD2XX_NET  - PS 5.1 / PS 7 on .NET < 8
         $connection = $null
-        if ($script:IotBackendAvailable) {
+
+        if ($script:FtdiSharpAvailable -and $targetDevice.HasMpsse -and
+            ([System.Environment]::OSVersion.Platform -eq 'Win32NT')) {
+            Write-Verbose "Using FtdiSharp backend for connection"
+            $connection = Invoke-FtdiWindowsOpenSharp -DeviceInfo $targetDevice
+        }
+
+        if (-not $connection -and $script:IotBackendAvailable) {
             Write-Verbose "Using IoT .NET backend for connection"
             try {
                 $connection = Invoke-FtdiIotOpen -DeviceInfo $targetDevice

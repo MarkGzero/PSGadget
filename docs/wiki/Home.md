@@ -20,6 +20,7 @@ install the module, connect hardware, and use every exported function.
 |------|-------------|
 | [Function Reference](Function-Reference.md) | Every exported function: parameters, return types, examples |
 | [Config Key Reference](../about_PsGadgetConfig.md) | Deep reference for every config key |
+| [Daemon Reference](../about_PsGadgetDaemon.md) | Background device daemons: named pipe IPC, file drop, systemd integration |
 
 ### Device Workflows
 

@@ -62,7 +62,19 @@ function Connect-PsGadgetSsd1306 {
         
         # Create SSD1306 instance
         $ssd1306 = [PsGadgetSsd1306]::new($FtdiDevice, $Address)
-        
+
+        # If the connection was opened via FtdiSharp, create a FtdiSharp I2C handle
+        # and inject it. The class will use this for all writes instead of raw MPSSE.
+        if ($FtdiDevice.IsSharp -and $script:FtdiSharpAvailable) {
+            try {
+                $i2c = [FtdiSharp.Protocols.I2C]::new($FtdiDevice.SharpDevice)
+                $ssd1306.I2cDevice = $i2c
+                Write-Verbose "Using FtdiSharp I2C for SSD1306 writes"
+            } catch {
+                Write-Warning "FtdiSharp I2C creation failed, falling back to raw MPSSE: $_"
+            }
+        }
+
         # Initialize the display
         if (-not $ssd1306.Initialize($Force)) {
             throw "Failed to initialize SSD1306 display"

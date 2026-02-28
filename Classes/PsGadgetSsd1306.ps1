@@ -4,6 +4,7 @@
 class PsGadgetSsd1306 {
     [PsGadgetLogger]$Logger
     [System.Object]$FtdiDevice
+    [System.Object]$I2cDevice   # FtdiSharp.Protocols.I2C instance when available; preferred over raw MPSSE
     [byte]$I2CAddress
     [int]$Width
     [int]$Height
@@ -162,6 +163,22 @@ class PsGadgetSsd1306 {
         }
     }
     
+    # I2CWrite: send bytes to the display, preferring FtdiSharp when available.
+    # All internal write operations go through this single method.
+    [bool] I2CWrite([byte[]]$data) {
+        try {
+            if ($null -ne $this.I2cDevice) {
+                $this.I2cDevice.Write($this.I2CAddress, $data)
+                return $true
+            } else {
+                return (Send-MpsseI2CWrite -DeviceHandle $this.FtdiDevice -Address $this.I2CAddress -Data $data)
+            }
+        } catch {
+            $this.Logger.WriteError("I2CWrite failed: $_")
+            return $false
+        }
+    }
+
     [bool] Initialize() {
         return $this.Initialize($false)
     }
@@ -207,9 +224,9 @@ class PsGadgetSsd1306 {
             
             # Send each command with control byte 0x00
             foreach ($cmd in $initCommands) {
-                $data = @(0x00, $cmd)
-                if (-not (Send-MpsseI2CWrite -DeviceHandle $this.FtdiDevice -Address $this.I2CAddress -Data $data)) {
-                    throw "Failed to send initialization command: 0x{0:X2}" -f $cmd
+                [byte[]]$data = @(0x00, $cmd)
+                if (-not $this.I2CWrite($data)) {
+                    throw ("Failed to send initialization command: 0x{0:X2}" -f $cmd)
                 }
                 Start-Sleep -Milliseconds 1
             }
@@ -269,8 +286,8 @@ class PsGadgetSsd1306 {
             
             # Send empty data to fill the page
             [byte[]]$emptyData = @(0x40) + (@(0x00) * $this.Width)
-            
-            if (-not (Send-MpsseI2CWrite -DeviceHandle $this.FtdiDevice -Address $this.I2CAddress -Data $emptyData)) {
+
+            if (-not $this.I2CWrite($emptyData)) {
                 throw "Failed to send clear data"
             }
             
@@ -301,22 +318,16 @@ class PsGadgetSsd1306 {
         
         try {
             # Set page address
-            $pageCmd = @(0x00, (0xB0 + $page))
-            if (-not (Send-MpsseI2CWrite -DeviceHandle $this.FtdiDevice -Address $this.I2CAddress -Data $pageCmd)) {
-                throw "Failed to set page address"
-            }
-            
+            [byte[]]$pageCmd = @(0x00, [byte](0xB0 + $page))
+            if (-not $this.I2CWrite($pageCmd)) { throw "Failed to set page address" }
+
             # Set column address (lower nibble)
-            $colLowCmd = @(0x00, (0x00 + ($column -band 0x0F)))
-            if (-not (Send-MpsseI2CWrite -DeviceHandle $this.FtdiDevice -Address $this.I2CAddress -Data $colLowCmd)) {
-                throw "Failed to set column low address"
-            }
-            
+            [byte[]]$colLowCmd = @(0x00, [byte](0x00 + ($column -band 0x0F)))
+            if (-not $this.I2CWrite($colLowCmd)) { throw "Failed to set column low address" }
+
             # Set column address (upper nibble)
-            $colHighCmd = @(0x00, (0x10 + (($column -shr 4) -band 0x0F)))
-            if (-not (Send-MpsseI2CWrite -DeviceHandle $this.FtdiDevice -Address $this.I2CAddress -Data $colHighCmd)) {
-                throw "Failed to set column high address"
-            }
+            [byte[]]$colHighCmd = @(0x00, [byte](0x10 + (($column -shr 4) -band 0x0F)))
+            if (-not $this.I2CWrite($colHighCmd)) { throw "Failed to set column high address" }
             
             $this.Logger.WriteTrace("Set cursor to column $column, page $page")
             return $true
@@ -399,8 +410,8 @@ class PsGadgetSsd1306 {
             
             # Send data with control byte 0x40
             [byte[]]$payload = @(0x40) + $buffer.ToArray()
-            
-            if (-not (Send-MpsseI2CWrite -DeviceHandle $this.FtdiDevice -Address $this.I2CAddress -Data $payload)) {
+
+            if (-not $this.I2CWrite($payload)) {
                 throw "Failed to send text data"
             }
             

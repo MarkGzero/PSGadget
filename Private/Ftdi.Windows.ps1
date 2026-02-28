@@ -423,6 +423,80 @@ function Invoke-FtdiWindowsOpen {
     }
 }
 
+function Invoke-FtdiWindowsOpenSharp {
+    # Open an FTDI device via FtdiSharp and return a connection wrapper.
+    # FtdiSharp handles MPSSE setup internally - callers get I2C/GPIO higher-level objects.
+    [CmdletBinding()]
+    [OutputType([System.Object])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$DeviceInfo
+    )
+
+    try {
+        if (-not $script:FtdiSharpAvailable) {
+            throw [System.NotImplementedException]::new("FtdiSharp not loaded")
+        }
+
+        Write-Verbose "Opening FTDI device via FtdiSharp: $($DeviceInfo.Description) ($($DeviceInfo.SerialNumber))"
+
+        # Scan all connected FTDI devices and match by serial number
+        $sharpDevices = [FtdiSharp.FtdiDevices]::scan()
+        $sharpDevice  = $null
+
+        foreach ($d in $sharpDevices) {
+            if ($d.SerialNumber -eq $DeviceInfo.SerialNumber) {
+                $sharpDevice = $d
+                break
+            }
+        }
+
+        # Fall back to index if serial match failed (e.g. serial blank on some boards)
+        if (-not $sharpDevice -and $sharpDevices.Count -gt $DeviceInfo.Index) {
+            Write-Verbose "Serial match failed; falling back to index $($DeviceInfo.Index)"
+            $sharpDevice = $sharpDevices[$DeviceInfo.Index]
+        }
+
+        if (-not $sharpDevice) {
+            throw "FtdiSharp could not find device '$($DeviceInfo.SerialNumber)'"
+        }
+
+        Write-Verbose "FtdiSharp device found: $($sharpDevice.Description)"
+
+        # Build the same-shaped connection wrapper that the rest of the module expects
+        $connection = [PSCustomObject]@{
+            Device       = $sharpDevice   # FtdiSharp device - used by Invoke-FtdiWindowsOpenSharp callers
+            SharpDevice  = $sharpDevice   # explicit alias for I2C/SPI creation
+            IsSharp      = $true
+            Index        = $DeviceInfo.Index
+            SerialNumber = $DeviceInfo.SerialNumber
+            Description  = $DeviceInfo.Description
+            Type         = $DeviceInfo.Type
+            LocationId   = $DeviceInfo.LocationId
+            IsOpen       = $true
+            GpioMethod   = $DeviceInfo.GpioMethod
+            GpioPins     = $DeviceInfo.GpioPins
+            HasMpsse     = $DeviceInfo.HasMpsse
+            MpsseEnabled = $DeviceInfo.HasMpsse
+            Platform     = "Windows (FtdiSharp)"
+        }
+
+        $connection | Add-Member -MemberType ScriptMethod -Name 'Close' -Value {
+            # FtdiSharp devices are closed when they go out of scope / GC collected
+            $this.IsOpen = $false
+        }
+
+        Write-Verbose "FtdiSharp connection established for $($DeviceInfo.SerialNumber)"
+        return $connection
+
+    } catch [System.NotImplementedException] {
+        return $null
+    } catch {
+        Write-Warning "FtdiSharp open failed: $_"
+        return $null
+    }
+}
+
 function Invoke-FtdiWindowsClose {
     [CmdletBinding()]
     param(

@@ -262,34 +262,51 @@ function Initialize-MpsseI2C {
             throw "Device handle is invalid or device is not open"
         }
         
-        if ($script:FtdiInitialized -and $DeviceHandle.GetType().Name -eq 'FTDI') {
-            # Reset MPSSE
-            [byte[]]$resetCommand = @(0xAA)
+        # Resolve real device handle - may be PSCustomObject wrapper or raw FTDI type
+        $isRealDevice = $script:FtdiInitialized -and (
+            $DeviceHandle.GetType().Name -eq 'FTDI' -or
+            ($null -ne $DeviceHandle.PSObject -and $null -ne $DeviceHandle.Device)
+        )
+
+        if ($isRealDevice) {
             [uint32]$bytesWritten = 0
-            $status = $DeviceHandle.Write($resetCommand, $resetCommand.Length, [ref]$bytesWritten)
-            
+
+            # Disable divide-by-5 so base clock = 60 MHz (required for correct divisor math)
+            # Disable internal loopback, disable 3-phase clocking (I2C uses 2-phase)
+            [byte[]]$setupCommand = @(
+                0x8A,        # Disable clk divide-by-5 => 60 MHz master
+                0x85,        # Disable loopback
+                0x97         # Disable 3-phase clocking
+            )
+            $status = $DeviceHandle.Write($setupCommand, $setupCommand.Length, [ref]$bytesWritten)
             if ($status -ne $script:FTDI_OK) {
-                throw "Failed to reset MPSSE: $status"
+                throw "Failed to configure MPSSE base settings: $status"
             }
-            
-            Start-Sleep -Milliseconds 50
-            
+            Start-Sleep -Milliseconds 20
+
             # Set clock frequency
-            # MPSSE clock = 60MHz base clock divided by ((1+ClockDivisor)*2)
+            # MPSSE clock = 60 MHz / ((1 + ClockDivisor) * 2)
             $clockDivisor = [math]::Floor((60000000 / ($ClockFrequency * 2)) - 1)
             $clockDivisor = [math]::Max(0, [math]::Min(65535, $clockDivisor))
-            
+
             [byte[]]$clockCommand = @(
-                0x86,  # Set clock frequency
+                0x86,  # Set clock divisor
                 [byte]($clockDivisor -band 0xFF),
                 [byte](($clockDivisor -shr 8) -band 0xFF)
             )
-            
             $status = $DeviceHandle.Write($clockCommand, $clockCommand.Length, [ref]$bytesWritten)
             if ($status -ne $script:FTDI_OK) {
                 throw "Failed to set I2C clock frequency: $status"
             }
-            
+
+            # Set I2C pins idle: ADBUS0=SCL=1 (output), ADBUS1=SDA=1 (output)
+            [byte[]]$pinCommand = @(0x80, 0x03, 0x03)
+            $status = $DeviceHandle.Write($pinCommand, $pinCommand.Length, [ref]$bytesWritten)
+            if ($status -ne $script:FTDI_OK) {
+                throw "Failed to set I2C pin idle state: $status"
+            }
+            Start-Sleep -Milliseconds 20
+
             Write-Verbose "I2C initialized at $ClockFrequency Hz (divisor: $clockDivisor)"
             return $true
         } else {
@@ -344,39 +361,67 @@ function Send-MpsseI2CWrite {
             throw "Device handle is invalid or device is not open"
         }
         
-        if ($script:FtdiInitialized -and $DeviceHandle.GetType().Name -eq 'FTDI') {
-            # Build I2C transaction
+        # Resolve real device handle - may be PSCustomObject wrapper or raw FTDI type
+        $isRealDevice = $script:FtdiInitialized -and (
+            $DeviceHandle.GetType().Name -eq 'FTDI' -or
+            ($null -ne $DeviceHandle.PSObject -and $null -ne $DeviceHandle.Device)
+        )
+
+        if ($isRealDevice) {
+            # Build I2C transaction as a single buffer sent in one Write call
             [System.Collections.Generic.List[byte]]$transaction = @()
-            
-            # I2C Start condition
-            $transaction.AddRange(@(0x80, 0x03, 0x03))  # Set SDA/SCL high
-            $transaction.AddRange(@(0x80, 0x01, 0x03))  # Set SDA low (start)
-            $transaction.AddRange(@(0x80, 0x00, 0x03))  # Set SCL low
-            
-            # Write address byte with write bit (bit 0 = 0)
-            $addressByte = ($Address -shl 1) -bor 0x00
-            $transaction.AddRange(@(0x11, 0x07, $addressByte))  # Clock out 8 bits
-            
-            # Write data bytes
-            foreach ($byte in $Data) {
-                $transaction.AddRange(@(0x11, 0x07, $byte))  # Clock out 8 bits
+
+            # I2C Start condition:
+            #   SDA high, SCL high (idle)
+            #   SDA falls while SCL high  => start
+            #   SCL falls to begin first bit
+            $transaction.AddRange([byte[]]@(0x80, 0x03, 0x03))  # SCL=1, SDA=1, both output
+            $transaction.AddRange([byte[]]@(0x80, 0x01, 0x03))  # SCL=1, SDA=0 (start condition)
+            $transaction.AddRange([byte[]]@(0x80, 0x00, 0x03))  # SCL=0, SDA=0 (clock low)
+
+            # Helper scriptblock: clock out one byte (8 bits) then ACK pulse
+            # 0x1B = Clock Data Bits Out on Falling Edge, MSB first, no read
+            #        Format: 0x1B <bit_count-1> <data_byte>
+            #        0x1B 0x07 $b = clock out 8 bits of $b
+            # ACK cycle: release SDA (input), pulse SCL high then low, reclaim SDA
+            $clockByte = [scriptblock] {
+                param([byte]$b)
+                # Clock 8 data bits out
+                $transaction.AddRange([byte[]]@(0x1B, 0x07, $b))
+                # ACK clock cycle - release SDA to input so device can drive ACK
+                $transaction.AddRange([byte[]]@(0x80, 0x00, 0x01))  # SDA=input, SCL=output-low
+                $transaction.AddRange([byte[]]@(0x80, 0x01, 0x01))  # SCL=high (ACK bit sampled)
+                $transaction.AddRange([byte[]]@(0x80, 0x00, 0x01))  # SCL=low
+                $transaction.AddRange([byte[]]@(0x80, 0x02, 0x03))  # SDA=output-high, SCL=low
             }
-            
-            # I2C Stop condition
-            $transaction.AddRange(@(0x80, 0x00, 0x03))  # Set SDA/SCL low
-            $transaction.AddRange(@(0x80, 0x01, 0x03))  # Set SCL high
-            $transaction.AddRange(@(0x80, 0x03, 0x03))  # Set SDA high (stop)
-            
-            # Send transaction
+
+            # Write address byte with write bit (R/W=0)
+            $addressByte = [byte](($Address -shl 1) -bor 0x00)
+            & $clockByte $addressByte
+
+            # Write each data byte
+            foreach ($b in $Data) {
+                & $clockByte ([byte]$b)
+            }
+
+            # I2C Stop condition:
+            #   SCL low, SDA low
+            #   SCL rises
+            #   SDA rises while SCL high  => stop
+            $transaction.AddRange([byte[]]@(0x80, 0x00, 0x03))  # SCL=0, SDA=0
+            $transaction.AddRange([byte[]]@(0x80, 0x01, 0x03))  # SCL=1, SDA=0
+            $transaction.AddRange([byte[]]@(0x80, 0x03, 0x03))  # SCL=1, SDA=1 (stop)
+
+            # Send entire transaction in one call
             [uint32]$bytesWritten = 0
-            $command = $transaction.ToArray()
+            [byte[]]$command = $transaction.ToArray()
             $status = $DeviceHandle.Write($command, $command.Length, [ref]$bytesWritten)
-            
+
             if ($status -eq $script:FTDI_OK -and $bytesWritten -eq $command.Length) {
-                Write-Verbose ("I2C write successful: Address=0x{0:X2}, {1} bytes" -f $Address, $Data.Length)
+                Write-Verbose ("I2C write OK: Address=0x{0:X2}, {1} data bytes" -f $Address, $Data.Length)
                 return $true
             } else {
-                throw "I2C write failed: Status=$status, BytesWritten=$bytesWritten"
+                throw "I2C write failed: Status=$status, BytesWritten=$bytesWritten (expected $($command.Length))"
             }
         } else {
             # Stub mode

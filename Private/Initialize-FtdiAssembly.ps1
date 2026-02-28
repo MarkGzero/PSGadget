@@ -21,8 +21,9 @@ function Initialize-FtdiAssembly {
     )
 
     # Initialise flags; set to $true only on successful load below
-    $script:IotBackendAvailable = $false
-    $script:D2xxLoaded          = $false
+    $script:IotBackendAvailable  = $false
+    $script:D2xxLoaded           = $false
+    $script:FtdiSharpAvailable   = $false
 
     try {
         $psVersion  = $PSVersionTable.PSVersion.Major
@@ -89,10 +90,28 @@ function Initialize-FtdiAssembly {
                         Write-Verbose "FTD2XX_NET.dll unavailable for fallback: $_"
                     }
                 }
+
+                # Load FtdiSharp for MPSSE I2C/SPI (used by SSD1306 and other I2C devices)
+                $sharpPath = Join-Path $ModuleRoot 'lib' 'ftdisharp' 'FtdiSharp.dll'
+                if (Test-Path $sharpPath) {
+                    try {
+                        [void][Reflection.Assembly]::LoadFrom($sharpPath)
+                        $null = [FtdiSharp.FtdiDevices]
+                        $null = [FtdiSharp.Protocols.I2C]
+                        $script:FtdiSharpAvailable = $true
+                        Write-Verbose "FtdiSharp.dll loaded - I2C/SPI protocol support available"
+                    } catch {
+                        Write-Verbose "FtdiSharp.dll load failed: $_"
+                    }
+                }
             }
 
+            # $script:FtdiInitialized drives stub/real branching in Invoke-FtdiWindowsEnumerate.
+            # Set it now so enumeration works even before psm1 assigns the return value.
+            $script:FtdiInitialized = $script:D2xxLoaded
+
             # Return $true if at least one useful backend is ready
-            return ($script:IotBackendAvailable -or $script:FtdiInitialized)
+            return ($script:IotBackendAvailable -or $script:D2xxLoaded)
         }
 
         # ------------------------------------------------------------------
@@ -119,7 +138,6 @@ function Initialize-FtdiAssembly {
                     $script:FTDI_OK    = [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK
                     $script:D2xxLoaded = $true
                     Write-Verbose "Successfully loaded FTD2XX_NET.dll from $dllPath"
-                    return $true
                 } catch {
                     Write-Error "Failed to load FTD2XX_NET.dll: $_"
                     return $false
@@ -129,6 +147,23 @@ function Initialize-FtdiAssembly {
                 Write-Verbose "Operating in stub mode - real FTDI operations will not be available"
                 return $false
             }
+
+            # Load FtdiSharp for MPSSE I2C/SPI (SSD1306 and other I2C devices)
+            $sharpPath = Join-Path $ModuleRoot 'lib' 'ftdisharp' 'FtdiSharp.dll'
+            if (Test-Path $sharpPath) {
+                try {
+                    [void][Reflection.Assembly]::LoadFrom($sharpPath)
+                    $null = [FtdiSharp.FtdiDevices]
+                    $null = [FtdiSharp.Protocols.I2C]
+                    $script:FtdiSharpAvailable = $true
+                    Write-Verbose "FtdiSharp.dll loaded - I2C/SPI protocol support available"
+                } catch {
+                    Write-Verbose "FtdiSharp.dll load failed (I2C will use raw MPSSE): $_"
+                }
+            }
+
+            $script:FtdiInitialized = $script:D2xxLoaded
+            return $script:D2xxLoaded
         }
 
         # ------------------------------------------------------------------
