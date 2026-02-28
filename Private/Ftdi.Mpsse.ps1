@@ -261,60 +261,50 @@ function Initialize-MpsseI2C {
         if (-not $DeviceHandle -or -not $DeviceHandle.IsOpen) {
             throw "Device handle is invalid or device is not open"
         }
-        
-        # Resolve real device handle - may be PSCustomObject wrapper or raw FTDI type
-        $isRealDevice = $script:FtdiInitialized -and (
-            $DeviceHandle.GetType().Name -eq 'FTDI' -or
-            ($null -ne $DeviceHandle.PSObject -and $null -ne $DeviceHandle.Device)
-        )
+
+        # Resolve the raw FTD2XX_NET.FTDI object from either a wrapper or a direct handle.
+        # Always call .Device.Write() directly to avoid [ref] propagation issues in ScriptMethods.
+        $rawDevice = $null
+        if ($DeviceHandle.GetType().Name -eq 'FTDI') {
+            $rawDevice = $DeviceHandle
+        } elseif ($DeviceHandle.PSObject.Properties['Device'] -and $DeviceHandle.Device) {
+            $rawDevice = $DeviceHandle.Device
+        }
+
+        $isRealDevice = $script:FtdiInitialized -and ($null -ne $rawDevice)
 
         if ($isRealDevice) {
             [uint32]$bytesWritten = 0
 
-            # Disable divide-by-5 so base clock = 60 MHz (required for correct divisor math)
-            # Disable internal loopback, disable 3-phase clocking (I2C uses 2-phase)
-            [byte[]]$setupCommand = @(
-                0x8A,        # Disable clk divide-by-5 => 60 MHz master
-                0x85,        # Disable loopback
-                0x97         # Disable 3-phase clocking
-            )
-            $status = $DeviceHandle.Write($setupCommand, $setupCommand.Length, [ref]$bytesWritten)
-            if ($status -ne $script:FTDI_OK) {
-                throw "Failed to configure MPSSE base settings: $status"
+            # Helper: write bytes to raw device and check status (int 0 = FT_OK)
+            $writeCmd = {
+                param([byte[]]$cmd, [string]$label)
+                [uint32]$bw = 0
+                $st = $rawDevice.Write($cmd, [uint32]$cmd.Length, [ref]$bw)
+                if ([int]$st -ne 0) { throw "$label failed: status=$st" }
             }
+
+            # Disable clk divide-by-5 (=> 60 MHz base), disable loopback, disable 3-phase clk
+            & $writeCmd @(0x8A, 0x85, 0x97) 'MPSSE base config'
             Start-Sleep -Milliseconds 20
 
-            # Set clock frequency
-            # MPSSE clock = 60 MHz / ((1 + ClockDivisor) * 2)
+            # Set clock frequency: MPSSE clock = 60 MHz / ((1 + divisor) * 2)
             $clockDivisor = [math]::Floor((60000000 / ($ClockFrequency * 2)) - 1)
             $clockDivisor = [math]::Max(0, [math]::Min(65535, $clockDivisor))
-
-            [byte[]]$clockCommand = @(
-                0x86,  # Set clock divisor
-                [byte]($clockDivisor -band 0xFF),
-                [byte](($clockDivisor -shr 8) -band 0xFF)
-            )
-            $status = $DeviceHandle.Write($clockCommand, $clockCommand.Length, [ref]$bytesWritten)
-            if ($status -ne $script:FTDI_OK) {
-                throw "Failed to set I2C clock frequency: $status"
-            }
+            & $writeCmd @(0x86, [byte]($clockDivisor -band 0xFF), [byte](($clockDivisor -shr 8) -band 0xFF)) 'Set clock divisor'
 
             # Set I2C pins idle: ADBUS0=SCL=1 (output), ADBUS1=SDA=1 (output)
-            [byte[]]$pinCommand = @(0x80, 0x03, 0x03)
-            $status = $DeviceHandle.Write($pinCommand, $pinCommand.Length, [ref]$bytesWritten)
-            if ($status -ne $script:FTDI_OK) {
-                throw "Failed to set I2C pin idle state: $status"
-            }
+            & $writeCmd @(0x80, 0x03, 0x03) 'I2C pin idle state'
             Start-Sleep -Milliseconds 20
 
             Write-Verbose "I2C initialized at $ClockFrequency Hz (divisor: $clockDivisor)"
             return $true
         } else {
-            # Stub mode
+            # Stub mode or no raw device
             Write-Verbose "I2C initialized at $ClockFrequency Hz (STUB MODE)"
             return $true
         }
-        
+
     } catch {
         Write-Error "Failed to initialize MPSSE I2C: $_"
         return $false
@@ -494,13 +484,21 @@ function Invoke-FtdiI2CScan {
 
     } elseif ($gpioMethod -eq 'MPSSE' -and $script:FtdiInitialized) {
         # D2XX path - MPSSE bit-bang I2C scan.
-        # SCL = ADBUS0, SDA-out = ADBUS1, SDA-in = ADBUS1 (open-drain, released to input for ACK).
+        # Resolve raw FTD2XX_NET.FTDI object to bypass ScriptMethod [ref] limitations.
+        $rawDevice = $null
+        if ($Connection.GetType().Name -eq 'FTDI') {
+            $rawDevice = $Connection
+        } elseif ($Connection.PSObject.Properties['Device'] -and $Connection.Device) {
+            $rawDevice = $Connection.Device
+        }
+        if (-not $rawDevice) { throw 'Cannot resolve raw FTDI device handle for MPSSE scan' }
+
         Write-Verbose "I2C scan via MPSSE bit-bang D2XX (0x08-0x77) at $ClockFrequency Hz..."
         $ok = Initialize-MpsseI2C -DeviceHandle $Connection -ClockFrequency $ClockFrequency
         if (-not $ok) { throw 'Failed to initialize MPSSE I2C for scan' }
 
         # Purge any stale RX bytes before starting scan
-        try { $Connection.Device.Purge(2) | Out-Null } catch {}
+        try { $rawDevice.Purge(2) | Out-Null } catch {}
         Start-Sleep -Milliseconds 20
 
         for ($addr = 0x08; $addr -le 0x77; $addr++) {
@@ -533,15 +531,15 @@ function Invoke-FtdiI2CScan {
 
             [uint32]$bw  = 0
             [byte[]]$cmd = $tx.ToArray()
-            $writeStatus = $Connection.Write($cmd, $cmd.Length, [ref]$bw)
-            if ($writeStatus -ne $script:FTDI_OK) { continue }
+            $writeStatus = $rawDevice.Write($cmd, [uint32]$cmd.Length, [ref]$bw)
+            if ([int]$writeStatus -ne 0) { continue }
 
             # Read 1 byte: ADBUS pin state queued by 0x81.  Bit 1 = SDA.
             # SDA=0 means device held it low => ACK => device present.
             [byte[]]$ackBuf = [byte[]]::new(1)
             [uint32]$br     = 0
             Start-Sleep -Milliseconds 1
-            $Connection.Read($ackBuf, 1, [ref]$br)
+            $rawDevice.Read($ackBuf, [uint32]1, [ref]$br)
             if ($br -eq 1) {
                 $sdaBit = ($ackBuf[0] -shr 1) -band 0x01
                 if ($sdaBit -eq 0) {
