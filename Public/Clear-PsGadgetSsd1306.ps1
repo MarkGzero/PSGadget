@@ -22,10 +22,10 @@ function Clear-PsGadgetSsd1306 {
     Clear-PsGadgetSsd1306 -Display $display -Page 2
     
     .OUTPUTS
-    [bool] $true if successful, $false if failed
+    None. Throws on failure.
     #>
     [CmdletBinding()]
-    [OutputType([bool])]
+    [OutputType([void])]
     param(
         [Parameter(Mandatory = $true)]
         [System.Object]$Display,
@@ -42,22 +42,15 @@ function Clear-PsGadgetSsd1306 {
         
         if ($PSBoundParameters.ContainsKey('Page')) {
             # Clear specific page
-            $result = $Display.ClearPage($Page)
-            if ($result) {
-                Write-Verbose "SSD1306 page $Page cleared successfully"
-            }
-            return $result
+            $Display.ClearPage($Page) | Out-Null
+            Write-Verbose "SSD1306 page $Page cleared successfully"
         } else {
             # Clear entire display
-            $result = $Display.Clear()
-            if ($result) {
-                Write-Verbose "SSD1306 display cleared successfully"
-            }
-            return $result
+            $Display.Clear() | Out-Null
+            Write-Verbose "SSD1306 display cleared successfully"
         }
         
     } catch {
         Write-Error "Failed to clear SSD1306 display: $_"
-        return $false
     }
 }

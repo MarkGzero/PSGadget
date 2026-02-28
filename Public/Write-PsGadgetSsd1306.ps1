@@ -38,10 +38,10 @@ function Write-PsGadgetSsd1306 {
     Write-PsGadgetSsd1306 -Display $display -Text "Status: OK" -Page 3 -Align right
     
     .OUTPUTS
-    [bool] $true if successful, $false if failed
+    None. Throws on failure.
     #>
     [CmdletBinding()]
-    [OutputType([bool])]
+    [OutputType([void])]
     param(
         [Parameter(Mandatory = $true)]
         [System.Object]$Display,
@@ -71,15 +71,9 @@ function Write-PsGadgetSsd1306 {
         }
         
         $result = $Display.WriteText($Text, $Page, $Align, $FontSize, $Invert)
-        
-        if ($result) {
-            Write-Verbose "Text '$Text' written to SSD1306 page $Page"
-        }
-        
-        return $result
+        Write-Verbose "Text '$Text' written to SSD1306 page $Page"
         
     } catch {
         Write-Error "Failed to write text to SSD1306 display: $_"
-        return $false
     }
 }
