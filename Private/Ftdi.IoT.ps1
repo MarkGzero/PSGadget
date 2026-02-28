@@ -91,7 +91,7 @@ function Invoke-FtdiIotEnumerate {
         return $enrichedDevices
 
     } catch {
-        Write-Warning "IoT FTDI enumeration failed: $($_.Exception.Message)"
+        Write-Verbose "IoT FTDI enumeration failed: $($_.Exception.Message)"
         throw
     }
 }
@@ -202,8 +202,7 @@ function Invoke-FtdiIotOpen {
     } catch [System.NotImplementedException] {
         throw   # propagate cleanly for stub-mode detection upstream
     } catch {
-        Write-Error "Failed to open IoT FTDI device: $_"
-        return $null
+        throw "Failed to open IoT FTDI device: $_"
     }
 }
 

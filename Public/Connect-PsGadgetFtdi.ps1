@@ -117,7 +117,20 @@ function Connect-PsGadgetFtdi {
             try {
                 $connection = Invoke-FtdiIotOpen -DeviceInfo $targetDevice
             } catch {
-                Write-Verbose "IoT open failed ($($_.Exception.GetType().Name)); falling back to platform backend"
+                $errMsg = $_.Exception.Message
+                # Detect missing native libftd2xx on Linux/macOS and give actionable help
+                if ($errMsg -match "ftd2xx" -and
+                    [System.Environment]::OSVersion.Platform -ne 'Win32NT') {
+                    Write-Warning (
+                        "FTDI D2XX native library not found. " +
+                        "Install it from https://ftdichip.com/drivers/d2xx-drivers/ " +
+                        "then run: sudo cp libftd2xx.so /usr/local/lib && sudo ldconfig`n" +
+                        "If the device appears as /dev/ttyUSBx, also run: sudo rmmod ftdi_sio`n" +
+                        "Falling back to stub mode."
+                    )
+                } else {
+                    Write-Verbose "IoT open failed ($($_.Exception.GetType().Name)); falling back to platform backend"
+                }
                 $connection = $null
             }
         }

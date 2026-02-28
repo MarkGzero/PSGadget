@@ -71,6 +71,32 @@ function Initialize-FtdiAssembly {
                 $null = [System.Device.Gpio.GpioController]
                 $script:IotBackendAvailable = $true
                 Write-Verbose "IoT backend loaded successfully - using Iot.Device.Bindings"
+
+                # On Linux/macOS the managed DLLs load fine but the native D2XX .so is also
+                # required at runtime.  Probe common install locations and warn early so the
+                # user gets a clear message at module import rather than a wall of P/Invoke
+                # errors when they first call Connect-PsGadgetFtdi.
+                if (-not $isWindows) {
+                    $nativeLibLocations = @(
+                        '/usr/local/lib/libftd2xx.so',
+                        '/usr/lib/libftd2xx.so',
+                        '/usr/lib/x86_64-linux-gnu/libftd2xx.so',
+                        '/usr/lib/aarch64-linux-gnu/libftd2xx.so',
+                        '/usr/lib/arm-linux-gnueabihf/libftd2xx.so'
+                    )
+                    $nativeFound = $nativeLibLocations | Where-Object { Test-Path $_ } | Select-Object -First 1
+                    if ($nativeFound) {
+                        Write-Verbose "  Native libftd2xx.so found at: $nativeFound"
+                    } else {
+                        Write-Warning (
+                            "IoT FTDI DLLs loaded but native 'libftd2xx.so' was not found. " +
+                            "Hardware access will fall back to stub mode until it is installed.`n" +
+                            "  1. Download FTDI D2XX driver from: https://ftdichip.com/drivers/d2xx-drivers/`n" +
+                            "  2. sudo cp libftd2xx.so /usr/local/lib && sudo ldconfig`n" +
+                            "  3. If device shows as /dev/ttyUSBx: sudo rmmod ftdi_sio"
+                        )
+                    }
+                }
             } else {
                 Write-Warning "IoT DLL loading incomplete - falling back to FTD2XX_NET backend"
             }
