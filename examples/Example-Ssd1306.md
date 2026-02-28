@@ -194,6 +194,17 @@ Write-Host ("SSD1306 ready - address 0x{0:X2}, {1} glyphs loaded" -f `
 
 Always clear the display before writing new content to avoid leftover pixels.
 
+### Option A: shorthand ClearDisplay() method
+
+```powershell
+$dev.ClearDisplay()      # clear all pages
+$dev.ClearDisplay(3)     # clear only page 3
+```
+
+Lazily inits the display (same as `Display()`) -- no separate object needed.
+
+### Option B: explicit display object
+
 ```powershell
 Clear-PsGadgetSsd1306 -Display $display
 ```
@@ -288,6 +299,7 @@ Same loop using the shorthand (no separate `$display` needed):
 
 ```powershell
 for ($i = 0; $i -lt 10; $i++) {
+    $dev.ClearDisplay(3)
     $dev.Display((Get-Date -Format "HH:mm:ss"), 3)
     Start-Sleep -Seconds 1
 }
@@ -370,10 +382,11 @@ if (-not ($scan | Where-Object Address -eq 0x3C)) {
 }
 
 try {
-    # 3. Shorthand: Display() - init happens automatically on first call
+    # 3. Shorthand: Display() and ClearDisplay() - init happens automatically on first call
     $dev.Display("PSGadget", 0)
     $dev.Display("SSD1306 via I2C", 1)
     Start-Sleep -Seconds 2
+    $dev.ClearDisplay()    # clear all pages before handing off to explicit object
 
     # 4. Explicit display object for full control
     $display = Connect-PsGadgetSsd1306 -PsGadget $dev
@@ -448,10 +461,12 @@ $dev.Connect()
 # Scan I2C bus
 $dev.Scan() | Format-Table
 
-# Shorthand display (lazy init at 0x3C)
+# Shorthand display and clear (lazy init at 0x3C)
 $dev.Display("Hello World")           # page 0
 $dev.Display("line 2", 2)             # page 2
 $dev.Display("alt addr", 0, 0x3D)     # alternate I2C address
+$dev.ClearDisplay()                   # clear all pages
+$dev.ClearDisplay(2)                  # clear only page 2
 
 # Explicit display object
 $d = Connect-PsGadgetSsd1306 -PsGadget $dev
