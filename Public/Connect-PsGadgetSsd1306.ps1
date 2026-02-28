@@ -47,12 +47,14 @@ function Connect-PsGadgetSsd1306 {
     )
     
     try {
-        # Resolve the underlying connection object
+        # Resolve the underlying connection object.
+        # When called with -PsGadget, delegate to GetDisplay() so the cached object is
+        # returned and no second FtdiSharp I2C handle is created on the same device.
         if ($PSCmdlet.ParameterSetName -eq 'PsGadget') {
-            if (-not $PsGadget.IsOpen -or -not $PsGadget._connection) {
+            if (-not $PsGadget.IsOpen) {
                 throw "PsGadgetFtdi is not open. Call .Connect() first."
             }
-            $FtdiDevice = $PsGadget._connection
+            return $PsGadget.GetDisplay($Address)
         }
 
         # Validate FTDI device

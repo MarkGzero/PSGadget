@@ -148,11 +148,16 @@ $dev.Scan() | Format-Table
 
 ---
 
-## Step 4 - Initialize the Display
+## Step 4 - Write to the Display
 
-### Option A: shorthand Display() method
+Two functions, pick based on what you need:
 
-The simplest way -- no separate `$display` object needed:
+| Need | Use |
+|---|---|
+| Just write a line of text | `$dev.Display("text", page)` |
+| Alignment, font size, or invert | `$dev.GetDisplay()` then `Write-PsGadgetSsd1306` |
+
+### Simple text
 
 ```powershell
 $dev.Display("Hello World")          # page 0, address 0x3C
@@ -160,60 +165,50 @@ $dev.Display("PS Summit 2026!", 2)   # page 2
 $dev.Display("Alt addr", 0, 0x3D)   # different I2C address
 ```
 
-`Display()` lazily connects and initializes the SSD1306 on the first call and reuses the
-connection on subsequent calls.
+The display is initialized on the first call and reused on all subsequent calls.
 
-> **Scripter**: `Display()` is the fastest way to get text on screen. Use Option B when
-> you need to clear individual pages, control alignment/font size, or manage the display
-> object directly.
+### Advanced formatting
 
-### Option B: explicit display object
+`GetDisplay()` returns the cached display object (initializing it on first call).
+Use it when you need alignment, larger text, or inverted rows:
 
 ```powershell
-$display = Connect-PsGadgetSsd1306 -PsGadget $dev
-
-# If your module uses 0x3D:
-$display = Connect-PsGadgetSsd1306 -PsGadget $dev -Address 0x3D
-
-if (-not $display) {
-    Write-Error "SSD1306 init failed. Check wiring and I2C address."
-    $dev.Close()
-    return
-}
-
-Write-Host ("SSD1306 ready - address 0x{0:X2}, {1} glyphs loaded" -f `
-    $display.I2CAddress, $display.Glyphs.Count)
+$d = $dev.GetDisplay()               # init once, reuse every call
+Write-PsGadgetSsd1306 -Display $d -Text "PSGadget"  -Page 0 -Align center
+Write-PsGadgetSsd1306 -Display $d -Text "12:34:56"  -Page 2 -Align center -FontSize 2
+Write-PsGadgetSsd1306 -Display $d -Text "ALARM"     -Page 6 -Align center -Invert
 ```
 
-> **Beginner**: If you see "SSD1306 init failed", check your four wires. The most common
-> mistake is swapping SCL and SDA (ADBUS0 and ADBUS1).
+> **Beginner**: `$dev.GetDisplay()` just gives you a handle to the screen. Think of it
+> like opening a file before you can format what's written in it. `$dev.Display()` is the
+> shortcut that does everything in one step but without formatting options.
+
+> **Scripter**: `$dev.GetDisplay()` and `$dev.Display()` share the same underlying
+> connection object -- calling either one first is fine. No re-init, no conflicts.
+
+> **Engineer**: `GetDisplay()` returns `$dev._display` (a `PsGadgetSsd1306` instance with
+> the FtdiSharp or IoT I2C handle baked in). Both `Display()` and `ClearDisplay()` call
+> `GetDisplay()` internally, so there is only ever one I2C handle per device.
 
 ---
 
 ## Step 5 - Clear the Display
 
-Always clear the display before writing new content to avoid leftover pixels.
-
-### Option A: shorthand ClearDisplay() method
+Always clear before writing new content to avoid leftover pixels.
 
 ```powershell
-$dev.ClearDisplay()      # clear all pages
-$dev.ClearDisplay(3)     # clear only page 3
+$dev.ClearDisplay()      # clear all 8 pages
+$dev.ClearDisplay(3)     # clear only page 3 (faster for live updates)
 ```
 
-Lazily inits the display (same as `Display()`) -- no separate object needed.
-
-### Option B: explicit display object
+If you already have `$d` from `GetDisplay()`, you can also call the function directly:
 
 ```powershell
-Clear-PsGadgetSsd1306 -Display $display
+Clear-PsGadgetSsd1306 -Display $d           # clear all pages
+Clear-PsGadgetSsd1306 -Display $d -Page 3   # clear one page
 ```
 
-Clear only a single page row (faster than clearing the whole screen):
-
-```powershell
-Clear-PsGadgetSsd1306 -Display $display -Page 3
-```
+Both operate on the same cached object -- use whichever is more readable in context.
 
 > **Engineer**: The SSD1306 128x64 frame buffer is organized as 8 horizontal pages (rows),
 > each 8 pixels tall and 128 bytes wide. One byte per column, one bit per pixel row.
@@ -239,10 +234,11 @@ Clear-PsGadgetSsd1306 -Display $display -Page 3
 The built-in font is 6x8 pixels per character, giving up to ~21 characters per row.
 
 ```powershell
-Clear-PsGadgetSsd1306 -Display $display
-Write-PsGadgetSsd1306 -Display $display -Text "PSGadget"                              -Page 0 -Align center
-Write-PsGadgetSsd1306 -Display $display -Text "Hello World"                           -Page 1
-Write-PsGadgetSsd1306 -Display $display -Text ("Date: " + (Get-Date -f "yyyy-MM-dd")) -Page 3
+$d = $dev.GetDisplay()
+$dev.ClearDisplay()
+Write-PsGadgetSsd1306 -Display $d -Text "PSGadget"                              -Page 0 -Align center
+Write-PsGadgetSsd1306 -Display $d -Text "Hello World"                           -Page 1
+Write-PsGadgetSsd1306 -Display $d -Text ("Date: " + (Get-Date -f "yyyy-MM-dd")) -Page 3
 ```
 
 > **Beginner**: `-Page` is just which row of the screen to write on. Page 0 is the top row,
@@ -251,10 +247,11 @@ Write-PsGadgetSsd1306 -Display $display -Text ("Date: " + (Get-Date -f "yyyy-MM-
 ### Text alignment
 
 ```powershell
-Clear-PsGadgetSsd1306 -Display $display
-Write-PsGadgetSsd1306 -Display $display -Text "left"   -Page 1 -Align left
-Write-PsGadgetSsd1306 -Display $display -Text "center" -Page 3 -Align center
-Write-PsGadgetSsd1306 -Display $display -Text "right"  -Page 5 -Align right
+$d = $dev.GetDisplay()
+$dev.ClearDisplay()
+Write-PsGadgetSsd1306 -Display $d -Text "left"   -Page 1 -Align left
+Write-PsGadgetSsd1306 -Display $d -Text "center" -Page 3 -Align center
+Write-PsGadgetSsd1306 -Display $d -Text "right"  -Page 5 -Align right
 ```
 
 ### Large text (double-width font)
@@ -263,7 +260,7 @@ Write-PsGadgetSsd1306 -Display $display -Text "right"  -Page 5 -Align right
 It occupies one page (8px tall) and roughly 10-11 characters per row.
 
 ```powershell
-Write-PsGadgetSsd1306 -Display $display -Text "BIG" -Page 0 -Align center -FontSize 2
+Write-PsGadgetSsd1306 -Display $d -Text "BIG" -Page 0 -Align center -FontSize 2
 ```
 
 ### Inverted text (dark on white)
@@ -272,7 +269,7 @@ Write-PsGadgetSsd1306 -Display $display -Text "BIG" -Page 0 -Align center -FontS
 dark characters on a white background.
 
 ```powershell
-Write-PsGadgetSsd1306 -Display $display -Text "ALARM" -Page 4 -Align center -Invert
+Write-PsGadgetSsd1306 -Display $d -Text "ALARM" -Page 4 -Align center -Invert
 ```
 
 > **Engineer**: Inversion is applied in software before the byte array is sent. The SSD1306
@@ -284,23 +281,14 @@ Write-PsGadgetSsd1306 -Display $display -Text "ALARM" -Page 4 -Align center -Inv
 ## Step 7 - Live Clock Example
 
 ```powershell
-Clear-PsGadgetSsd1306 -Display $display
-Write-PsGadgetSsd1306 -Display $display -Text "Live Clock" -Page 0 -Align center
+$d = $dev.GetDisplay()
+$dev.ClearDisplay()
+Write-PsGadgetSsd1306 -Display $d -Text "Live Clock" -Page 0 -Align center
 
-for ($i = 0; $i -lt 10; $i++) {
-    Clear-PsGadgetSsd1306 -Display $display -Page 3
-    Write-PsGadgetSsd1306 -Display $display -Text (Get-Date -Format "HH:mm:ss") `
-        -Page 3 -Align center -FontSize 2
-    Start-Sleep -Seconds 1
-}
-```
-
-Same loop using the shorthand (no separate `$display` needed):
-
-```powershell
 for ($i = 0; $i -lt 10; $i++) {
     $dev.ClearDisplay(3)
-    $dev.Display((Get-Date -Format "HH:mm:ss"), 3)
+    Write-PsGadgetSsd1306 -Display $d -Text (Get-Date -Format "HH:mm:ss") `
+        -Page 3 -Align center -FontSize 2
     Start-Sleep -Seconds 1
 }
 ```
@@ -315,8 +303,9 @@ for ($i = 0; $i -lt 10; $i++) {
 Write multiple status lines pulled from live system data:
 
 ```powershell
-Clear-PsGadgetSsd1306 -Display $display
-Write-PsGadgetSsd1306 -Display $display -Text "-- STATUS --" -Page 0 -Align center
+$d = $dev.GetDisplay()
+$dev.ClearDisplay()
+Write-PsGadgetSsd1306 -Display $d -Text "-- STATUS --" -Page 0 -Align center
 
 $lines = @(
     "CPU: (Get-WmiObject Win32_Processor | Select -Expand LoadPercentage)%",
@@ -325,7 +314,7 @@ $lines = @(
 )
 
 for ($i = 0; $i -lt $lines.Count; $i++) {
-    Write-PsGadgetSsd1306 -Display $display -Text $lines[$i] -Page ($i + 2)
+    Write-PsGadgetSsd1306 -Display $d -Text $lines[$i] -Page ($i + 2)
 }
 ```
 
@@ -337,7 +326,7 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
 ## Step 9 - Cursor Positioning for Raw Layout
 
 ```powershell
-Set-PsGadgetSsd1306Cursor -Display $display -Column 64 -Page 3
+Set-PsGadgetSsd1306Cursor -Display $d -Column 64 -Page 3
 ```
 
 > **Engineer**: Sends command sequence: set column address (0x21, col, 127), set page
@@ -382,28 +371,25 @@ if (-not ($scan | Where-Object Address -eq 0x3C)) {
 }
 
 try {
-    # 3. Shorthand: Display() and ClearDisplay() - init happens automatically on first call
+    # 3. Simple text -- Display() handles init automatically
     $dev.Display("PSGadget", 0)
     $dev.Display("SSD1306 via I2C", 1)
     Start-Sleep -Seconds 2
-    $dev.ClearDisplay()    # clear all pages before handing off to explicit object
 
-    # 4. Explicit display object for full control
-    $display = Connect-PsGadgetSsd1306 -PsGadget $dev
-    if (-not $display) { Write-Error "SSD1306 init failed."; return }
-
-    Clear-PsGadgetSsd1306 -Display $display
-    Write-PsGadgetSsd1306 -Display $display -Text "Clock" -Page 0 -Align center
+    # 4. Advanced formatting -- GetDisplay() returns the same cached object
+    $d = $dev.GetDisplay()
+    $dev.ClearDisplay()
+    Write-PsGadgetSsd1306 -Display $d -Text "Clock" -Page 0 -Align center
 
     for ($i = 0; $i -lt 10; $i++) {
-        Clear-PsGadgetSsd1306 -Display $display -Page 3
-        Write-PsGadgetSsd1306 -Display $display -Text (Get-Date -Format "HH:mm:ss") `
+        $dev.ClearDisplay(3)
+        Write-PsGadgetSsd1306 -Display $d -Text (Get-Date -Format "HH:mm:ss") `
             -Page 3 -Align center -FontSize 2
         Start-Sleep -Seconds 1
     }
 
-    Clear-PsGadgetSsd1306 -Display $display
-    Write-PsGadgetSsd1306 -Display $display -Text "Done." -Page 3 -Align center
+    $dev.ClearDisplay()
+    Write-PsGadgetSsd1306 -Display $d -Text "Done." -Page 3 -Align center
 
 } finally {
     $dev.Close()
@@ -461,19 +447,18 @@ $dev.Connect()
 # Scan I2C bus
 $dev.Scan() | Format-Table
 
-# Shorthand display and clear (lazy init at 0x3C)
-$dev.Display("Hello World")           # page 0
-$dev.Display("line 2", 2)             # page 2
-$dev.Display("alt addr", 0, 0x3D)     # alternate I2C address
+# Simple text -- no display object needed
+$dev.Display("Hello World")           # page 0, default 0x3C
+$dev.Display("line 2", 2)             # specific page
+$dev.Display("alt addr", 0, 0x3D)     # alternate address
 $dev.ClearDisplay()                   # clear all pages
-$dev.ClearDisplay(2)                  # clear only page 2
+$dev.ClearDisplay(2)                  # clear one page
 
-# Explicit display object
-$d = Connect-PsGadgetSsd1306 -PsGadget $dev
-Clear-PsGadgetSsd1306 -Display $d
+# Advanced formatting -- GetDisplay() returns the same cached object
+$d = $dev.GetDisplay()                # (or GetDisplay(0x3D) for alternate address)
 Write-PsGadgetSsd1306 -Display $d -Text "Hello"  -Page 0 -Align center
-Write-PsGadgetSsd1306 -Display $d -Text "BIG"    -Page 2 -FontSize 2
-Write-PsGadgetSsd1306 -Display $d -Text "ALERT"  -Page 4 -Invert
+Write-PsGadgetSsd1306 -Display $d -Text "BIG"    -Page 2 -Align center -FontSize 2
+Write-PsGadgetSsd1306 -Display $d -Text "ALERT"  -Page 4 -Align center -Invert
 Clear-PsGadgetSsd1306 -Display $d -Page 1
 
 # Cursor

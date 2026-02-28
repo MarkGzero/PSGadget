@@ -193,11 +193,34 @@ class PsGadgetFtdi : System.IDisposable {
         }
     }
 
-    # Write text to the SSD1306 OLED at 0x3C (default) on the connected I2C bus.
-    # Lazily initializes the display on first call; reuses the connection on subsequent calls.
-    # Usage: $r1.Display("Hello World")         # page 0
-    #        $r1.Display("Status: OK", 2)        # page 2
-    #        $r1.Display("Hello", 0, 0x3D)       # alternate address
+    # GetDisplay() - returns the cached PsGadgetSsd1306 object, lazily initializing it on first call.
+    # Use this to access advanced formatting options (Align, FontSize, Invert) that Display() does not expose.
+    # The same object is reused by Display() and ClearDisplay() -- no double-init conflicts.
+    #
+    # Usage:
+    #   $d = $dev.GetDisplay()
+    #   Write-PsGadgetSsd1306 -Display $d -Text "Clock" -Page 0 -Align center -FontSize 2
+    #   Clear-PsGadgetSsd1306 -Display $d -Page 0
+    [PsGadgetSsd1306] GetDisplay() {
+        return $this.GetDisplay(0x3C)
+    }
+
+    [PsGadgetSsd1306] GetDisplay([byte]$Address) {
+        $this.Logger.WriteTrace("GetDisplay(0x$($Address.ToString('X2')))")
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new('Device not open. Call Connect() first.')
+        }
+        if (-not $this._display -or -not $this._display.IsInitialized) {
+            $this._display = Connect-PsGadgetSsd1306 -FtdiDevice $this._connection -Address $Address
+            if (-not $this._display) {
+                throw [System.InvalidOperationException]::new('Failed to connect to SSD1306 display at 0x' + $Address.ToString('X2'))
+            }
+        }
+        return $this._display
+    }
+
+    # Display() - write text to the SSD1306 OLED.
+    # For alignment/FontSize/Invert use $dev.GetDisplay() then Write-PsGadgetSsd1306.
     [void] Display([string]$Text) {
         $this.Display($Text, 0, 0x3C)
     }
@@ -207,23 +230,11 @@ class PsGadgetFtdi : System.IDisposable {
     }
 
     [void] Display([string]$Text, [int]$Page, [byte]$Address) {
-        $this.Logger.WriteTrace("Display('$Text', page=$Page, addr=0x$($Address.ToString('X2')))") 
-        if (-not $this.IsOpen) {
-            throw [System.InvalidOperationException]::new('Device not open. Call Connect() first.')
-        }
-        # Lazily create or reuse the cached display connection
-        if (-not $this._display -or -not $this._display.IsInitialized) {
-            $this._display = Connect-PsGadgetSsd1306 -FtdiDevice $this._connection -Address $Address
-            if (-not $this._display) {
-                throw [System.InvalidOperationException]::new('Failed to connect to SSD1306 display at 0x' + $Address.ToString('X2'))
-            }
-        }
-        Write-PsGadgetSsd1306 -Display $this._display -Text $Text -Page $Page | Out-Null
+        $this.Logger.WriteTrace("Display('$Text', page=$Page, addr=0x$($Address.ToString('X2')))")
+        Write-PsGadgetSsd1306 -Display $this.GetDisplay($Address) -Text $Text -Page $Page | Out-Null
     }
 
-    # Clear the SSD1306 OLED display at 0x3C (default).
-    # ClearDisplay()        - clear all pages
-    # ClearDisplay(page)    - clear a single page (0-7)
+    # ClearDisplay() - clear all pages or a single page.
     [void] ClearDisplay() {
         $this.ClearDisplay(-1, 0x3C)
     }
@@ -234,19 +245,10 @@ class PsGadgetFtdi : System.IDisposable {
 
     [void] ClearDisplay([int]$Page, [byte]$Address) {
         $this.Logger.WriteTrace("ClearDisplay(page=$Page, addr=0x$($Address.ToString('X2')))")
-        if (-not $this.IsOpen) {
-            throw [System.InvalidOperationException]::new('Device not open. Call Connect() first.')
-        }
-        if (-not $this._display -or -not $this._display.IsInitialized) {
-            $this._display = Connect-PsGadgetSsd1306 -FtdiDevice $this._connection -Address $Address
-            if (-not $this._display) {
-                throw [System.InvalidOperationException]::new('Failed to connect to SSD1306 display at 0x' + $Address.ToString('X2'))
-            }
-        }
         if ($Page -ge 0) {
-            Clear-PsGadgetSsd1306 -Display $this._display -Page $Page | Out-Null
+            Clear-PsGadgetSsd1306 -Display $this.GetDisplay($Address) -Page $Page | Out-Null
         } else {
-            Clear-PsGadgetSsd1306 -Display $this._display | Out-Null
+            Clear-PsGadgetSsd1306 -Display $this.GetDisplay($Address) | Out-Null
         }
     }
 
