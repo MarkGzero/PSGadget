@@ -68,25 +68,38 @@ function Set-FtdiGpioPins {
         }
         
         Write-Verbose ("Setting pins {0} to {1} (mask: 0x{2:X2})" -f ($Pins -join ','), $Direction, $pinMask)
-        
-        # MPSSE ACBUS control values
-        $directionMask = 0xFF  # All pins as outputs by default
-        $outputValue = if ($isHigh) { $pinMask } else { 0 }
-        
+
+        # Read current ACBUS pin state so that pins not in $Pins are preserved (read-modify-write)
+        $currentValue = [byte](Get-FtdiGpioPins -DeviceHandle $DeviceHandle)
+        $directionMask = 0xFF  # All ACBUS pins as outputs
+
+        # Apply state change only to the specified pins; all others keep their current value
+        if ($isHigh) {
+            $outputValue = [byte]($currentValue -bor [byte]$pinMask)
+        } else {
+            $outputValue = [byte]($currentValue -band ([byte](0xFF -bxor [byte]$pinMask)))
+        }
+
+        Write-Verbose ("Read-modify-write: current=0x{0:X2} mask=0x{1:X2} new=0x{2:X2}" -f $currentValue, $pinMask, $outputValue)
+
         # Send MPSSE command 0x82: Set ACBUS pins
         $success = Send-MpsseAcbusCommand -DeviceHandle $DeviceHandle -Value $outputValue -DirectionMask $directionMask
-        
+
         if (-not $success) {
             throw "Failed to send MPSSE ACBUS command"
         }
-        
+
         # Handle duration if specified
         if ($DurationMs) {
             Write-Verbose "Holding pin state for $DurationMs ms..."
             Start-Sleep -Milliseconds $DurationMs
-            
-            # Optionally reset pins after duration
-            $resetValue = if ($isHigh) { 0 } else { $pinMask }
+
+            # Reverse ONLY the modified pins, preserve all others
+            if ($isHigh) {
+                $resetValue = [byte]($outputValue -band ([byte](0xFF -bxor [byte]$pinMask)))
+            } else {
+                $resetValue = [byte]($outputValue -bor [byte]$pinMask)
+            }
             Send-MpsseAcbusCommand -DeviceHandle $DeviceHandle -Value $resetValue -DirectionMask $directionMask | Out-Null
         }
         
@@ -343,14 +356,21 @@ function Send-MpsseI2CWrite {
         [byte]$Address,
         
         [Parameter(Mandatory = $true)]
-        [byte[]]$Data
+        [byte[]]$Data,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$ByteDump
     )
-    
+
+    # NACK is detected inside the try block via a flag so that the terminating error
+    # is raised AFTER the try/catch boundary (hardware errors stay non-terminating).
+    $nackPhase = $null
+
     try {
         if (-not $DeviceHandle -or -not $DeviceHandle.IsOpen) {
             throw "Device handle is invalid or device is not open"
         }
-        
+
         # Resolve real device handle - may be PSCustomObject wrapper or raw FTDI type
         $isRealDevice = $script:FtdiInitialized -and (
             $DeviceHandle.GetType().Name -eq 'FTDI' -or
@@ -358,70 +378,116 @@ function Send-MpsseI2CWrite {
         )
 
         if ($isRealDevice) {
-            # Build I2C transaction as a single buffer sent in one Write call
-            [System.Collections.Generic.List[byte]]$transaction = @()
+            # Resolve raw FTD2XX_NET.FTDI handle (same pattern as Invoke-FtdiI2CScan)
+            $rawDevice = $null
+            if ($DeviceHandle.GetType().Name -eq 'FTDI') {
+                $rawDevice = $DeviceHandle
+            } elseif ($DeviceHandle.PSObject.Properties['Device'] -and $DeviceHandle.Device) {
+                $rawDevice = $DeviceHandle.Device
+            }
+            if (-not $rawDevice) { throw 'Cannot resolve raw FTDI device handle for I2C write' }
 
-            # I2C Start condition:
-            #   SDA high, SCL high (idle)
-            #   SDA falls while SCL high  => start
-            #   SCL falls to begin first bit
-            $transaction.AddRange([byte[]]@(0x80, 0x03, 0x03))  # SCL=1, SDA=1, both output
-            $transaction.AddRange([byte[]]@(0x80, 0x01, 0x03))  # SCL=1, SDA=0 (start condition)
-            $transaction.AddRange([byte[]]@(0x80, 0x00, 0x03))  # SCL=0, SDA=0 (clock low)
+            # Assemble the ordered list of bytes to clock: address (write) then data
+            $allBytes = [System.Collections.Generic.List[byte]]::new()
+            $allBytes.Add([byte](($Address -shl 1) -bor 0x00))
+            foreach ($b in $Data) { $allBytes.Add([byte]$b) }
 
-            # Helper scriptblock: clock out one byte (8 bits) then ACK pulse
-            # 0x1B = Clock Data Bits Out on Falling Edge, MSB first, no read
-            #        Format: 0x1B <bit_count-1> <data_byte>
-            #        0x1B 0x07 $b = clock out 8 bits of $b
-            # ACK cycle: release SDA (input), pulse SCL high then low, reclaim SDA
-            $clockByte = [scriptblock] {
-                param([byte]$b)
-                # Clock 8 data bits out
-                $transaction.AddRange([byte[]]@(0x1B, 0x07, $b))
-                # ACK clock cycle - release SDA to input so device can drive ACK
-                $transaction.AddRange([byte[]]@(0x80, 0x00, 0x01))  # SDA=input, SCL=output-low
-                $transaction.AddRange([byte[]]@(0x80, 0x01, 0x01))  # SCL=high (ACK bit sampled)
-                $transaction.AddRange([byte[]]@(0x80, 0x00, 0x01))  # SCL=low
-                $transaction.AddRange([byte[]]@(0x80, 0x02, 0x03))  # SDA=output-high, SCL=low
+            # I2C START condition: SDA falls while SCL is high
+            [byte[]]$startCmd = @(
+                0x80, 0x03, 0x03,   # idle:  SCL=1, SDA=1, both output
+                0x80, 0x01, 0x03,   # start: SCL=1, SDA=0
+                0x80, 0x00, 0x03    # SCL=0  (begin clocking)
+            )
+            [uint32]$bw = 0
+            $st = $rawDevice.Write($startCmd, [uint32]$startCmd.Length, [ref]$bw)
+            if ([int]$st -ne 0) { throw "I2C START failed: D2XX status=$st" }
+
+            # Clock each byte out and validate ACK before proceeding to the next byte.
+            # Pattern mirrors Invoke-FtdiI2CScan which is known-good:
+            #   0x1B 0x07 $b  - clock 8 bits out on falling edge, MSB first
+            #   0x81          - queue a read of the ADBUS byte (bit 1 = SDA)
+            #   0x87          - SEND_IMMEDIATE: flush MPSSE buffer to host now
+            # Then Read(1 byte): bit 1 of result = SDA.  0=ACK, 1=NACK.
+            for ($byteIdx = 0; $byteIdx -lt $allBytes.Count; $byteIdx++) {
+                [byte]$b = $allBytes[$byteIdx]
+
+                [byte[]]$byteCmd = @(
+                    0x1B, 0x07, $b,     # clock 8 bits out on falling edge, MSB first
+                    0x80, 0x00, 0x01,   # SDA=input (dir=0x01: only SCL output), SCL=0
+                    0x80, 0x01, 0x01,   # SCL=1 (device drives ACK bit on SDA)
+                    0x81,               # read ADBUS byte into RX buffer (bit 1 = SDA)
+                    0x80, 0x00, 0x01,   # SCL=0
+                    0x80, 0x02, 0x03,   # SDA=output-high, SCL=0, both output
+                    0x87                # SEND_IMMEDIATE: flush to host now
+                )
+
+                if ($ByteDump) {
+                    Write-Verbose ("I2C TX byte[{0}]=0x{1:X2} cmd: {2}" -f $byteIdx, $b, (($byteCmd | ForEach-Object { '0x{0:X2}' -f $_ }) -join ' '))
+                }
+
+                [uint32]$bwb = 0
+                $st = $rawDevice.Write($byteCmd, [uint32]$byteCmd.Length, [ref]$bwb)
+                if ([int]$st -ne 0) {
+                    throw ("I2C write failed at byte {0}: D2XX status={1}" -f $byteIdx, $st)
+                }
+
+                # Read back the ADBUS pin state queued by 0x81
+                [byte[]]$ackBuf = [byte[]]::new(1)
+                [uint32]$br = 0
+                Start-Sleep -Milliseconds 1
+                $rawDevice.Read($ackBuf, [uint32]1, [ref]$br)
+
+                if ($br -ne 1) {
+                    throw ("I2C ACK timeout at byte {0}: device 0x{1:X2} did not respond" -f $byteIdx, $Address)
+                }
+
+                # Bit 1 of ADBUS byte = SDA.  0 = ACK (device held low), 1 = NACK.
+                $sdaBit = ($ackBuf[0] -shr 1) -band 0x01
+
+                if ($ByteDump) {
+                    $ackLabel = if ($sdaBit -eq 0) { 'ACK' } else { 'NACK' }
+                    Write-Verbose ("I2C ACK byte[{0}]: ADBUS=0x{1:X2} SDA={2} ({3})" -f $byteIdx, $ackBuf[0], $sdaBit, $ackLabel)
+                }
+
+                if ($sdaBit -ne 0) {
+                    $nackPhase = if ($byteIdx -eq 0) { 'address phase' } else { "data byte $byteIdx" }
+                    break
+                }
             }
 
-            # Write address byte with write bit (R/W=0)
-            $addressByte = [byte](($Address -shl 1) -bor 0x00)
-            & $clockByte $addressByte
+            # I2C STOP condition: SCL=0,SDA=0 -> SCL=1 -> SDA=1 while SCL=1
+            [byte[]]$stopCmd = @(0x80, 0x00, 0x03, 0x80, 0x01, 0x03, 0x80, 0x03, 0x03)
+            [uint32]$bws = 0
+            $rawDevice.Write($stopCmd, [uint32]$stopCmd.Length, [ref]$bws) | Out-Null
 
-            # Write each data byte
-            foreach ($b in $Data) {
-                & $clockByte ([byte]$b)
+            if (-not $nackPhase) {
+                Write-Verbose ("I2C write OK: Address=0x{0:X2}, {1} data byte(s)" -f $Address, $Data.Length)
             }
-
-            # I2C Stop condition:
-            #   SCL low, SDA low
-            #   SCL rises
-            #   SDA rises while SCL high  => stop
-            $transaction.AddRange([byte[]]@(0x80, 0x00, 0x03))  # SCL=0, SDA=0
-            $transaction.AddRange([byte[]]@(0x80, 0x01, 0x03))  # SCL=1, SDA=0
-            $transaction.AddRange([byte[]]@(0x80, 0x03, 0x03))  # SCL=1, SDA=1 (stop)
-
-            # Send entire transaction in one call
-            [uint32]$bytesWritten = 0
-            [byte[]]$command = $transaction.ToArray()
-            $status = $DeviceHandle.Write($command, $command.Length, [ref]$bytesWritten)
-
-            if ($status -eq $script:FTDI_OK -and $bytesWritten -eq $command.Length) {
-                Write-Verbose ("I2C write OK: Address=0x{0:X2}, {1} data bytes" -f $Address, $Data.Length)
-                return $true
-            } else {
-                throw "I2C write failed: Status=$status, BytesWritten=$bytesWritten (expected $($command.Length))"
-            }
+            return $true
         } else {
             # Stub mode
             Write-Verbose ("I2C write: Address=0x{0:X2}, {1} bytes (STUB MODE)" -f $Address, $Data.Length)
             return $true
         }
-        
+
     } catch {
         Write-Error "Failed to send I2C write: $_"
         return $false
+    }
+
+    # NACK check outside try/catch so it throws as a terminating error (not caught above).
+    # Stop was already sent inside the loop to release the bus before we arrive here.
+    if ($nackPhase) {
+        $msg = "I2C NACK from device 0x{0:X2} at {1}" -f $Address, $nackPhase
+        Write-Verbose $msg
+        $PSCmdlet.ThrowTerminatingError(
+            [System.Management.Automation.ErrorRecord]::new(
+                [System.Exception]::new($msg),
+                'I2CWriteNACK',
+                [System.Management.Automation.ErrorCategory]::ConnectionError,
+                $Address
+            )
+        )
     }
 }
 

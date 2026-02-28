@@ -29,7 +29,7 @@ Describe 'PsGadget Module Tests' {
             $ExportedFunctions | Should -Contain 'List-PsGadgetMpy'
             $ExportedFunctions | Should -Contain 'Connect-PsGadgetMpy'
             $ExportedFunctions | Should -Contain 'Set-PsGadgetGpio'
-            $ExportedFunctions | Should -Contain 'Test-PsGadgetSetup'
+            $ExportedFunctions | Should -Contain 'Test-PsGadgetEnvironment'
         }
         
         It 'Should have the correct module version' {
@@ -132,23 +132,26 @@ Describe 'PsGadget Module Tests' {
         }
     }
 
-    Context 'Test-PsGadgetSetup' {
+    Context 'Test-PsGadgetEnvironment' {
         It 'Should run without throwing' {
-            { Test-PsGadgetSetup } | Should -Not -Throw
+            { Test-PsGadgetEnvironment } | Should -Not -Throw
         }
 
         It 'Should return a status object with expected properties' {
-            $result = Test-PsGadgetSetup
+            $result = Test-PsGadgetEnvironment
             $result                  | Should -Not -BeNullOrEmpty
             $result.Platform         | Should -Not -BeNullOrEmpty
             $result.PsVersion        | Should -Not -BeNullOrEmpty
             $result.Backend          | Should -Not -BeNullOrEmpty
             $result.DeviceCount      | Should -BeGreaterOrEqual 0
             $result.PSObject.Properties.Name | Should -Contain 'IsReady'
+            $result.PSObject.Properties.Name | Should -Contain 'Status'
+            $result.PSObject.Properties.Name | Should -Contain 'Reason'
+            $result.PSObject.Properties.Name | Should -Contain 'NextStep'
         }
 
         It 'Should return a bool IsReady property' {
-            $result = Test-PsGadgetSetup
+            $result = Test-PsGadgetEnvironment
             $result.IsReady | Should -BeOfType [bool]
         }
     }
@@ -167,6 +170,30 @@ Describe 'PsGadget Module Tests' {
             # These should not throw in stub mode
             { $Info = $Device.GetInfo() } | Should -Not -Throw
             { $Result = $Device.Invoke("print('test')") } | Should -Not -Throw
+        }
+    }
+
+    Context 'Protocol layer (stub mode)' {
+        It 'Send-MpsseI2CWrite should accept -ByteDump and run in stub mode without throwing' {
+            InModuleScope PSGadget {
+                $stubHandle = [PSCustomObject]@{ IsOpen = $true; Device = $null }
+                { Send-MpsseI2CWrite -DeviceHandle $stubHandle -Address 0x3C -Data @(0x00, 0xAE) -ByteDump } | Should -Not -Throw
+            }
+        }
+
+        It 'Get-FtdiGpioPins should return a byte value in stub mode' {
+            InModuleScope PSGadget {
+                $stubHandle = [PSCustomObject]@{ IsOpen = $true }
+                $result = Get-FtdiGpioPins -DeviceHandle $stubHandle
+                $result | Should -BeOfType [byte]
+            }
+        }
+
+        It 'Set-FtdiGpioPins should run without error in stub mode' {
+            InModuleScope PSGadget {
+                $stubHandle = [PSCustomObject]@{ IsOpen = $true }
+                { Set-FtdiGpioPins -DeviceHandle $stubHandle -Pins @(0) -Direction HIGH } | Should -Not -Throw
+            }
         }
     }
 }
