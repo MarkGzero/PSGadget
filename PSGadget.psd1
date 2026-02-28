@@ -1,7 +1,7 @@
 @{
     # Module metadata
     RootModule = 'PSGadget.psm1'
-    ModuleVersion = '0.3.2'
+    ModuleVersion = '0.3.3'
     GUID = 'a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6'
     
     # PowerShell version requirements
@@ -18,6 +18,7 @@
     # Exported functions - explicitly declared, no wildcards
     FunctionsToExport = @(
         'New-PsGadgetFtdi',
+        'Test-PsGadgetSetup',
         'List-PsGadgetFtdi',
         'Connect-PsGadgetFtdi',
         'List-PsGadgetMpy',
@@ -43,11 +44,12 @@
     FileList = @(
         'PSGadget.psm1',
         'Classes/PsGadgetLogger.ps1',
+        'Classes/PsGadgetSsd1306.ps1',
         'Classes/PsGadgetFtdi.ps1', 
         'Classes/PsGadgetMpy.ps1',
-        'Classes/PsGadgetSsd1306.ps1',
         'Private/Ftdi.Backend.ps1',
         'Private/Ftdi.Cbus.ps1',
+        'Private/Ftdi.IoT.ps1',
         'Private/Ftdi.Mpsse.ps1',
         'Private/Ftdi.Unix.ps1',
         'Private/Ftdi.Windows.ps1',
@@ -64,6 +66,8 @@
         'Public/Get-PsGadgetFtdiEeprom.ps1',
         'Public/List-PsGadgetFtdi.ps1',
         'Public/List-PsGadgetMpy.ps1',
+        'Public/New-PsGadgetFtdi.ps1',
+        'Public/Test-PsGadgetSetup.ps1',
         'Public/Set-PsGadgetConfig.ps1',
         'Public/Set-PsGadgetFt232rCbusMode.ps1',
         'Public/Set-PsGadgetFtdiMode.ps1',
@@ -86,7 +90,7 @@
             LicenseUri = 'https://github.com/MarkGzero/PsGadget/blob/main/LICENSE'
             ProjectUri = 'https://github.com/MarkGzero/PsGadget'
             IconUri = ''
-            ReleaseNotes = 'v0.3.2: User config system at ~/.psgadget/config.json. New: Get-PsGadgetConfig, Set-PsGadgetConfig. Set-PsGadgetFt232rCbusMode now reads ftdi.highDriveIOs, ftdi.pullDownEnable, ftdi.rIsD2XX from config as defaults.'
+            ReleaseNotes = 'v0.3.3: New Test-PsGadgetSetup diagnostic command. Verbose hints in List-PsGadgetFtdi show ready-to-run connect commands per device.'
         }
     }
 }

@@ -60,13 +60,34 @@ function List-PsGadgetFtdi {
             $Filtered = @($Devices | Where-Object { -not $_.IsVcp })
             if ($Filtered.Count -eq 0) {
                 Write-Warning "No PsGadget-compatible FTDI devices found. If you have FTDI devices loaded with the VCP driver, use -ShowVCP to see them."
+                Write-Verbose "Run Test-PsGadgetSetup -Verbose for driver and native library diagnostics."
                 return @()
             }
             Write-Verbose "$($Filtered.Count) PsGadget-compatible device(s) after filtering VCP"
+            foreach ($dev in $Filtered) {
+                $caps = Get-FtdiChipCapabilities -TypeName $dev.Type
+                if ($dev.SerialNumber) {
+                    Write-Verbose ("  [{0}] {1} SN={2} GPIO={3}" -f $dev.Index, $dev.Type, $dev.SerialNumber, $caps.GpioMethod)
+                    Write-Verbose ("      Connect  : `$dev = New-PsGadgetFtdi -SerialNumber '{0}'; `$dev.Connect()" -f $dev.SerialNumber)
+                } else {
+                    Write-Verbose ("  [{0}] {1} GPIO={2}" -f $dev.Index, $dev.Type, $caps.GpioMethod)
+                    Write-Verbose ("      Connect  : `$dev = New-PsGadgetFtdi -Index {0}; `$dev.Connect()" -f $dev.Index)
+                }
+                if ($caps.HasMpsse) {
+                    Write-Verbose ("      I2C scan : `$dev.Scan()")
+                    Write-Verbose ("      Display  : `$dev.Display('Hello', 0)")
+                }
+            }
             return $Filtered
         }
-        
-        # Return the device list
+
+        # Return the full device list (VCP included)
+        foreach ($dev in $Devices) {
+            $caps = Get-FtdiChipCapabilities -TypeName $dev.Type
+            if ($dev.SerialNumber) {
+                Write-Verbose ("  [{0}] {1} SN={2} GPIO={3}" -f $dev.Index, $dev.Type, $dev.SerialNumber, $caps.GpioMethod)
+            }
+        }
         return $Devices
         
     } catch {

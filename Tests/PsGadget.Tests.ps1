@@ -29,10 +29,11 @@ Describe 'PsGadget Module Tests' {
             $ExportedFunctions | Should -Contain 'List-PsGadgetMpy'
             $ExportedFunctions | Should -Contain 'Connect-PsGadgetMpy'
             $ExportedFunctions | Should -Contain 'Set-PsGadgetGpio'
+            $ExportedFunctions | Should -Contain 'Test-PsGadgetSetup'
         }
         
         It 'Should have the correct module version' {
-            (Get-Module PSGadget).Version.ToString() | Should -Be '0.3.2'
+            (Get-Module PSGadget).Version.ToString() | Should -Be '0.3.3'
         }
     }
 
@@ -128,6 +129,27 @@ Describe 'PsGadget Module Tests' {
         It 'Should set MicroPython device properties correctly' {
             $Device = Connect-PsGadgetMpy -SerialPort 'COM1'
             $Device.SerialPort | Should -Be 'COM1'
+        }
+    }
+
+    Context 'Test-PsGadgetSetup' {
+        It 'Should run without throwing' {
+            { Test-PsGadgetSetup } | Should -Not -Throw
+        }
+
+        It 'Should return a status object with expected properties' {
+            $result = Test-PsGadgetSetup
+            $result                  | Should -Not -BeNullOrEmpty
+            $result.Platform         | Should -Not -BeNullOrEmpty
+            $result.PsVersion        | Should -Not -BeNullOrEmpty
+            $result.Backend          | Should -Not -BeNullOrEmpty
+            $result.DeviceCount      | Should -BeGreaterOrEqual 0
+            $result.PSObject.Properties.Name | Should -Contain 'IsReady'
+        }
+
+        It 'Should return a bool IsReady property' {
+            $result = Test-PsGadgetSetup
+            $result.IsReady | Should -BeOfType [bool]
         }
     }
 
