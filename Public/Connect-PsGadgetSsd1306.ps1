@@ -52,7 +52,7 @@ function Connect-PsGadgetSsd1306 {
         # returned and no second FtdiSharp I2C handle is created on the same device.
         if ($PSCmdlet.ParameterSetName -eq 'PsGadget') {
             if (-not $PsGadget.IsOpen) {
-                throw "PsGadgetFtdi is not open. Call .Connect() first."
+                throw "PsGadgetFtdi is not open. Use New-PsGadgetFtdi, which connects automatically."
             }
             return $PsGadget.GetDisplay($Address)
         }

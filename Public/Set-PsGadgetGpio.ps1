@@ -37,7 +37,7 @@ function Set-PsGadgetGpio {
     Alternative to DeviceIndex - specify device by serial number
 
     .PARAMETER Connection
-    An already-open connection object returned by Connect-PsGadgetFtdi or [PsGadgetFtdi].Connect().
+    An already-open connection object returned by Connect-PsGadgetFtdi.
     When using this parameter set the caller is responsible for closing the connection.
     
     .EXAMPLE
@@ -117,14 +117,14 @@ function Set-PsGadgetGpio {
             # Caller provides an already-open connection - use it directly, do not close on exit
             $ownsConnection = $false
             if (-not $Connection.IsOpen) {
-                throw "The supplied connection is not open. Call Connect-PsGadgetFtdi (or [PsGadgetFtdi].Connect()) first."
+                throw "The supplied connection is not open. Call Connect-PsGadgetFtdi or New-PsGadgetFtdi first."
             }
             Write-Verbose "Using caller-supplied connection: $($Connection.Description) ($($Connection.SerialNumber))"
         } elseif ($PSCmdlet.ParameterSetName -eq 'PsGadget') {
             # Caller provides a PsGadgetFtdi class instance - unwrap its internal connection
             $ownsConnection = $false
             if (-not $PsGadget.IsOpen -or -not $PsGadget._connection) {
-                throw "PsGadgetFtdi is not open. Call .Connect() first."
+                throw "PsGadgetFtdi is not open. Use New-PsGadgetFtdi, which connects automatically."
             }
             $Connection = $PsGadget._connection
             Write-Verbose "Using PsGadgetFtdi connection: $($Connection.Description) ($($Connection.SerialNumber))"

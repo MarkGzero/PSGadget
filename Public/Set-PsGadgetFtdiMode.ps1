@@ -64,8 +64,7 @@ function Set-PsGadgetFtdiMode {
 
     .EXAMPLE
     # FT232R - async bit-bang on ADBUS (UART data pins), no EEPROM needed
-    $r1 = New-PsGadgetFtdi -Index 1
-    $r1.Connect()
+    $r1 = New-PsGadgetFtdi -Index 1   # connected immediately
     Set-PsGadgetFtdiMode -PsGadget $r1 -Mode AsyncBitBang
 
     .EXAMPLE

@@ -93,10 +93,9 @@ List-PsGadgetMpy -Detailed | Format-Table
 
 ### New-PsGadgetFtdi
 
-Creates a `PsGadgetFtdi` class instance. Use this instead of `[PsGadgetFtdi]::new()`
-because module classes are not visible in the caller's type scope.
-
-Call `.Connect()` on the returned object before using GPIO methods.
+Creates and connects a `PsGadgetFtdi` object in one step. Use this instead of
+`[PsGadgetFtdi]::new()` because module classes are not visible in the caller's
+type scope. The returned object is already open -- no `.Connect()` call needed.
 
 **Parameter sets**: BySerial (default) | ByIndex | ByLocation
 
@@ -112,7 +111,7 @@ Call `.Connect()` on the returned object before using GPIO methods.
 
 | Method | Description |
 |--------|-------------|
-| `.Connect()` | Open the hardware connection |
+| `.Connect()` | Open the hardware connection (idempotent; not needed after `New-PsGadgetFtdi`) |
 | `.Close()` | Close the connection |
 | `.SetPin(int pin, string state)` | Set one pin: state = HIGH / LOW / H / L / 1 / 0 |
 | `.SetPin(int pin, bool high)` | Set one pin via boolean |
@@ -300,8 +299,7 @@ Set-PsGadgetFtdiMode -PsGadget $dev -Mode MPSSE
 Set-PsGadgetFtdiMode -PsGadget $dev -Mode CBUS
 
 # Async bit-bang on ADBUS with custom direction mask
-$r = New-PsGadgetFtdi -Index 1
-$r.Connect()
+$r = New-PsGadgetFtdi -Index 1   # connected immediately
 Set-PsGadgetFtdiMode -PsGadget $r -Mode AsyncBitBang -Mask 0x0F  # lower nibble = output
 
 # Return to UART / serial mode

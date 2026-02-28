@@ -83,7 +83,7 @@ visibly illuminate the LED.
 
 This is the most common confusion when first driving LEDs from CBUS pins.
 
-When you run `Connect-PsGadgetFtdi` (or `New-PsGadgetFtdi` / `$dev.Connect()`), the
+When you run `Connect-PsGadgetFtdi` or `New-PsGadgetFtdi`, the
 D2XX driver opens the device handle but does **not** call `SetBitMode` until the first
 `Set-PsGadgetGpio` command arrives. Until that moment, CBUS pins programmed as
 `FT_CBUS_IOMODE` in the EEPROM are floating -- the FT232R's internal weak pull-up
@@ -479,8 +479,7 @@ Set-FtdiCbusBits -Connection $conn -Pins @(0, 1) -State LOW                    #
 Set-PsGadgetGpio -Connection $conn -Pins @(0) -State HIGH -DurationMs 500  # red 500ms then auto-off
 
 # OOP
-$dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"
-$dev.Connect()
+$dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"   # connected immediately
 $dev.SetPins(@(0, 1), 'LOW')    # init
 $dev.SetPins(@(0), 'HIGH')      # red on
 $dev.SetPins(@(1), 'HIGH')      # green on
