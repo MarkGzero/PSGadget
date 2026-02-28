@@ -221,6 +221,35 @@ class PsGadgetFtdi : System.IDisposable {
         Write-PsGadgetSsd1306 -Display $this._display -Text $Text -Page $Page | Out-Null
     }
 
+    # Clear the SSD1306 OLED display at 0x3C (default).
+    # ClearDisplay()        - clear all pages
+    # ClearDisplay(page)    - clear a single page (0-7)
+    [void] ClearDisplay() {
+        $this.ClearDisplay(-1, 0x3C)
+    }
+
+    [void] ClearDisplay([int]$Page) {
+        $this.ClearDisplay($Page, 0x3C)
+    }
+
+    [void] ClearDisplay([int]$Page, [byte]$Address) {
+        $this.Logger.WriteTrace("ClearDisplay(page=$Page, addr=0x$($Address.ToString('X2')))")
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new('Device not open. Call Connect() first.')
+        }
+        if (-not $this._display -or -not $this._display.IsInitialized) {
+            $this._display = Connect-PsGadgetSsd1306 -FtdiDevice $this._connection -Address $Address
+            if (-not $this._display) {
+                throw [System.InvalidOperationException]::new('Failed to connect to SSD1306 display at 0x' + $Address.ToString('X2'))
+            }
+        }
+        if ($Page -ge 0) {
+            Clear-PsGadgetSsd1306 -Display $this._display -Page $Page | Out-Null
+        } else {
+            Clear-PsGadgetSsd1306 -Display $this._display | Out-Null
+        }
+    }
+
     # Scan for I2C devices on the bus (0x08 to 0x77).
     # Requires an MPSSE-capable device (FT232H) and an open connection.
     # IoT backend uses .NET IoT I2cBus; D2XX backend uses MPSSE bit-bang.
