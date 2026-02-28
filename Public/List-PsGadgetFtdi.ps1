@@ -68,10 +68,10 @@ function List-PsGadgetFtdi {
                 $caps = Get-FtdiChipCapabilities -TypeName $dev.Type
                 if ($dev.SerialNumber) {
                     Write-Verbose ("  [{0}] {1} SN={2} GPIO={3}" -f $dev.Index, $dev.Type, $dev.SerialNumber, $caps.GpioMethod)
-                    Write-Verbose ("      Connect  : `$dev = New-PsGadgetFtdi -SerialNumber '{0}'; `$dev.Connect()" -f $dev.SerialNumber)
+                    Write-Verbose ("      Connect  : `$dev = New-PsGadgetFtdi -SerialNumber '{0}'" -f $dev.SerialNumber)
                 } else {
                     Write-Verbose ("  [{0}] {1} GPIO={2}" -f $dev.Index, $dev.Type, $caps.GpioMethod)
-                    Write-Verbose ("      Connect  : `$dev = New-PsGadgetFtdi -Index {0}; `$dev.Connect()" -f $dev.Index)
+                    Write-Verbose ("      Connect  : `$dev = New-PsGadgetFtdi -Index {0}" -f $dev.Index)
                 }
                 if ($caps.HasMpsse) {
                     Write-Verbose ("      I2C scan : `$dev.Scan()")

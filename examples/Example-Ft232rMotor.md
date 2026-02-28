@@ -282,7 +282,6 @@ Import-Module C:\path\to\PSGadget\PSGadget.psd1 -Force
 
 # Create device object using serial number (stable across USB port changes)
 $dev = New-PsGadgetFtdi -SerialNumber "BG01B0I1"   # use your serial number
-$dev.Connect()
 
 try {
     # Turn motor ON (CBUS0 HIGH)
@@ -334,7 +333,6 @@ To cycle the port later from an already-connected device object:
 
 ```powershell
 $dev = New-PsGadgetFtdi -Index 0
-$dev.Connect()
 $dev.CyclePort()   # triggers USB re-enumeration; the device handle is released automatically
 ```
 
@@ -412,8 +410,7 @@ Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State LOW
 Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State HIGH -DurationMs 500
 
 # OOP
-$dev = New-PsGadgetFtdi -Index 0
-$dev.Connect()
+$dev = New-PsGadgetFtdi -Index 0   # connected immediately
 Set-PsGadgetGpio -PsGadget $dev -Pins @(0) -State HIGH
 $dev.Close()
 ```

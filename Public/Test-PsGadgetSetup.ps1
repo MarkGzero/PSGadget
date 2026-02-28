@@ -155,11 +155,11 @@ function Test-PsGadgetSetup {
 
         # Actionable next-step hints
         if ($dev.SerialNumber) {
-            Write-Verbose ("      Connect : `$dev = New-PsGadgetFtdi -SerialNumber '{0}'; `$dev.Connect()" -f $dev.SerialNumber)
+            Write-Verbose ("      Connect : `$dev = New-PsGadgetFtdi -SerialNumber '{0}'" -f $dev.SerialNumber)
         } elseif ($dev.LocationId) {
-            Write-Verbose ("      Connect : `$dev = New-PsGadgetFtdi -LocationId '{0}'; `$dev.Connect()" -f $dev.LocationId)
+            Write-Verbose ("      Connect : `$dev = New-PsGadgetFtdi -LocationId '{0}'" -f $dev.LocationId)
         } else {
-            Write-Verbose ("      Connect : `$dev = New-PsGadgetFtdi -Index {0}; `$dev.Connect()" -f $dev.Index)
+            Write-Verbose ("      Connect : `$dev = New-PsGadgetFtdi -Index {0}" -f $dev.Index)
         }
 
         if ($caps.HasMpsse) {
@@ -186,7 +186,7 @@ function Test-PsGadgetSetup {
     if ($isReady) {
         Write-Verbose 'All checks passed. Hardware is ready.'
         Write-Verbose 'Quick start: List-PsGadgetFtdi | Format-Table'
-        Write-Verbose 'Then:        $dev = New-PsGadgetFtdi -SerialNumber <SN>; $dev.Connect()'
+        Write-Verbose 'Then:        $dev = New-PsGadgetFtdi -SerialNumber <SN>'
     }
 
     return [PSCustomObject]@{

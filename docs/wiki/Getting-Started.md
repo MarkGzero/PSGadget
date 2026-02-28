@@ -182,8 +182,7 @@ Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0, 1) -State LOW
 For repeated or scripted use, the OOP interface is cleaner:
 
 ```powershell
-$dev = New-PsGadgetFtdi -SerialNumber "FT4ABCDE"
-$dev.Connect()
+$dev = New-PsGadgetFtdi -SerialNumber "FT4ABCDE"   # connected immediately
 $dev.SetPin(0, "HIGH")
 $dev.SetPins(@(0, 1, 2), "LOW")
 $dev.Close()
@@ -260,8 +259,7 @@ Both `Set-PsGadgetGpio` and `New-PsGadgetFtdi` accept `-SerialNumber` or
 
 ```powershell
 # Stable across re-plugs on the same USB port
-$dev = New-PsGadgetFtdi -LocationId 197634
-$dev.Connect()
+$dev = New-PsGadgetFtdi -LocationId 197634   # connected immediately
 
 # Stable regardless of port, but requires knowing the serial number
 Set-PsGadgetGpio -SerialNumber "FT4ABCDE" -Pins @(0) -State HIGH

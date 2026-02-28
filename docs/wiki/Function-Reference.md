@@ -126,8 +126,7 @@ Call `.Connect()` on the returned object before using GPIO methods.
 
 ```powershell
 # Preferred: stable regardless of USB port
-$dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"
-$dev.Connect()
+$dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"   # connected immediately
 $dev.SetPin(0, "HIGH")
 $dev.SetPins(@(0, 1), "LOW")
 $dev.PulsePin(0, "HIGH", 500)   # 500 ms pulse
@@ -135,11 +134,9 @@ $dev.Close()
 
 # By index
 $dev = New-PsGadgetFtdi -Index 0
-$dev.Connect()
 
 # By USB port location (stable for fixed-wiring rigs)
 $dev = New-PsGadgetFtdi -LocationId 197634
-$dev.Connect()
 ```
 
 ---

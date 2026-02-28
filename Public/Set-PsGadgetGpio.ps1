@@ -61,9 +61,8 @@ function Set-PsGadgetGpio {
     $conn.Close()
 
     .EXAMPLE
-    # OOP style via PsGadgetFtdi class
-    $dev = [PsGadgetFtdi]::new("BG01X3GX")
-    $dev.Connect()
+    # OOP style via New-PsGadgetFtdi
+    $dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"   # connected immediately
     $dev.SetPin(0, "HIGH")
     $dev.SetPin(0, "LOW")
     $dev.Close()

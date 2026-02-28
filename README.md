@@ -67,8 +67,7 @@ $mpy.Invoke("print('hello from MicroPython')")
 connection lifecycle. This is the cleanest pattern for multi-step scripts.
 
 ```powershell
-$dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"
-$dev.Connect()
+$dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"   # connected immediately
 
 $dev.SetPin(0, "HIGH")           # CBUS0 / ACBUS0 HIGH
 $dev.SetPins(@(0, 1), "HIGH")    # multiple pins at once

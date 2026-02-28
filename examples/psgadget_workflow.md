@@ -376,14 +376,12 @@ PSGadget exposes an object-oriented interface via `New-PsGadgetFtdi`, which retu
 > `Import-Module`. Always use `New-PsGadgetFtdi` to create instances.
 
 ```powershell
-# Create a device object and connect
+# Create a device object - connected immediately (no .Connect() needed)
 $dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"
-$dev.Connect()           # opens D2XX connection, populates Type/GpioMethod/etc.
 
 # Identify by USB port location (stable for fixed demo rig wiring)
 # List-PsGadgetFtdi | Select-Object Index, SerialNumber, LocationId
 $dev = New-PsGadgetFtdi -LocationId 197634
-$dev.Connect()
 
 # FT232R CBUS GPIO (pins 0-3)
 $dev.SetPin(0, "HIGH")   # CBUS0 HIGH
@@ -416,7 +414,7 @@ $dev.Close()
 
 | Method                                   | Description                                |
 |------------------------------------------|--------------------------------------------|
-| `Connect()`                              | Open the device connection                 |
+| `Connect()`                              | Re-open after Close() (idempotent: no-op if already open) |
 | `Close()`                                | Close the device connection                |
 | `SetPin(int pin, string state)`          | Set pin HIGH/LOW/H/L/1/0                   |
 | `SetPin(int pin, bool high)`             | Set pin via boolean                        |

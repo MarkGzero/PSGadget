@@ -285,7 +285,6 @@ Import-Module C:\path\to\PSGadget\PSGadget.psd1 -Force
 
 # Create device object using serial number (stable across USB port changes)
 $dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"   # use your serial number
-$dev.Connect()
 
 try {
     # ---- Critical: initialize both pins LOW before anything else ----

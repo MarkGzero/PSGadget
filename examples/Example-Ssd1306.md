@@ -102,8 +102,7 @@ device cannot drive the SSD1306 -- you need an FT232H.
 ## Step 2 - Connect the Device
 
 ```powershell
-$dev = New-PsGadgetFtdi -Index 0
-$dev.Connect()
+$dev = New-PsGadgetFtdi -Index 0   # connected immediately - no .Connect() needed
 
 if (-not $dev.IsOpen) {
     Write-Error "Failed to open device. Check USB and index."
@@ -113,12 +112,15 @@ if (-not $dev.IsOpen) {
 Write-Host ("Connected: {0} [{1}]" -f $dev.Description, $dev.Type)
 ```
 
+`New-PsGadgetFtdi` follows the MicroPython convention: construction implies connection.
+The device is open and ready to use on the line immediately after.
+
 > **Scripter**: In long-running scripts, prefer `-SerialNumber` or `-LocationId` over
 > `-Index` so the reference stays stable when the USB hub order changes:
 >
 > ```powershell
-> $dev = New-PsGadgetFtdi -SerialNumber "FT4ABCDE"
-> $dev = New-PsGadgetFtdi -LocationId 197634
+> $dev = New-PsGadgetFtdi -SerialNumber "FT4ABCDE"   # stable across hub reorder
+> $dev = New-PsGadgetFtdi -LocationId 197634          # stable for fixed physical port
 > ```
 
 ---
@@ -285,16 +287,17 @@ $d = $dev.GetDisplay()
 $dev.ClearDisplay()
 Write-PsGadgetSsd1306 -Display $d -Text "Live Clock" -Page 0 -Align center
 
-for ($i = 0; $i -lt 10; $i++) {
+$deadline = (Get-Date).AddSeconds(10)
+while ((Get-Date) -lt $deadline) {
     $dev.ClearDisplay(3)
     Write-PsGadgetSsd1306 -Display $d -Text (Get-Date -Format "HH:mm:ss") `
         -Page 3 -Align center -FontSize 2
-    Start-Sleep -Seconds 1
+    Start-Sleep -Milliseconds 500
 }
 ```
 
-> **Scripter**: Clear only the target page before each update to avoid ghosting while
-> keeping other rows intact. Writing the full display every second causes visible flicker.
+> **Scripter**: Update twice per second (`500ms`) to stay current — `ClearDisplay` + `Write` takes
+> ~300-500ms over I2C, so `Start-Sleep -Seconds 1` will visibly skip every other second.
 
 ---
 
@@ -350,42 +353,47 @@ Write-Host "Device closed."
 
 ---
 
-## Complete Script
+## Complete Examples
+
+Two versions of the same clock demo. Pick the one that suits your situation.
+
+---
+
+### Example 1 - Standard (quiet output)
+
+Clean console — no extra messages. Errors still surface via `Write-Error`.
+This is what you use once everything is working.
 
 ```powershell
 #Requires -Version 5.1
 
 Import-Module C:\path\to\PSGadget\PSGadget.psd1 -Force -DisableNameChecking
 
-# 1. Connect FTDI
-$dev = New-PsGadgetFtdi -Index 0
-$dev.Connect()
+$dev = New-PsGadgetFtdi -Index 0   # connected immediately
 
 if (-not $dev.IsOpen) { Write-Error "Failed to open device."; return }
 
-# 2. Scan I2C bus to confirm display is present
 $scan = $dev.Scan()
 if (-not ($scan | Where-Object Address -eq 0x3C)) {
-    Write-Warning "SSD1306 not found at 0x3C. Check wiring. Scan results:"
+    Write-Warning "SSD1306 not found at 0x3C. Check wiring."
     $scan | Format-Table
 }
 
 try {
-    # 3. Simple text -- Display() handles init automatically
     $dev.Display("PSGadget", 0)
     $dev.Display("SSD1306 via I2C", 1)
     Start-Sleep -Seconds 2
 
-    # 4. Advanced formatting -- GetDisplay() returns the same cached object
     $d = $dev.GetDisplay()
     $dev.ClearDisplay()
     Write-PsGadgetSsd1306 -Display $d -Text "Clock" -Page 0 -Align center
 
-    for ($i = 0; $i -lt 10; $i++) {
+    $deadline = (Get-Date).AddSeconds(10)
+    while ((Get-Date) -lt $deadline) {
         $dev.ClearDisplay(3)
         Write-PsGadgetSsd1306 -Display $d -Text (Get-Date -Format "HH:mm:ss") `
             -Page 3 -Align center -FontSize 2
-        Start-Sleep -Seconds 1
+        Start-Sleep -Milliseconds 500
     }
 
     $dev.ClearDisplay()
@@ -396,6 +404,109 @@ try {
     Write-Host "Device closed."
 }
 ```
+
+Expected console output (nothing but the final line):
+
+```
+Device closed.
+```
+
+---
+
+### Example 2 - Verbose (beginner-friendly)
+
+Adds `$VerbosePreference = 'Continue'` and `Test-PsGadgetSetup -Verbose` so every step
+tells you what is happening. Use this when setting up for the first time or debugging.
+
+```powershell
+#Requires -Version 5.1
+
+$VerbosePreference = 'Continue'   # turn on VERBOSE: messages for this session
+
+Import-Module C:\path\to\PSGadget\PSGadget.psd1 -Force -DisableNameChecking
+
+# Check that the environment, driver, and device are all healthy before doing anything
+$setup = Test-PsGadgetSetup -Verbose
+if (-not $setup.IsReady) {
+    Write-Warning "Setup check failed. Fix the issues above before continuing."
+    return
+}
+
+# List devices so Verbose shows the connect hint automatically
+List-PsGadgetFtdi -Verbose | Format-Table Index, Type, SerialNumber, HasMpsse
+
+$dev = New-PsGadgetFtdi -Index 0   # connected immediately - no .Connect() needed
+
+if (-not $dev.IsOpen) { Write-Error "Failed to open device."; return }
+
+# Scan confirms the display is visible on the I2C bus
+$scan = $dev.Scan()
+$scan | Format-Table
+
+if (-not ($scan | Where-Object Address -eq 0x3C)) {
+    Write-Warning "SSD1306 not found at 0x3C. Check wiring."
+    return
+}
+
+try {
+    $dev.Display("PSGadget", 0)
+    $dev.Display("SSD1306 via I2C", 1)
+    Start-Sleep -Seconds 2
+
+    $d = $dev.GetDisplay()
+    $dev.ClearDisplay()
+    Write-PsGadgetSsd1306 -Display $d -Text "Clock" -Page 0 -Align center -Verbose
+
+    $deadline = (Get-Date).AddSeconds(10)
+    while ((Get-Date) -lt $deadline) {
+        $dev.ClearDisplay(3)
+        Write-PsGadgetSsd1306 -Display $d -Text (Get-Date -Format "HH:mm:ss") `
+            -Page 3 -Align center -FontSize 2 -Verbose
+        Start-Sleep -Milliseconds 500
+    }
+
+    $dev.ClearDisplay()
+    Write-PsGadgetSsd1306 -Display $d -Text "Done." -Page 3 -Align center -Verbose
+
+} finally {
+    $dev.Close()
+    Write-Host "Device closed."
+}
+```
+
+Expected console output (abbreviated):
+
+```
+PsGadget Setup Check
+----------------------------------------------------
+Platform  : Windows / PS 7.5.4 / .NET 9.0.x
+Backend   : FtdiSharp (D2XX / PS 5.1) -or- IoT (Iot.Device.Bindings / PS 7)
+Native lib: [OK] FTD2XX.dll
+Devices   : 1 device(s) found
+Config    : [OK] C:\Users\you\.psgadget\config.json
+----------------------------------------------------
+  [0] FT232H     SN=FT4ABCDE    GPIO=MPSSE
+Status    : READY
+VERBOSE: All checks passed. Hardware is ready.
+VERBOSE: Quick start: List-PsGadgetFtdi | Format-Table
+VERBOSE: Then:        $dev = New-PsGadgetFtdi -SerialNumber <SN>
+
+VERBOSE:   [0] FT232H  SN=FT4ABCDE  -> $dev = New-PsGadgetFtdi -SerialNumber 'FT4ABCDE'
+VERBOSE:       I2C scan: $dev.Scan()
+VERBOSE:       Display : $dev.Display('Hello world', 0)
+
+VERBOSE: Text 'Clock' written to SSD1306 page 0
+VERBOSE: Text '14:23:01' written to SSD1306 page 3
+...
+Device closed.
+```
+
+> **Beginner**: `$VerbosePreference = 'Continue'` is a session-wide switch that tells
+> PSGadget (and any PowerShell command) to print its internal progress messages. Set it
+> back to `'SilentlyContinue'` (the default) once you are comfortable with the workflow.
+
+> **Scripter**: You can also pass `-Verbose` to individual commands rather than setting
+> the preference globally. This lets you be selective about which steps surface detail.
 
 ---
 
@@ -441,8 +552,7 @@ PSGadget auto-selects the backend -- no configuration needed:
 ```powershell
 # Load and connect
 Import-Module .\PSGadget.psd1 -DisableNameChecking
-$dev = New-PsGadgetFtdi -Index 0
-$dev.Connect()
+$dev = New-PsGadgetFtdi -Index 0   # connected immediately
 
 # Scan I2C bus
 $dev.Scan() | Format-Table
