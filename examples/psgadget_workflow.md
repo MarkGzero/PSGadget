@@ -456,6 +456,7 @@ $conn.Close()
 | Set-PsGadgetSsd1306Cursor   | Set cursor position for raw writes (-Column, -Page)           |
 | List-PsGadgetMpy            | Enumerate MicroPython serial ports                            |
 | Connect-PsGadgetMpy         | Open a MicroPython REPL connection                            |
+| Test-PsGadgetEnvironment    | Verify environment, backend, native lib, and device count; returns Status/Reason/NextStep (-Verbose for detail) |
 
 ---
 

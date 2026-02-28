@@ -28,6 +28,8 @@ by category. Use `Get-Help <FunctionName>` for inline PowerShell help.
 - [Configuration](#configuration)
   - [Get-PsGadgetConfig](#get-psgadgetconfig)
   - [Set-PsGadgetConfig](#set-psgadgetconfig)
+- [Diagnostics](#diagnostics)
+  - [Test-PsGadgetEnvironment](#test-psgadgetenvironment)
 
 ---
 
@@ -555,6 +557,60 @@ effects and when to change them.
 
 ---
 
+## Diagnostics
+
+### Test-PsGadgetEnvironment
+
+Verifies whether the current environment is ready for PSGadget hardware use.
+Checks PowerShell version, backend selection, native library presence, device
+enumeration, and configuration file. Returns a structured object.
+
+**Alias**: `Test-PsGadgetSetup`
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `-Verbose` | switch | No | Emit detailed per-item check output |
+
+**Returns**: `[PSCustomObject]`
+
+| Property | Type | Description |
+|----------|------|-------------|
+| Status | string | `OK` or `NOT READY` |
+| Reason | string | First failing check, or `All checks passed` |
+| NextStep | string | Actionable guidance if not ready; empty when OK |
+| Platform | string | OS / PS version / .NET version |
+| Backend | string | IoT, D2XX, or Stub |
+| BackendReady | bool | True if the selected backend loaded successfully |
+| NativeLibOk | bool | True if the platform native library is present |
+| NativeLibPath | string | Full path checked |
+| Devices | string[] | Formatted device list from List-PsGadgetFtdi |
+| DeviceCount | int | Number of enumerated devices |
+| ConfigPresent | bool | True if ~/.psgadget/config.json exists |
+| IsReady | bool | True if all checks passed |
+
+```powershell
+# Quick check
+Test-PsGadgetEnvironment
+
+# Verbose -- shows each check result inline
+Test-PsGadgetEnvironment -Verbose
+
+# Scripted use — stop pipeline on failure
+$env = Test-PsGadgetEnvironment
+if (-not $env.IsReady) {
+    Write-Warning $env.Reason
+    Write-Warning $env.NextStep
+    return
+}
+
+# Old name still works (backward-compat alias)
+Test-PsGadgetSetup
+```
+
+---
+
 ## Quick Reference Table
 
 | Function | Short Description |
@@ -574,3 +630,4 @@ effects and when to change them.
 | `Set-PsGadgetSsd1306Cursor` | Set OLED cursor position |
 | `Get-PsGadgetConfig` | Read user configuration |
 | `Set-PsGadgetConfig` | Write user configuration |
+| `Test-PsGadgetEnvironment` | Verify environment readiness; returns Status/Reason/NextStep |
