@@ -415,7 +415,7 @@ Device closed.
 
 ### Example 2 - Verbose (beginner-friendly)
 
-Adds `$VerbosePreference = 'Continue'` and `Test-PsGadgetSetup -Verbose` so every step
+Adds `$VerbosePreference = 'Continue'` and `Test-PsGadgetEnvironment -Verbose` so every step
 tells you what is happening. Use this when setting up for the first time or debugging.
 
 ```powershell
@@ -426,7 +426,7 @@ $VerbosePreference = 'Continue'   # turn on VERBOSE: messages for this session
 Import-Module C:\path\to\PSGadget\PSGadget.psd1 -Force -DisableNameChecking
 
 # Check that the environment, driver, and device are all healthy before doing anything
-$setup = Test-PsGadgetSetup -Verbose
+$setup = Test-PsGadgetEnvironment -Verbose
 if (-not $setup.IsReady) {
     Write-Warning "Setup check failed. Fix the issues above before continuing."
     return

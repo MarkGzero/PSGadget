@@ -1,23 +1,23 @@
-# Test-PsGadgetSetup.ps1
-# Diagnostic command to verify PsGadget environment and hardware readiness
+# Test-PsGadgetEnvironment.ps1
+# Diagnostic command to verify the PsGadget environment and hardware readiness
 
-function Test-PsGadgetSetup {
+function Test-PsGadgetEnvironment {
     <#
     .SYNOPSIS
-    Checks your PsGadget environment and reports hardware readiness.
+    Checks this environment and reports whether PsGadget hardware is ready.
 
     .DESCRIPTION
     Verifies the PowerShell version, .NET runtime, FTDI driver/DLL state,
-    native library presence (Linux), and connected devices.
+    native library presence (Linux/macOS), and connected devices.
 
     Default output is a clean summary. Use -Verbose for per-device hints and
     next-step commands you can copy directly into your session.
 
     .EXAMPLE
-    Test-PsGadgetSetup
+    Test-PsGadgetEnvironment
 
     .EXAMPLE
-    Test-PsGadgetSetup -Verbose
+    Test-PsGadgetEnvironment -Verbose
 
     .OUTPUTS
     PSCustomObject with Platform, Backend, Devices, DeviceCount, and IsReady properties.
@@ -179,6 +179,26 @@ function Test-PsGadgetSetup {
 
     # Overall status
     $isReady = $backendOk -and $nativeOk -and ($devices.Count -gt 0)
+
+    # Derive Status / Reason / NextStep for structured return
+    if ($isReady) {
+        $resultStatus   = 'OK'
+        $resultReason   = 'All checks passed'
+        $resultNextStep = 'Run: List-PsGadgetFtdi | Format-Table'
+    } elseif (-not $backendOk) {
+        $resultStatus   = 'Fail'
+        $resultReason   = 'No FTDI backend loaded'
+        $resultNextStep = 'Remove-Module PSGadget; Import-Module PSGadget -Verbose'
+    } elseif (-not $nativeOk) {
+        $resultStatus   = 'Fail'
+        $resultReason   = 'Native FTDI library not found (libftd2xx.so)'
+        $resultNextStep = 'Download from https://ftdichip.com/drivers/d2xx-drivers/ then: sudo cp libftd2xx.so /usr/local/lib && sudo ldconfig'
+    } else {
+        $resultStatus   = 'Fail'
+        $resultReason   = 'No FTDI devices detected'
+        $resultNextStep = 'Connect an FTDI device and retry, or run Test-PsGadgetEnvironment -Verbose for diagnostics'
+    }
+
     $statusLabel = if ($isReady) { 'READY' } else { 'NOT READY - run with -Verbose for details' }
     Write-Host ("Status    : {0}" -f $statusLabel)
     Write-Host ''
@@ -190,6 +210,9 @@ function Test-PsGadgetSetup {
     }
 
     return [PSCustomObject]@{
+        Status        = $resultStatus
+        Reason        = $resultReason
+        NextStep      = $resultNextStep
         Platform      = $platform
         PsVersion     = $psVersion.ToString()
         DotNetVersion = $dotnet.ToString()
@@ -203,3 +226,6 @@ function Test-PsGadgetSetup {
         IsReady       = $isReady
     }
 }
+
+# Backward-compatibility alias
+Set-Alias -Name 'Test-PsGadgetSetup' -Value 'Test-PsGadgetEnvironment'

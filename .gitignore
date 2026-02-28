@@ -34,4 +34,25 @@ Desktop.ini
 *.tmp
 *.temp
 *.bak
+
+# Module packaging output
+*.nupkg
+*.zip
+
+# Build/release output folders
+out/
+dist/
+release/
+
+# Debug symbols
+*.pdb
+
+# Root-level local data created by Initialize-PsGadgetEnvironment
+.psgadget/
+
+# PowerShell script analyzer output
+PSScriptAnalyzer*.txt
+
+# Pester coverage output
+coverage/
 *.backup

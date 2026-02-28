@@ -21,7 +21,7 @@ A few things you can do from a PowerShell prompt after plugging in a ~$10 USB ad
 
 **New to hardware?** You can import and explore the module right now without
 buying anything -- it runs in stub mode and returns simulated data. Run
-`Test-PsGadgetSetup` when your hardware arrives to confirm everything is wired up.
+`Test-PsGadgetEnvironment` when your hardware arrives to confirm everything is wired up.
 
 **Know PowerShell but not the hardware?** An FTDI chip is a small USB-to-GPIO
 bridge (~$10 breakout board on Amazon, search "FT232H breakout"). Plug it into
@@ -39,6 +39,14 @@ for pin counts, I/O voltage, and mechanism details.
 
 | Page | Contents |
 |------|----------|
+| [Installation Guide](docs/INSTALL.md) | OS-specific install steps, driver setup, persona guides, quick reference |
+| [Quick Start](docs/QUICKSTART.md) | Minimal happy path for every device type and all four personas |
+| [Architecture](docs/ARCHITECTURE.md) | Layer breakdown, file map, module load order, design rules |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Symptom index with step-by-step fixes |
+| [Personas](docs/PERSONAS.md) | Who each persona is and where to find their content |
+| [Platforms](docs/PLATFORMS.md) | OS-specific requirements, capability matrix, known limitations |
+| [Cmdlet Reference](docs/REFERENCE/Cmdlets.md) | Every exported function with parameters and return values |
+| [Class Reference](docs/REFERENCE/Classes.md) | PsGadgetFtdi, PsGadgetSsd1306, PsGadgetMpy, PsGadgetLogger |
 | [Getting Started](docs/wiki/Getting-Started.md) | Prerequisites, installation, first device connection |
 | [Function Reference](docs/wiki/Function-Reference.md) | Every exported function with parameters and examples |
 | [Configuration](docs/wiki/Configuration.md) | User config file, keys, and defaults |
@@ -69,7 +77,7 @@ Import-Module ./PSGadget.psd1
 
 # 2. Check environment and connected hardware
 #    (-Verbose shows per-device next-step commands you can paste directly)
-Test-PsGadgetSetup -Verbose
+Test-PsGadgetEnvironment -Verbose
 
 # 3. List connected FTDI devices (FTDI = USB-to-GPIO bridge chip)
 List-PsGadgetFtdi | Format-Table
@@ -122,7 +130,7 @@ $dev.Close()
 | Function | Description |
 |----------|-------------|
 | `New-PsGadgetFtdi` | Create a `PsGadgetFtdi` object (-SerialNumber / -Index / -LocationId) |
-| `Test-PsGadgetSetup` | Verify environment, FTDI driver state, and hardware readiness |
+| `Test-PsGadgetEnvironment` | Verify environment, FTDI driver state, and hardware readiness |
 | `List-PsGadgetFtdi` | Enumerate all connected FTDI devices |
 | `Connect-PsGadgetFtdi` | Open a raw device connection |
 | `Get-PsGadgetFtdiEeprom` | Read EEPROM contents (FT232R CBUS inspection) |
@@ -226,7 +234,7 @@ hardware calls return stub data rather than throwing unhandled errors.
 | Linux (.NET 8+) | No hardware | sysfs enumeration + stub connect |
 | Linux / macOS (.NET < 8) | Any | Stub |
 
-Run `Test-PsGadgetSetup -Verbose` to see exactly which mode is active and why.
+Run `Test-PsGadgetEnvironment -Verbose` to see exactly which mode is active and why.
 
 ---
 

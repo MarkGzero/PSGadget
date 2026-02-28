@@ -60,7 +60,7 @@ function List-PsGadgetFtdi {
             $Filtered = @($Devices | Where-Object { -not $_.IsVcp })
             if ($Filtered.Count -eq 0) {
                 Write-Warning "No PsGadget-compatible FTDI devices found. If you have FTDI devices loaded with the VCP driver, use -ShowVCP to see them."
-                Write-Verbose "Run Test-PsGadgetSetup -Verbose for driver and native library diagnostics."
+                Write-Verbose "Run Test-PsGadgetEnvironment -Verbose for driver and native library diagnostics."
                 return @()
             }
             Write-Verbose "$($Filtered.Count) PsGadget-compatible device(s) after filtering VCP"

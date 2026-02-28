@@ -18,7 +18,7 @@
     # Exported functions - explicitly declared, no wildcards
     FunctionsToExport = @(
         'New-PsGadgetFtdi',
-        'Test-PsGadgetSetup',
+        'Test-PsGadgetEnvironment',
         'List-PsGadgetFtdi',
         'Connect-PsGadgetFtdi',
         'List-PsGadgetMpy',
@@ -38,7 +38,7 @@
     # No cmdlets, variables, or aliases exported
     CmdletsToExport = @()
     VariablesToExport = @()
-    AliasesToExport = @()
+    AliasesToExport = @('Test-PsGadgetSetup')
     
     # Files included in this module
     FileList = @(
@@ -67,7 +67,7 @@
         'Public/List-PsGadgetFtdi.ps1',
         'Public/List-PsGadgetMpy.ps1',
         'Public/New-PsGadgetFtdi.ps1',
-        'Public/Test-PsGadgetSetup.ps1',
+        'Public/Test-PsGadgetEnvironment.ps1',
         'Public/Set-PsGadgetConfig.ps1',
         'Public/Set-PsGadgetFt232rCbusMode.ps1',
         'Public/Set-PsGadgetFtdiMode.ps1',
@@ -90,7 +90,7 @@
             LicenseUri = 'https://github.com/MarkGzero/PsGadget/blob/main/LICENSE'
             ProjectUri = 'https://github.com/MarkGzero/PsGadget'
             IconUri = ''
-            ReleaseNotes = 'v0.3.3: New Test-PsGadgetSetup diagnostic command. Verbose hints in List-PsGadgetFtdi show ready-to-run connect commands per device.'
+            ReleaseNotes = 'v0.3.3: Test-PsGadgetEnvironment diagnostic command (renamed from Test-PsGadgetSetup, alias kept for compatibility). Adds Status/Reason/NextStep to return object. Verbose hints in List-PsGadgetFtdi show ready-to-run connect commands per device.'
         }
     }
 }
