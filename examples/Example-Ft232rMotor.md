@@ -23,7 +23,7 @@ throughout to find the depth that matches your background.
 - An FT232R or FT232RNL USB breakout board (Waveshare USB-TO-TTL-FT232, SparkFun, etc.)
 - A small DC motor rated for 3.3-5V
 - A transistor -- use whichever you have:
-  - **NPN**: 2N2222, BC547, or S8050 (any of these work; handles up to 600mA)
+  - **NPN**: 2N2222, PN2222A, BC547, or S8050 (any of these work; handles up to 600mA)
   - **PNP**: PN2907 (handles up to 600mA; logic is inverted -- see wiring below)
 - Resistors: 1k ohm (base resistor) -- add a 10k ohm if using PNP
 - Breadboard and jumper wires
@@ -96,19 +96,31 @@ switching logic.
 
 ---
 
-#### Option A: NPN transistor (2N2222 / BC547 / S8050) -- recommended for beginners
+#### Option A: NPN transistor (2N2222 / PN2222A / BC547 / S8050) -- recommended for beginners
 
 Simplest wiring. GPIO HIGH = motor ON, GPIO LOW = motor OFF.
 Works with any VCCIO setting (3.3V or 5V).
 
 ```
 FT232R breakout
-  CBUS0 ---[1k]--- Base      (NPN: 2N2222 / BC547 / S8050)
+  CBUS0 ---[1k]--- Base      (NPN: 2N2222 / PN2222A / BC547 / S8050)
   5V    ---------- Motor (+)
                    Motor (-) --- Collector
                    Emitter   --- GND
   GND   ---------- GND
 ```
+
+> **Beginner**: Watch the leg order -- it changes depending on which NPN you have.
+> Hold the transistor with the flat face toward you and legs pointing down:
+>
+> | Transistor | Left leg | Middle leg | Right leg |
+> |------------|----------|------------|-----------|
+> | PN2222A    | Emitter  | Base       | Collector |
+> | 2N2222A (metal TO-18) | Emitter | Base | Collector |
+> | BC547 / S8050 | Collector | Base | Emitter |
+>
+> The middle leg is always Base -- connect that to the 1k resistor.
+> If your motor runs all the time and ignores GPIO, the Emitter and Collector are swapped.
 
 > **Beginner**: The transistor is just a remote-controlled switch. When CBUS0
 > goes HIGH, a tiny signal current flows into the Base, and the transistor closes
@@ -480,7 +492,8 @@ Set-PsGadgetGpio -PsGadget $dev -Pins @(0) -State HIGH
 $dev.Close()
 
 # Transistor quick reference
-# NPN (2N2222/BC547/S8050)  -- HIGH=ON, LOW=OFF, works at 3.3V or 5V VCCIO
+# NPN (2N2222/PN2222A/BC547/S8050) -- HIGH=ON, LOW=OFF, works at 3.3V or 5V VCCIO
+#   Pinout (flat face toward you, legs down): PN2222A = E|B|C   BC547/S8050 = C|B|E
 #   CBUS0 -[1k]- Base | Collector - Motor(-) | Motor(+) - 5V | Emitter - GND
 #
 # PNP (PN2907)             -- LOW=ON, HIGH=OFF, requires VCCIO=5V
