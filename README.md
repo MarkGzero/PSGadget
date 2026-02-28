@@ -9,15 +9,13 @@ standard PowerShell session. No Arduino IDE. No C. Just cmdlets.
 
 ## What can I do with this?
 
-<img src="docs/images/psgadget_intro.png" width="420" alt="SSD1306 OLED display showing text written from PowerShell">
+<div align="center"><img src="docs/images/psgadget2026.jpg" width="100%" alt="SSD1306 OLED display showing text written from PowerShell"></div>
 
 A few things you can do from a PowerShell prompt after plugging in a ~$10 USB adapter:
 
 - Write live text to a 128x64 OLED screen (`Write-PsGadgetSsd1306`)
 - Toggle GPIO pins HIGH/LOW to blink LEDs or trigger relays (`Set-PsGadgetGpio`)
-- Execute code on a Raspberry Pi Pico or ESP32 over serial REPL (`Connect-PsGadgetMpy`)
-
-<img src="docs/images/psgadget_LED.png" width="300" alt="LED controlled from PowerShell via FT232H GPIO">
+- Execute code on a Raspberry Pi Pico or ESP32, query device info, or push files over `mpremote` (`Connect-PsGadgetMpy`)
 
 **New to hardware?** You can import and explore the module right now without
 buying anything -- it runs in stub mode and returns simulated data. Run
@@ -62,12 +60,8 @@ for pin counts, I/O voltage, and mechanism details.
 | FT232H | ACBUS0-7 (8 pins) | 3.3 V | MPSSE -- SPI, I2C, JTAG, bit-bang | Adafruit #2264, CJMCU breakout, ~$10-15 |
 | FT232R / FT232RNL | CBUS0-3 (4 pins) | 3.3 V, drive strength 4 mA (default) / 8 mA | CBUS bit-bang (one-time EEPROM setup required) | SparkFun, CJMCU, ~$5-10 |
 | SSD1306 OLED | via FT232H I2C (ACBUS0=SCL, ACBUS1=SDA) | 3.3 V | PsGadgetSsd1306 class | 128x64, 8 pages; Adafruit #326 or generic, ~$5 |
-| MicroPython boards | via serial REPL | -- | mpremote over USB-serial | Raspberry Pi Pico (~$4), ESP32-S3 Zero (~$5) |
+| MicroPython boards | via mpremote over USB-serial | -- | `mpremote` backend: exec, get device info, push files | Raspberry Pi Pico (~$4), ESP32-S3 Zero (~$5) |
 
-<img src="docs/images/ft232rnl_board_front.png" width="340" alt="FT232RNL breakout board front showing CBUS pins">
-<img src="docs/images/ft232rnl_board_back.png" width="340" alt="FT232RNL breakout board back">
-
----
 
 ## Quick Start
 
@@ -96,9 +90,19 @@ $display = Connect-PsGadgetSsd1306 -FtdiDevice $ftdi
 Write-PsGadgetSsd1306 -Display $display -Text "Hello World" -Page 0
 $ftdi.Close()
 
-# 6. MicroPython REPL
+# 6. MicroPython (via mpremote -- install with: pip install mpremote)
 $mpy = Connect-PsGadgetMpy -SerialPort "/dev/ttyUSB0"
+
+# Execute a code snippet on the device
 $mpy.Invoke("print('hello from MicroPython')")
+
+# Query device info (version, platform, free memory)
+$info = $mpy.GetInfo()
+$info['version']; $info['platform']; $info['free_memory']
+
+# Push a local script to the device filesystem
+$mpy.PushFile("./sensor_loop.py")
+$mpy.PushFile("./sensor_loop.py", "/lib/sensor_loop.py")  # custom remote path
 ```
 
 ---
@@ -142,7 +146,7 @@ $dev.Close()
 | `Write-PsGadgetSsd1306` | Write text with alignment and font size options |
 | `Set-PsGadgetSsd1306Cursor` | Set raw column/page cursor position |
 | `List-PsGadgetMpy` | Enumerate available MicroPython serial ports |
-| `Connect-PsGadgetMpy` | Open a MicroPython REPL connection |
+| `Connect-PsGadgetMpy` | Open a MicroPython connection; returns object with `Invoke()`, `GetInfo()`, `PushFile()` |
 | `Get-PsGadgetConfig` | Read current user configuration |
 | `Set-PsGadgetConfig` | Update and persist a configuration value |
 
