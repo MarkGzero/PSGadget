@@ -192,6 +192,24 @@ class PsGadgetFtdi : System.IDisposable {
         }
     }
 
+    # Scan for I2C devices on the bus (0x08 to 0x77).
+    # Requires an MPSSE-capable device (FT232H) and an open connection.
+    # IoT backend uses .NET IoT I2cBus; D2XX backend uses MPSSE bit-bang.
+    # Returns an array of [PSCustomObject]@{ Address; Hex } for each ACK.
+    [System.Object[]] Scan() {
+        $this.Logger.WriteInfo('Scan() - I2C bus scan 0x08-0x77')
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new('Device not open. Call Connect() first.')
+        }
+        if ($this.GpioMethod -notin @('MPSSE', 'IoT', '')) {
+            throw [System.InvalidOperationException]::new(
+                "I2C scan requires an MPSSE device (FT232H). This device uses GpioMethod=$($this.GpioMethod).")
+        }
+        $devices = Invoke-FtdiI2CScan -Connection $this._connection
+        $this.Logger.WriteInfo("Scan() found $($devices.Count) device(s)")
+        return $devices
+    }
+
     # USB port cycle - equivalent to physically unplugging and replugging the device.
     # Triggers re-enumeration so EEPROM changes (e.g. CBUS mode) take effect without
     # a manual replug. D2XX automatically closes the handle after CyclePort succeeds.

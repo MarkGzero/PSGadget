@@ -434,3 +434,138 @@ function Send-MpsseI2CWrite {
         return $false
     }
 }
+
+function Invoke-FtdiI2CScan {
+    <#
+    .SYNOPSIS
+    Scans the I2C bus for connected devices.
+
+    .DESCRIPTION
+    Probes all standard 7-bit I2C addresses (0x08-0x77) and returns an object
+    for each address that ACKs.  Supports two backends:
+      - IoT  (FT232H via .NET IoT): uses I2cBus.CreateDevice() + ReadByte()
+      - D2XX (FT232H via FTD2XX_NET MPSSE): MPSSE bit-bang START/addr/ACK/STOP
+
+    .PARAMETER Connection
+    Open connection object returned by Connect-PsGadgetFtdi.
+
+    .PARAMETER ClockFrequency
+    I2C SCL frequency in Hz. Only used for the D2XX MPSSE path. Default 100000.
+
+    .EXAMPLE
+    $r1 | Connect-PsGadgetFtdi | Invoke-FtdiI2CScan
+    #>
+    [CmdletBinding()]
+    [OutputType([System.Object[]])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Object]$Connection,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(1000, 400000)]
+        [int]$ClockFrequency = 100000
+    )
+
+    $found      = [System.Collections.Generic.List[PSCustomObject]]::new()
+    $gpioMethod = if ($Connection.PSObject.Properties['GpioMethod']) { $Connection.GpioMethod } else { 'Stub' }
+
+    if ($gpioMethod -eq 'IoT') {
+        # IoT path - use .NET IoT I2cBus to probe each address.
+        # CreateOrGetI2cBus() is cached; do not dispose the bus.
+        Write-Verbose 'I2C scan via IoT I2cBus (0x08-0x77)...'
+        $bus = $Connection.Device.CreateOrGetI2cBus()
+        for ($addr = 0x08; $addr -le 0x77; $addr++) {
+            $dev = $null
+            try {
+                $dev = $bus.CreateDevice($addr)
+                [byte]$dummy = $dev.ReadByte()   # NACK throws; silence below
+                $found.Add([PSCustomObject]@{
+                    PSTypeName = 'PsGadget.I2cDevice'
+                    Address    = $addr
+                    Hex        = ('0x{0:X2}' -f $addr)
+                })
+                Write-Verbose ('I2C device found: 0x{0:X2}' -f $addr)
+            } catch {
+                # No device at this address - expected during scan
+            } finally {
+                if ($dev) { try { $dev.Dispose() } catch {} }
+            }
+        }
+
+    } elseif ($gpioMethod -eq 'MPSSE' -and $script:FtdiInitialized) {
+        # D2XX path - MPSSE bit-bang I2C scan.
+        # SCL = ADBUS0, SDA-out = ADBUS1, SDA-in = ADBUS1 (open-drain, released to input for ACK).
+        Write-Verbose "I2C scan via MPSSE bit-bang D2XX (0x08-0x77) at $ClockFrequency Hz..."
+        $ok = Initialize-MpsseI2C -DeviceHandle $Connection -ClockFrequency $ClockFrequency
+        if (-not $ok) { throw 'Failed to initialize MPSSE I2C for scan' }
+
+        # Purge any stale RX bytes before starting scan
+        try { $Connection.Device.Purge(2) | Out-Null } catch {}
+        Start-Sleep -Milliseconds 20
+
+        for ($addr = 0x08; $addr -le 0x77; $addr++) {
+            $addrByte = [byte](($addr -shl 1) -bor 0x00)  # 7-bit address + R/W=0 (write)
+
+            $tx = [System.Collections.Generic.List[byte]]::new()
+
+            # I2C START: SDA falls while SCL is high
+            $tx.AddRange([byte[]]@(0x80, 0x03, 0x03))  # idle:  SCL=1, SDA=1, both output
+            $tx.AddRange([byte[]]@(0x80, 0x01, 0x03))  # start: SCL=1, SDA=0
+            $tx.AddRange([byte[]]@(0x80, 0x00, 0x03))  # SCL=0 (begin clocking)
+
+            # Clock 8 address bits out on falling edge, MSB first (0x1B = bit-clock-out)
+            $tx.AddRange([byte[]]@(0x1B, 0x07, $addrByte))
+
+            # ACK clock: release SDA to input, raise SCL, capture ADBUS with 0x81, lower SCL
+            $tx.AddRange([byte[]]@(0x80, 0x00, 0x01))  # SDA=input (dir=0x01: only SCL output), SCL=0
+            $tx.AddRange([byte[]]@(0x80, 0x01, 0x01))  # SCL=1 (device drives ACK bit on SDA)
+            $tx.Add([byte]0x81)                         # queue read of ADBUS byte (bit 1 = SDA)
+            $tx.AddRange([byte[]]@(0x80, 0x00, 0x01))  # SCL=0
+            $tx.AddRange([byte[]]@(0x80, 0x02, 0x03))  # SDA=1(output-high), SCL=0, both output
+
+            # I2C STOP: SDA rises while SCL is high
+            $tx.AddRange([byte[]]@(0x80, 0x00, 0x03))  # SCL=0, SDA=0
+            $tx.AddRange([byte[]]@(0x80, 0x01, 0x03))  # SCL=1
+            $tx.AddRange([byte[]]@(0x80, 0x03, 0x03))  # SCL=1, SDA=1 (stop)
+
+            # Send Immediate - flush MPSSE command buffer to host
+            $tx.Add([byte]0x87)
+
+            [uint32]$bw  = 0
+            [byte[]]$cmd = $tx.ToArray()
+            $writeStatus = $Connection.Write($cmd, $cmd.Length, [ref]$bw)
+            if ($writeStatus -ne $script:FTDI_OK) { continue }
+
+            # Read 1 byte: ADBUS pin state queued by 0x81.  Bit 1 = SDA.
+            # SDA=0 means device held it low => ACK => device present.
+            [byte[]]$ackBuf = [byte[]]::new(1)
+            [uint32]$br     = 0
+            Start-Sleep -Milliseconds 1
+            $Connection.Read($ackBuf, 1, [ref]$br)
+            if ($br -eq 1) {
+                $sdaBit = ($ackBuf[0] -shr 1) -band 0x01
+                if ($sdaBit -eq 0) {
+                    $found.Add([PSCustomObject]@{
+                        PSTypeName = 'PsGadget.I2cDevice'
+                        Address    = $addr
+                        Hex        = ('0x{0:X2}' -f $addr)
+                    })
+                    Write-Verbose ('I2C device found: 0x{0:X2}' -f $addr)
+                }
+            }
+        }
+
+    } else {
+        # Stub mode - return common I2C device addresses for development
+        Write-Verbose 'I2C scan: stub mode - returning simulated device list'
+        foreach ($stubAddr in @(0x3C, 0x3D, 0x48, 0x68)) {
+            $found.Add([PSCustomObject]@{
+                PSTypeName = 'PsGadget.I2cDevice'
+                Address    = $stubAddr
+                Hex        = ('0x{0:X2}' -f $stubAddr)
+            })
+        }
+    }
+
+    return , $found.ToArray()
+}
