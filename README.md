@@ -13,12 +13,6 @@ standard PowerShell session.
 <img src="./docs/images/psgadget2026.png" width="100%" alt="SSD1306 OLED display showing text written from PowerShell">
 </div>
 
-A few things you can do from a PowerShell prompt after plugging in a ~$10 USB adapter:
-
-- Write live text to a 128x64 OLED screen (`Write-PsGadgetSsd1306`)
-- Toggle GPIO pins HIGH/LOW to blink LEDs or trigger relays (`Set-PsGadgetGpio`)
-- Execute code on a Raspberry Pi Pico or ESP32, query device info, or push files over `mpremote` (`Connect-PsGadgetMpy`)
-
 **New to hardware?** You can import and explore the module right now without
 buying anything -- it runs in stub mode and returns simulated data. Run
 `Test-PsGadgetEnvironment` when your hardware arrives to confirm everything is wired up.
@@ -50,7 +44,8 @@ for pin counts, I/O voltage, and mechanism details.
 | [Getting Started](docs/wiki/Getting-Started.md) | Prerequisites, installation, first device connection |
 | [Function Reference](docs/wiki/Function-Reference.md) | Every exported function with parameters and examples |
 | [Configuration](docs/wiki/Configuration.md) | User config file, keys, and defaults |
-| [Workflow Reference](examples/psgadget_workflow.md) | Device-by-device workflows: FT232H, FT232R, SSD1306 |
+| [Workflow Reference](examples/psgadget_workflow.md) | Device-by-device workflows: FT232H, FT232R, SSD1306, ESP-NOW |
+| [ESP-NOW Walkthrough](examples/Example-EspNow.md) | Wireless telemetry from untethered ESP32 nodes via FT232H UART |
 | [Config Detail](docs/about_PsGadgetConfig.md) | Full `config.json` key reference |
 
 ---

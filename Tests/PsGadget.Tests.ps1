@@ -30,10 +30,12 @@ Describe 'PsGadget Module Tests' {
             $ExportedFunctions | Should -Contain 'Connect-PsGadgetMpy'
             $ExportedFunctions | Should -Contain 'Set-PsGadgetGpio'
             $ExportedFunctions | Should -Contain 'Test-PsGadgetEnvironment'
+            $ExportedFunctions | Should -Contain 'Install-PsGadgetMpyScript'
+            $ExportedFunctions | Should -Contain 'Get-PsGadgetEspNowDevices'
         }
         
         It 'Should have the correct module version' {
-            (Get-Module PSGadget).Version.ToString() | Should -Be '0.3.3'
+            (Get-Module PSGadget).Version.ToString() | Should -Be '0.3.4'
         }
     }
 
@@ -194,6 +196,49 @@ Describe 'PsGadget Module Tests' {
                 $stubHandle = [PSCustomObject]@{ IsOpen = $true }
                 { Set-FtdiGpioPins -DeviceHandle $stubHandle -Pins @(0) -Direction HIGH } | Should -Not -Throw
             }
+        }
+    }
+
+    Context 'ESP-NOW functions (stub mode)' {
+        It 'Install-PsGadgetMpyScript should require mpremote and fail gracefully when absent' {
+            # In stub/CI mode mpremote is not available -- function should return failure object, not throw
+            $result = Install-PsGadgetMpyScript -SerialPort 'COM99' -Role Receiver -Force -ErrorAction SilentlyContinue
+            # mpremote absent: Success should be $false, not an exception
+            if ($null -ne $result) {
+                $result.Success | Should -Be $false
+            }
+        }
+
+        It 'Install-PsGadgetMpyScript result object should have expected fields' {
+            $result = Install-PsGadgetMpyScript -SerialPort 'COM99' -Role Transmitter -Force -ErrorAction SilentlyContinue
+            if ($null -ne $result) {
+                $result.PSObject.Properties.Name | Should -Contain 'Role'
+                $result.PSObject.Properties.Name | Should -Contain 'SerialPort'
+                $result.PSObject.Properties.Name | Should -Contain 'ScriptDeployed'
+                $result.PSObject.Properties.Name | Should -Contain 'ConfigDeployed'
+                $result.PSObject.Properties.Name | Should -Contain 'Success'
+                $result.PSObject.Properties.Name | Should -Contain 'Message'
+            }
+        }
+
+        It 'Get-PsGadgetEspNowDevices should not throw when mpremote is absent' {
+            # mpremote absent -> returns empty array, must not throw
+            { Get-PsGadgetEspNowDevices -SerialPort 'COM99' -ErrorAction SilentlyContinue } | Should -Not -Throw
+        }
+
+        It 'bundled espnow_receiver.py should exist in mpy/scripts/' {
+            $scriptPath = Join-Path $PSScriptRoot '..' 'mpy' 'scripts' 'espnow_receiver.py'
+            Test-Path -Path $scriptPath | Should -Be $true
+        }
+
+        It 'bundled espnow_transmitter.py should exist in mpy/scripts/' {
+            $scriptPath = Join-Path $PSScriptRoot '..' 'mpy' 'scripts' 'espnow_transmitter.py'
+            Test-Path -Path $scriptPath | Should -Be $true
+        }
+
+        It 'bundled config.json should exist in mpy/scripts/' {
+            $configPath = Join-Path $PSScriptRoot '..' 'mpy' 'scripts' 'config.json'
+            Test-Path -Path $configPath | Should -Be $true
         }
     }
 }

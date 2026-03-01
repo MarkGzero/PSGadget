@@ -1,7 +1,7 @@
 @{
     # Module metadata
     RootModule = 'PSGadget.psm1'
-    ModuleVersion = '0.3.3'
+    ModuleVersion = '0.3.4'
     GUID = 'a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6'
     
     # PowerShell version requirements
@@ -32,7 +32,9 @@
         'Connect-PsGadgetSsd1306',
         'Clear-PsGadgetSsd1306',
         'Write-PsGadgetSsd1306',
-        'Set-PsGadgetSsd1306Cursor'
+        'Set-PsGadgetSsd1306Cursor',
+        'Install-PsGadgetMpyScript',
+        'Get-PsGadgetEspNowDevices'
     )
     
     # No cmdlets, variables, or aliases exported
