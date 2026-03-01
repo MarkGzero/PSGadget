@@ -16,6 +16,8 @@
 
 **Plain Text Formatting**: Use standard markdown formatting (headers, lists, code blocks) without decorative elements. Focus on clarity and readability over visual appeal.
 
+**Markdown Table of Contents**: Every markdown document (`.md`) longer than one screen must include a Table of Contents immediately after the opening description block, before the first `##` section. Use standard GitHub anchor links (lowercase, spaces to hyphens, punctuation removed). Maintain the ToC any time sections are added, removed, or renamed.
+
 ## Code Style
 
 **PowerShell Compatibility**: All code must work in PowerShell 5.1+ (use `#Requires -Version 5.1`). Avoid PS7-only features like ternary operators (`?:`), null-conditional operators (`?.`), and null-coalescing operators (`??`). Use `[System.Environment]::OSVersion.Platform -eq 'Win32NT'` or `$PSVersionTable.PSVersion.Major -le 5` for platform detection (not `$IsWindows`).

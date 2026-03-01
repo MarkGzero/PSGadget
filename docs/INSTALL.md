@@ -22,6 +22,9 @@ on Windows, Linux, and macOS.
 - [Just get it working (high-level)](#just-get-it-working)
 - [What is actually loaded (low-level)](#what-is-actually-loaded)
 
+**Need to buy parts first?**
+- [Hardware Kit and Shopping List](HARDWARE_KIT.md)
+
 ---
 
 ## Just get it working

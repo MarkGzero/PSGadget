@@ -35,6 +35,7 @@ for pin counts, I/O voltage, and mechanism details.
 |------|----------|
 | [Installation Guide](docs/INSTALL.md) | OS-specific install steps, driver setup, persona guides, quick reference |
 | [Quick Start](docs/QUICKSTART.md) | Minimal happy path for every device type and all four personas |
+| [Hardware Kit](docs/HARDWARE_KIT.md) | Shopping list and component kit for all bundled examples; classroom pricing |
 | [Architecture](docs/ARCHITECTURE.md) | Layer breakdown, file map, module load order, design rules |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Symptom index with step-by-step fixes |
 | [Personas](docs/PERSONAS.md) | Who each persona is and where to find their content |
