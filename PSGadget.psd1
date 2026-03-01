@@ -1,16 +1,17 @@
 @{
     # Module metadata
-    RootModule = 'PSGadget.psm1'
-    ModuleVersion = '0.3.4'
-    GUID = 'a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6'
-    
+    RootModule           = 'PSGadget.psm1'
+    ModuleVersion        = '0.3.4'
+    CompatiblePSEditions = @('Desktop', 'Core')
+    GUID                 = '72440f23-d3c6-4249-83eb-9affa6df882b'
+
     # PowerShell version requirements
     PowerShellVersion = '5.1'
-    
+
     # Author information
-    Author = 'PsGadget Team'
-    CompanyName = 'PsGadget'
-    Copyright = '(c) 2026 PsGadget Team. All rights reserved.'
+    Author      = 'Mark Go'
+    CompanyName = 'Mark Go'
+    Copyright   = '(c) 2026 Mark Go. All rights reserved.'
     
     # Description
     Description = 'Production-grade PowerShell module for FTDI hardware control and MicroPython orchestration'
@@ -65,7 +66,9 @@
         'Public/Connect-PsGadgetMpy.ps1',
         'Public/Connect-PsGadgetSsd1306.ps1',
         'Public/Get-PsGadgetConfig.ps1',
+        'Public/Get-PsGadgetEspNowDevices.ps1',
         'Public/Get-PsGadgetFtdiEeprom.ps1',
+        'Public/Install-PsGadgetMpyScript.ps1',
         'Public/List-PsGadgetFtdi.ps1',
         'Public/List-PsGadgetMpy.ps1',
         'Public/New-PsGadgetFtdi.ps1',
@@ -88,11 +91,13 @@
     # Private data
     PrivateData = @{
         PSData = @{
-            Tags = @('FTDI', 'MicroPython', 'Hardware', 'Gadget')
-            LicenseUri = 'https://github.com/MarkGzero/PsGadget/blob/main/LICENSE'
-            ProjectUri = 'https://github.com/MarkGzero/PsGadget'
-            IconUri = ''
-            ReleaseNotes = 'v0.3.3: Test-PsGadgetEnvironment diagnostic command (renamed from Test-PsGadgetSetup, alias kept for compatibility). Adds Status/Reason/NextStep to return object. Verbose hints in List-PsGadgetFtdi show ready-to-run connect commands per device.'
+            Tags = @('FTDI', 'Hardware', 'GPIO', 'UART', 'I2C', 'SPI', 'PsGadget',
+                     'MicroPython', 'ESP32', 'ESP-NOW', 'IoT', 'FT232H', 'FT232R',
+                     'SSD1306', 'OLED', 'CTF', 'Telemetry')
+            LicenseUri   = 'https://opensource.org/licenses/MIT'
+            ProjectUri   = 'https://github.com/MarkGzero/PsGadget'
+            IconUri      = ''
+            ReleaseNotes = 'v0.3.4: ESP-NOW wireless telemetry support (Install-PsGadgetMpyScript, Get-PsGadgetEspNowDevices). ESP32-S3 receiver/transmitter scripts bundled. v0.3.x: SSD1306 OLED display, MicroPython mpremote backend, FT232R CBUS GPIO, FT232H MPSSE GPIO.'
         }
     }
 }

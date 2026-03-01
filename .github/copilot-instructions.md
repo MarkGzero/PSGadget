@@ -161,3 +161,77 @@ Rules for keeping it current:
 - When a public function is added, renamed, or its parameters change, update both the inline code examples for the affected device section AND the Public Function Quick Reference table at the bottom of the file.
 - When a device's capability changes (e.g., async bit-bang for FT232R is implemented), update the Device Capability Comparison table and remove any "not yet implemented" notes.
 - After every session that changes public behavior, verify the workflow file is still accurate by re-reading it alongside the current public function signatures.
+
+---
+
+## External Context: PSGadget CTF Server (Separate Project - Read Only)
+
+The CTF scoring backend is a **separate Flask project** running on a Raspberry Pi 4B+ in an
+isolated VLAN. Do NOT add server code to this repository. This section exists so agents
+understand how PsGadget hardware-side work fits into the overall CTF architecture.
+
+### Architecture Overview
+
+```
+[FTDI Device / GPIO] --triggers--> [ESP32] --generates flag--> [OLED display]
+                                                                     |
+                                                              [Contestant reads flag]
+                                                                     |
+                                                      POST /api/submit {gadget_id, flag}
+                                                                     |
+                                                    [CTF Server - Flask / Raspberry Pi]
+```
+
+**Critical design principle**: The ESP32 NEVER communicates with the server during a
+challenge. It is an autonomous flag generator; the server only validates submitted flags
+using HMAC-SHA256.
+
+### Cryptographic Flag Protocol
+
+The ESP32 generates flags as follows:
+1. Generate a random 4-byte nonce (e.g. `0xDEADBEEF`)
+2. Compute `TAG = LSB32(HMAC-SHA256(gadget_key_bytes, nonce_bytes))` (last 4 bytes of digest)
+3. Display on OLED: `DEADBEEF-9F22E10B` (uppercase hex, 8+8 chars separated by `-`)
+4. Contestant submits that string as the `flag` field via the API
+
+**PSGadget implication**: MicroPython scripts on ESP32 must implement this exact HMAC
+derivation using `uhashlib.sha256` and `hmac` or manual HMAC over `uhashlib`. The
+`gadget_key` is provisioned per-device via the CTF server admin API and must be flashed
+onto the device (e.g. in `ctf_config.json` as `flag_secret` in base64 or hex).
+
+### CTF Server API - PSGadget-Relevant Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | /api/register | Register contestant; returns plaintext apiKey (shown once) |
+| POST | /api/submit | Submit flag: body `{gadget_id, flag}`, header `X-API-Key: <key>` |
+| GET | /api/gadgets | List active gadgets with IDs, names, point values |
+| GET | /api/board | Leaderboard: `[{rank, username, score}]` |
+| GET | /api/activity-feed | Recent submission events |
+| POST | /api/admin/gadgets | Admin: create gadget |
+| PUT | /api/admin/gadgets/<id>/provision | Admin: set gadget HMAC key and optional FTDI serial |
+
+### /api/submit Behavior (Important for Hardware-Side Design)
+
+- Flag format MUST be `XXXXXXXX-YYYYYYYY` (8 uppercase hex + dash + 8 uppercase hex).
+- A nonce can only be redeemed once globally (prevents flag sharing between contestants).
+- A contestant can only complete each gadget once (no repeat scoring).
+- Returns `409` if the same user tries to reuse their own flag -- the ESP32 must generate
+  a fresh nonce each time the physical challenge is completed.
+- Returns `{success, gadget_id, points_awarded, total_score, rank}` on success.
+
+### Configuration Integration
+
+When building CTF firmware for ESP32 via `Install-PsGadgetMpyScript`:
+- `gadget_id` and `gadget_key` must match the values provisioned on the CTF server.
+- `gadget_key` is provisioned via `PUT /api/admin/gadgets/<id>/provision` (returns base64 key).
+- Store the key in `ctf_config.json` as `flag_secret` (hex or base64 -- MicroPython script
+  must decode accordingly before calling HMAC).
+- The `challenge_id` field in `ctf_config.json` maps directly to the server's `gadget_id`.
+
+### PowerShell CTF Client Helper (Future)
+
+A future `Submit-PsGadgetCtfFlag` public function may wrap `/api/submit` using
+`Invoke-WebRequest` for in-terminal flag submission. It would accept `-ApiKey`, `-GadgetId`,
+and `-Flag` parameters and return the parsed JSON response object. This is NOT yet
+implemented -- note it here to avoid re-planning from scratch.

@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    PsGadget NuGet dependency tracker.
+    This project is NOT built into the module. Its sole purpose is to:
+      1. Record the exact NuGet-sourced DLL versions bundled in lib/
+      2. Enable: dotnet list package -vulnerable
+                 dotnet list package -outdated
+      3. Enable: dotnet restore + copy workflow via Tools/Update-PsGadgetLibs.ps1
+    
+    NON-NUGET DEPENDENCIES (manual update only):
+      lib/native/FTD2XX.dll            FTDI D2XX native driver (vendor zip)
+      lib/net48/FTD2XX_NET.dll         FTDI managed wrapper v1.3.4 (vendor zip)
+      lib/netstandard20/FTD2XX_NET.dll same, netstandard20 flavor
+      Download: https://ftdichip.com/drivers/d2xx-drivers/
+  -->
+
+  <PropertyGroup>
+    <TargetFrameworks>net48;netstandard2.0;net8.0</TargetFrameworks>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- Suppress build output: this project is for audit only -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <!-- net8.0 IoT stack: lib/net8/ -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <PackageReference Include="System.Device.Gpio"                          Version="4.1.0" />
+    <PackageReference Include="Iot.Device.Bindings"                         Version="4.1.0" />
+    <PackageReference Include="UnitsNet"                                     Version="5.75.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions"   Version="10.0.3" />
+  </ItemGroup>
+
+  <!-- FtdiSharp: lib/ftdisharp/, all targets -->
+  <ItemGroup>
+    <PackageReference Include="FtdiSharp" Version="0.1.2" />
+  </ItemGroup>
+
+</Project>

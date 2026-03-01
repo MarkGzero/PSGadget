@@ -21,6 +21,7 @@ on Windows, Linux, and macOS.
 **By depth**
 - [Just get it working (high-level)](#just-get-it-working)
 - [What is actually loaded (low-level)](#what-is-actually-loaded)
+- [Maintaining bundled libraries (contributors)](#maintaining-bundled-libraries)
 
 **Need to buy parts first?**
 - [Hardware Kit and Shopping List](HARDWARE_KIT.md)
@@ -281,6 +282,111 @@ NOT bundled because it is platform-architecture-specific.
 `$script:IotBackendAvailable`, `$script:D2xxLoaded`, and
 `$script:FtdiSharpAvailable` are the module-scope flags set after loading.
 `Test-PsGadgetEnvironment` reads these flags to report backend status.
+
+---
+
+## Maintaining bundled libraries
+
+PSGadget bundles NuGet-sourced .NET assemblies in `lib/`. This section
+explains how to audit them for vulnerabilities and keep them up to date.
+This is a contributor / maintainer task -- end users do not need to do this.
+
+### Prerequisites
+
+- [.NET SDK 8+](https://dotnet.microsoft.com/download) on PATH
+- PowerShell 7+ (for the update script)
+
+### Which DLLs are covered
+
+| DLL | Source | Auditable? |
+|-----|--------|------------|
+| `lib/net8/System.Device.Gpio.dll` | NuGet | Yes |
+| `lib/net8/Iot.Device.Bindings.dll` | NuGet | Yes |
+| `lib/net8/UnitsNet.dll` | NuGet | Yes |
+| `lib/net8/Microsoft.Extensions.Logging.Abstractions.dll` | NuGet | Yes |
+| `lib/ftdisharp/FtdiSharp.dll` | NuGet | Yes |
+| `lib/native/FTD2XX.dll` | FTDI vendor zip | Manual only |
+| `lib/net48/FTD2XX_NET.dll` | FTDI vendor zip | Manual only |
+| `lib/netstandard20/FTD2XX_NET.dll` | FTDI vendor zip | Manual only |
+
+NuGet versions are declared in `lib/nuget-deps.csproj`.
+
+### Audit for vulnerabilities
+
+```powershell
+# Shows CVE report and outdated package list; does not change any files
+pwsh ./Tools/Update-PsGadgetLibs.ps1 -Audit
+```
+
+Expected clean output:
+```
+Running vulnerability scan...
+The given project `nuget-deps` has no vulnerable packages given the current sources.
+
+Running outdated check...
+The given project `nuget-deps` has no updates given the current sources.
+```
+
+If outdated packages are listed, see [Updating NuGet DLLs](#updating-nuget-dlls) below.
+
+### Checking for changes without writing (dry run)
+
+```powershell
+# Compares SHA-256 of bundled DLLs against what NuGet restore would give.
+# Reports [OK] or [CHANGED] per package. Does not copy anything.
+pwsh ./Tools/Update-PsGadgetLibs.ps1
+```
+
+### Updating NuGet DLLs
+
+1. Bump the version number(s) in `lib/nuget-deps.csproj`.
+2. Update the matching version strings in `lib/README.md`.
+3. Run the apply step:
+
+```powershell
+pwsh ./Tools/Update-PsGadgetLibs.ps1 -Apply
+```
+
+The script:
+- Restores packages to a temp directory using `dotnet restore`
+- Compares SHA-256 hashes of each DLL against the bundled copy
+- Copies only those that differ, reporting `[UPDATED]` per file
+- Leaves all other files untouched
+
+Verify afterwards:
+```powershell
+# Should report [OK] for every package
+pwsh ./Tools/Update-PsGadgetLibs.ps1
+```
+
+Then bump `ModuleVersion` in `PSGadget.psd1` and commit.
+
+### Updating FTDI vendor DLLs (manual)
+
+The three FTDI DLLs are not on NuGet and must be updated manually:
+
+1. Download the latest D2XX driver package from https://ftdichip.com/drivers/d2xx-drivers/
+2. Extract `FTD2XX_NET.dll` from both the `net48/` and `netstandard2.0/` subdirectories
+3. Replace `lib/net48/FTD2XX_NET.dll` and `lib/netstandard20/FTD2XX_NET.dll`
+4. Replace `lib/native/FTD2XX.dll` with the native DLL from the same package
+5. Update the version comment in `lib/README.md` and `lib/nuget-deps.csproj`
+
+### Automated CI scanning
+
+A GitHub Actions workflow (`.github/workflows/lib-audit.yml`) runs the
+vulnerability scan weekly (Mondays at 08:00 UTC) and on every PR that
+changes `lib/nuget-deps.csproj`. It will fail the build if any CVE is
+found and upload a full report as an artifact.
+
+### Troubleshooting the update script
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `dotnet SDK not found on PATH` | dotnet not installed | Install from https://dotnet.microsoft.com/download |
+| `Package cache not found for X` | Package ID mismatch or restore failed | Check package ID spelling in `nuget-deps.csproj`; run `dotnet restore lib/nuget-deps.csproj` manually and inspect output |
+| `DLL not found in package cache for X` | Package does not contain the expected DLL filename for any TFM | Run `dotnet restore lib/nuget-deps.csproj --packages /tmp/pkgcache` and inspect the package directory to find the actual DLL path; update `$LibMap` in the script |
+| Hash mismatch reported but `-Apply` reports `[OK]` | DLL was already up to date (different build but same bytes) | Ignore if `-Audit` shows no vulnerabilities |
+| `NU1701` warning on FtdiSharp | FtdiSharp targets net4x, not netstandard2.0 | Expected and harmless -- FtdiSharp is loaded via `LoadFrom()`, not as a build reference |
 
 ---
 

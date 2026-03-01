@@ -6,6 +6,21 @@ public functions are added.
 
 ---
 
+## Table of Contents
+
+- [Module Setup](#module-setup)
+- [FT232H Workflow (MPSSE - ACBUS0-7)](#ft232h-workflow-mpsse---acbus0-7)
+- [FT232R Workflow (CBUS bit-bang - CBUS0-3)](#ft232r-workflow-cbus-bit-bang---cbus0-3)
+- [SSD1306 OLED Display (FT232H via MPSSE I2C)](#ssd1306-oled-display-ft232h-via-mpsse-i2c)
+- [ESP-NOW Wireless Telemetry (MicroPython + FT232H UART)](#esp-now-wireless-telemetry-micropython--ft232h-uart)
+- [Device Capability Comparison](#device-capability-comparison)
+- [Available CBUS Mode Options (FT232R)](#available-cbus-mode-options-ft232r)
+- [OOP Class Interface](#oop-class-interface)
+- [Public Function Quick Reference](#public-function-quick-reference)
+- [Maintenance Notes](#maintenance-notes)
+
+---
+
 ## Module Setup
 
 ```powershell
@@ -326,6 +341,99 @@ $ftdi.Close()
 
 ---
 
+## ESP-NOW Wireless Telemetry (MicroPython + FT232H UART)
+
+ESP-NOW is a connectionless 802.11 protocol that lets ESP32 nodes send telemetry
+to each other without a WiFi router. PSGadget bridges ESP-NOW traffic to the host
+over UART using an FT232H as a USB-to-serial adapter (no MPSSE/GPIO needed here).
+
+### Architecture
+
+```
+[ESP32 Transmitter] --ESP-NOW--> [ESP32 Receiver] --UART--> [FT232H] --USB--> [Host / PowerShell]
+```
+
+### Hardware Wiring (FT232H UART bridge)
+
+| FT232H pin | Signal | ESP32 Receiver pin (default) |
+|------------|--------|------------------------------|
+| AD0 (TXD)  | TX     | GPIO6 (RX)                   |
+| AD1 (RXD)  | RX     | GPIO5 (TX)                   |
+| 3.3V       | Power  | 3.3V                         |
+| GND        | Ground | GND                          |
+
+> **Cross-wiring rule**: FT232H TX -> ESP32 RX, FT232H RX -> ESP32 TX.
+> Swapped TX/RX produces no output and is the most common setup error.
+
+All pin and baud defaults are overridable via `mpy/scripts/config.json`.
+
+### Step 1 - Deploy MicroPython scripts
+
+```powershell
+# Deploy receiver role to the ESP32 wired to FT232H
+Install-PsGadgetMpyScript -SerialPort "/dev/ttyUSB0" -Role Receiver
+
+# Deploy transmitter role to the untethered wireless node
+Install-PsGadgetMpyScript -SerialPort "/dev/ttyUSB1" -Role Transmitter
+
+# Use a custom config for non-default pin assignments
+Install-PsGadgetMpyScript -SerialPort "/dev/ttyUSB0" -Role Receiver -ConfigPath "./lab_pins.json"
+
+# Skip the confirmation prompt
+Install-PsGadgetMpyScript -SerialPort "COM4" -Role Transmitter -Force
+```
+
+Both devices reset automatically after push. The receiver boots and prints
+`PsGadget-Receiver:ready` on UART. The transmitter prints
+`PsGadget-Transmitter:ready` on serial.
+
+### Step 2 - Read telemetry frames
+
+Once both scripts are running, the receiver forwards telemetry frames to the
+host over UART at 115200 baud. Read them via `Connect-PsGadgetMpy` or directly
+through any serial terminal.
+
+Telemetry frame format (pipe-delimited):
+```
+type|serial|machine|temp|battery|payload
+```
+
+### Step 3 - Query known devices
+
+```powershell
+# Pull the receiver's known_devices.txt (devices it has paired with)
+Get-PsGadgetEspNowDevices -SerialPort "/dev/ttyUSB0"
+
+# Save to a custom path
+Get-PsGadgetEspNowDevices -SerialPort "COM4" -OutputPath "./lab_devices.txt"
+
+# Inspect in pipeline
+$devices = Get-PsGadgetEspNowDevices -SerialPort "/dev/ttyUSB0"
+$devices | Format-Table Mac, LastSeen
+```
+
+### Custom config.json overrides
+
+Deploy a custom `config.json` to change pins, baud rate, or timing without
+modifying the bundled scripts:
+
+```json
+{
+  "uart_tx_pin": 5,
+  "uart_rx_pin": 6,
+  "uart_baud": 115200,
+  "send_interval_ms": 1000,
+  "neopixel_pin": 21
+}
+```
+
+All fields are optional; omitted keys use built-in defaults.
+
+> **See also**: [examples/Example-EspNow.md](../examples/Example-EspNow.md) for a
+> full multi-persona walkthrough including troubleshooting and a Quick Reference.
+
+---
+
 ## Device Capability Comparison
 
 | Feature              | FT232H          | FT232R               |
@@ -456,6 +564,11 @@ $conn.Close()
 | Set-PsGadgetSsd1306Cursor   | Set cursor position for raw writes (-Column, -Page)           |
 | List-PsGadgetMpy            | Enumerate MicroPython serial ports                            |
 | Connect-PsGadgetMpy         | Open a MicroPython REPL connection                            |
+| Install-PsGadgetMpyScript   | Deploy bundled ESP-NOW Receiver or Transmitter main.py + config.json to an ESP32 via mpremote (-SerialPort, -Role, -ConfigPath, -Force) |
+| Get-PsGadgetEspNowDevices   | Pull known_devices.txt from Receiver flash via mpremote; returns [PSCustomObject]{Mac, LastSeen}[] (-SerialPort, -OutputPath) |
+| Set-PsGadgetFtdiMode        | Set operating mode of a connected FTDI device (MPSSE, CBUS, AsyncBitBang); dispatches by device type automatically |
+| Get-PsGadgetConfig          | Return current in-memory PSGadget config; use -Section ftdi or logging to filter |
+| Set-PsGadgetConfig          | Set a config value by dot-key (e.g. 'ftdi.highDriveIOs') and persist to ~/.psgadget/config.json |
 | Test-PsGadgetEnvironment    | Verify environment, backend, native lib, and device count; returns Status/Reason/NextStep (-Verbose for detail) |
 
 ---

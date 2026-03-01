@@ -55,4 +55,4 @@ PSScriptAnalyzer*.txt
 
 # Pester coverage output
 coverage/
-*.backup
+*.backuplib/obj/

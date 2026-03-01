@@ -30,6 +30,7 @@ If `Status` is `Fail`, `NextStep` tells you exactly what command to run.
 - [Module fails to import (syntax or type errors)](#module-fails-to-import)
 - [Tests pass but hardware does not work](#tests-pass-but-hardware-does-not-work)
 - [Verbose output shows wrong DLL path](#wrong-dll-path)
+- [DLL version mismatch or CVE advisory](#dll-version-mismatch-or-cve-advisory)
 
 ---
 
@@ -308,6 +309,65 @@ PSGadget/
 
 If importing from a custom path, always import `PSGadget.psd1` directly
 rather than a `.psm1` file, so `$PSScriptRoot` resolves to the module root.
+
+---
+
+## DLL version mismatch or CVE advisory
+
+**Symptom**: GitHub Actions `lib-audit` workflow fails, or `dotnet list package --vulnerable`
+reports a CVE, or the weekly audit email flags an outdated package.
+
+### Check current state locally
+
+```powershell
+# Requires dotnet SDK 8+ on PATH
+pwsh ./Tools/Update-PsGadgetLibs.ps1 -Audit
+```
+
+This reports:
+- Any packages with known CVEs (fails CI if found)
+- Any packages with newer versions available
+
+### Apply NuGet updates
+
+1. Open `lib/nuget-deps.csproj` and bump the `Version` attribute for the
+   affected package(s).
+2. Run:
+
+```powershell
+# Dry run -- shows what would change
+pwsh ./Tools/Update-PsGadgetLibs.ps1
+
+# Apply -- downloads from NuGet and replaces DLLs
+pwsh ./Tools/Update-PsGadgetLibs.ps1 -Apply
+```
+
+3. Confirm clean:
+
+```powershell
+pwsh ./Tools/Update-PsGadgetLibs.ps1 -Audit
+# Expected: no vulnerable packages, no updates available
+```
+
+4. Update version strings in `lib/README.md` to match.
+5. Bump `ModuleVersion` in `PSGadget.psd1`.
+
+### FTDI vendor DLLs (not on NuGet)
+
+`lib/native/FTD2XX.dll`, `lib/net48/FTD2XX_NET.dll`, and
+`lib/netstandard20/FTD2XX_NET.dll` are not tracked by NuGet.
+Monitor https://ftdichip.com/drivers/d2xx-drivers/ manually for updates.
+Download the CDM package, extract the matching DLLs, and replace the
+bundled copies. Update the version note in `lib/README.md`.
+
+### Common errors from the update script
+
+| Error | Fix |
+|-------|-----|
+| `dotnet SDK not found on PATH` | Install from https://dotnet.microsoft.com/download |
+| `Package cache not found for X` | Check package ID in `lib/nuget-deps.csproj`; run `dotnet restore lib/nuget-deps.csproj` manually |
+| `DLL not found in package cache` | Package layout changed upstream; inspect the restored package dir under `/tmp/psgadget-lib-update/packages/` and update the `$LibMap` entry in `Tools/Update-PsGadgetLibs.ps1` |
+| `NU1701` warning on FtdiSharp | Expected and harmless -- FtdiSharp targets net4x; it is loaded via `LoadFrom()` at runtime |
 
 ---
 
