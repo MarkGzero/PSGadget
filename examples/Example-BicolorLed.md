@@ -5,6 +5,34 @@ on an FT232R USB-to-serial chip with PSGadget.
 
 ---
 
+## Table of Contents
+
+- [Who This Is For](#who-this-is-for)
+- [What You Need](#what-you-need)
+- [Hardware Background](#hardware-background)
+  - [Wiring diagram](#wiring-diagram)
+  - [Why you need the resistors](#why-you-need-the-resistors-and-why-the-led-glows-dim-without-them)
+- [CBUS pin state at startup](#cbus-pin-state-at-startup----why-the-red-led-glows-before-you-say-so)
+- [A note on independent LED control](#a-note-on-independent-led-control-one-high-one-low)
+- [Step 1 - Install Drivers and Verify Detection](#step-1---install-drivers-and-verify-detection)
+- [Step 2 - Inspect Current EEPROM State](#step-2---inspect-current-eeprom-state)
+- [Step 3 - Program EEPROM (One Time Per Device)](#step-3---program-eeprom-one-time-per-device)
+- [Step 4 - Verify EEPROM After Replug](#step-4---verify-eeprom-after-replug)
+- [Step 5 - Runtime LED Control](#step-5---runtime-led-control)
+  - [OOP style (recommended for scripts)](#oop-style-recommended-for-scripts)
+  - [Independent control without glitch (advanced)](#independent-control-without-glitch-advanced)
+  - [Blink pattern (quick cmdlet style)](#blink-pattern-quick-cmdlet-style)
+- [CBUS Pin Map](#cbus-pin-map)
+- [Troubleshooting](#troubleshooting)
+  - [LED glows dim when it should be fully off](#led-glows-dim-when-it-should-be-fully-off)
+  - [One LED glows dim when the other is on](#one-led-glows-dim-when-the-other-is-on)
+  - [FT_DEVICE_NOT_FOUND](#ft_device_not_found)
+  - [LED does not light at all on HIGH](#led-does-not-light-at-all-on-high)
+  - [Both LEDs stay on after the script ends](#both-leds-stay-on-after-the-script-ends)
+- [Quick Reference (Pro)](#quick-reference-pro)
+
+---
+
 ## Who This Is For
 
 This walkthrough is written with four readers in mind. Look for the labeled callouts

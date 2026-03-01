@@ -7,6 +7,38 @@ Background device daemons -- running PsGadget hardware without an interactive Po
 
 ---
 
+## Table of Contents
+
+- [Short Description](#short-description)
+- [Motivation](#motivation)
+- [Architecture Overview](#architecture-overview)
+- [IPC Mechanisms](#ipc-mechanisms)
+  - [Named Pipe (preferred)](#named-pipe-preferred)
+  - [File Drop Directory (alternative)](#file-drop-directory-alternative)
+- [Daemon Lifecycle](#daemon-lifecycle)
+  - [Starting a Daemon](#starting-a-daemon)
+  - [Stopping a Daemon](#stopping-a-daemon)
+  - [Checking Status](#checking-status)
+- [Command Schema](#command-schema)
+  - [General Envelope](#general-envelope)
+  - [Response Envelope](#response-envelope)
+- [Action Reference](#action-reference)
+  - [SSD1306 Display Actions](#ssd1306-display-actions)
+  - [GPIO / FTDI Actions](#gpio--ftdi-actions)
+  - [Control Actions (any daemon type)](#control-actions-any-daemon-type)
+- [Send-PsGadgetCommand Usage](#send-psgadgetcommand-usage)
+- [Example Workflows](#example-workflows)
+  - [Scenario 1: CPU Temperature Monitor on SSD1306](#scenario-1-cpu-temperature-monitor-on-ssd1306)
+  - [Scenario 2: Alert Triggers RGB LED + Servo](#scenario-2-alert-triggers-rgb-led--servo)
+  - [Scenario 3: Bash / Non-PowerShell Caller via File Drop](#scenario-3-bash--non-powershell-caller-via-file-drop)
+  - [Scenario 4: Python Caller via Named Pipe](#scenario-4-python-caller-via-named-pipe)
+- [Systemd Integration (Linux)](#systemd-integration-linux)
+- [Security Considerations](#security-considerations)
+- [Implementation Status](#implementation-status)
+- [See Also](#see-also)
+
+---
+
 ## SHORT DESCRIPTION
 
 A **PsGadget Daemon** is a long-running background runspace that holds an open device

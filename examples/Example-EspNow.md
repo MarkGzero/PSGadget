@@ -5,6 +5,26 @@ PowerShell session -- no WiFi router, no IP addresses, no MQTT broker required.
 
 ---
 
+## Table of Contents
+
+- [Who This Is For](#who-this-is-for)
+- [What You Need](#what-you-need)
+- [Hardware Background](#hardware-background)
+  - [Telemetry Frame Format](#telemetry-frame-format)
+- [Architecture](#architecture)
+- [Step 1 -- Wire the Receiver ESP32 to the FT232H](#step-1----wire-the-receiver-esp32-to-the-ft232h)
+- [Step 2 -- Flash MicroPython (if not already on the boards)](#step-2----flash-micropython-if-not-already-on-the-boards)
+- [Step 3 -- Deploy the Receiver script](#step-3----deploy-the-receiver-script)
+- [Step 4 -- Deploy the Transmitter script](#step-4----deploy-the-transmitter-script)
+- [Step 5 -- Confirm the receiver is running](#step-5----confirm-the-receiver-is-running)
+- [Step 6 -- Read live telemetry in PowerShell](#step-6----read-live-telemetry-in-powershell)
+- [Step 7 -- Pull the known-devices registry](#step-7----pull-the-known-devices-registry)
+- [Troubleshooting](#troubleshooting)
+- [Custom Config -- Multiple Transmitters](#custom-config----multiple-transmitters)
+- [Quick Reference (Pro)](#quick-reference-pro)
+
+---
+
 ## Who This Is For
 
 - **Beginner** - new to wireless protocols, ESP32, and PowerShell

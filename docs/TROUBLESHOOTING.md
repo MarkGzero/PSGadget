@@ -6,6 +6,29 @@ automatically.
 
 ---
 
+## Table of Contents
+
+- [Quick diagnostics](#quick-diagnostics)
+- [Symptom index](#symptom-index)
+- [No devices found](#no-devices-found)
+- [Stub backend](#stub-backend)
+- [Missing native library (Linux/macOS)](#missing-native-library-linuxmacos)
+- [Access denied or device busy](#access-denied-or-device-busy)
+- [FT232R CBUS pins do not respond](#ft232r-cbus-pins-do-not-respond)
+- [SSD1306 shows nothing](#ssd1306-shows-nothing)
+- [MicroPython connection fails](#micropython-connection-fails)
+- [Module fails to import](#module-fails-to-import)
+- [Tests pass but hardware does not work](#tests-pass-but-hardware-does-not-work)
+- [Wrong DLL path](#wrong-dll-path)
+- [DLL version mismatch or CVE advisory](#dll-version-mismatch-or-cve-advisory)
+  - [Check current state locally](#check-current-state-locally)
+  - [Apply NuGet updates](#apply-nuget-updates)
+  - [FTDI vendor DLLs (not on NuGet)](#ftdi-vendor-dlls-not-on-nuget)
+  - [Common errors from the update script](#common-errors-from-the-update-script)
+- [Still stuck?](#still-stuck)
+
+---
+
 ## Quick diagnostics
 
 ```powershell

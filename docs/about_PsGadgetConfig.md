@@ -7,6 +7,22 @@ PSGadget user configuration -- `~/.psgadget/config.json`
 
 ---
 
+## Table of Contents
+
+- [Short Description](#short-description)
+- [Config File Location](#config-file-location)
+- [Reading and Writing Settings](#reading-and-writing-settings)
+- [Full Default Config File](#full-default-config-file)
+- [Settings Reference](#settings-reference)
+  - [Section: ftdi](#section-ftdi)
+  - [Section: logging](#section-logging)
+- [How Settings Interact with Explicit Parameters](#how-settings-interact-with-explicit-parameters)
+- [Examples](#examples)
+- [Config File Reset](#config-file-reset)
+- [See Also](#see-also)
+
+---
+
 ## SHORT DESCRIPTION
 
 PSGadget reads a JSON configuration file at module import to apply user preferences

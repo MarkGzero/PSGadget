@@ -6,6 +6,42 @@ FtdiSharp on PS 5.1, .NET IoT on PS 7.
 
 ---
 
+## Table of Contents
+
+- [Who This Is For](#who-this-is-for)
+- [What You Need](#what-you-need)
+- [Hardware Background](#hardware-background)
+  - [I2C address](#i2c-address)
+- [Hardware Wiring](#hardware-wiring)
+- [Step 1 - Load the Module and Verify Detection](#step-1---load-the-module-and-verify-detection)
+- [Step 2 - Connect the Device](#step-2---connect-the-device)
+- [Step 3 - Scan the I2C Bus (recommended)](#step-3---scan-the-i2c-bus-recommended)
+- [Step 4 - Write to the Display](#step-4---write-to-the-display)
+  - [Simple text](#simple-text)
+  - [Advanced formatting](#advanced-formatting)
+- [Step 5 - Clear the Display](#step-5---clear-the-display)
+- [Step 6 - Write Text](#step-6---write-text)
+  - [Display layout reference](#display-layout-reference)
+  - [Text alignment](#text-alignment)
+  - [Large text (double-width font)](#large-text-double-width-font)
+  - [Inverted text (dark on white)](#inverted-text-dark-on-white)
+- [Step 7 - Live Clock Example](#step-7---live-clock-example)
+- [Step 8 - Scrolling Status Display](#step-8---scrolling-status-display)
+- [Step 9 - Cursor Positioning for Raw Layout](#step-9---cursor-positioning-for-raw-layout)
+- [Step 10 - Close the Connection](#step-10---close-the-connection)
+- [Complete Examples](#complete-examples)
+  - [Example 1 - Standard (quiet output)](#example-1---standard-quiet-output)
+  - [Example 2 - Verbose (beginner-friendly)](#example-2---verbose-beginner-friendly)
+- [Troubleshooting](#troubleshooting)
+  - [Display stays blank after init](#display-stays-blank-after-init)
+  - [Failed to open device](#failed-to-open-device)
+  - [Scan returns nothing](#scan-returns-nothing)
+  - [Partial or garbled text](#partial-or-garbled-text)
+  - [PS version differences](#ps-version-differences)
+- [Quick Reference (Pro)](#quick-reference-pro)
+
+---
+
 ## Who This Is For
 
 - **Beginner** - new to electronics, I2C, and PowerShell

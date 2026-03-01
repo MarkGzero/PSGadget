@@ -6,6 +6,34 @@ setup, and runtime control with PSGadget.
 
 ---
 
+## Table of Contents
+
+- [Who This Is For](#who-this-is-for)
+- [What You Need](#what-you-need)
+- [Hardware Background](#hardware-background)
+  - [Voltage selection](#voltage-selection)
+  - [Why the 5V pin moves the motor but CBUS0 does not](#why-the-5v-pin-moves-the-motor-but-cbus0-does-not)
+  - [Wiring: transistor driver (recommended for all motors)](#wiring-transistor-driver-recommended-for-all-motors)
+    - [Option A: NPN transistor (2N2222 / PN2222A / BC547 / S8050)](#option-a-npn-transistor-2n2222--pn2222a--bc547--s8050----recommended-for-beginners)
+    - [Option B: PNP transistor (PN2907) -- inverted logic](#option-b-pnp-transistor-pn2907----inverted-logic)
+  - [Direct connection (sub-4mA loads only)](#direct-connection-sub-4ma-loads-only)
+- [Step 1 - Install Drivers and Verify Detection](#step-1---install-drivers-and-verify-detection)
+- [Step 2 - Inspect Current EEPROM State](#step-2---inspect-current-eeprom-state)
+- [Step 3 - Program EEPROM (One Time Per Device)](#step-3---program-eeprom-one-time-per-device)
+- [Step 4 - Verify EEPROM After Replug](#step-4---verify-eeprom-after-replug)
+- [Step 5 - Runtime Motor Control](#step-5---runtime-motor-control)
+  - [OOP style (recommended for scripts)](#oop-style-recommended-for-scripts)
+  - [Quick cmdlet style (use at the prompt)](#quick-cmdlet-style-use-at-the-prompt)
+- [Unattended / Scripted Setup](#unattended--scripted-setup)
+- [CBUS Pin Map](#cbus-pin-map)
+- [Troubleshooting](#troubleshooting)
+  - [FT_DEVICE_NOT_FOUND](#ft_device_not_found)
+  - [Motor does not move](#motor-does-not-move)
+  - [Motor spins but is very weak](#motor-spins-but-is-very-weak)
+- [Quick Reference (Pro)](#quick-reference-pro)
+
+---
+
 ## Who This Is For
 
 This walkthrough is written with four readers in mind. Look for the labeled callouts

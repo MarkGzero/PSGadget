@@ -55,4 +55,42 @@ PSScriptAnalyzer*.txt
 
 # Pester coverage output
 coverage/
-*.backuplib/obj/
+
+# Backup files
+*.backup
+
+# dotnet restore artifacts (lib/nuget-deps.csproj)
+lib/obj/
+
+# ---------------------------------------------------------------------------
+# Security: credentials, secrets, keys, device data
+# ---------------------------------------------------------------------------
+
+# Crypto keys and certificates
+*.key
+*.pem
+*.pfx
+*.p12
+*.crt
+*.cer
+*.der
+
+# Environment / secret files
+.env
+.env.*
+*.env
+secrets.*
+*.secret
+*.secrets
+
+# CTF provisioning -- gadget keys must never be committed
+ctf_config.json
+flag_secret*
+gadget_key*
+
+# Local config overrides
+*.local.json
+config.local.*
+
+# Device registry (contains hardware MAC addresses)
+known_devices.txt

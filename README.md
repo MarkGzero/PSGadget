@@ -7,6 +7,23 @@ standard PowerShell session.
 
 ---
 
+## Table of Contents
+
+- [What can I do with this?](#what-can-i-do-with-this)
+- [Documentation](#documentation)
+- [Supported Hardware](#supported-hardware)
+- [Quick Start](#quick-start)
+- [OOP Interface (recommended for scripts)](#oop-interface-recommended-for-scripts)
+- [Exported Functions](#exported-functions)
+- [Verbose Output](#verbose-output)
+- [Configuration](#configuration)
+- [Architecture](#architecture)
+- [Development](#development)
+- [Requirements](#requirements)
+- [Contributing](#contributing)
+
+---
+
 ## What can I do with this?
 
 <div align="center">

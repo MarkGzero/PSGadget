@@ -5,6 +5,17 @@ explains who each persona is and where to find the content most useful to them.
 
 ---
 
+## Table of Contents
+
+- [The four personas](#the-four-personas)
+  - [Nikola -- Beginner](#nikola----beginner)
+  - [Jordan -- Scripter](#jordan----scripter)
+  - [Izzy -- Engineer](#izzy----engineer)
+  - [Scott -- Pro](#scott----pro)
+- [Persona-tagged content](#persona-tagged-content)
+
+---
+
 ## The four personas
 
 ### Nikola -- Beginner

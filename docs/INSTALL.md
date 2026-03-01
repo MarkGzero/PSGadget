@@ -5,6 +5,41 @@ on Windows, Linux, and macOS.
 
 ---
 
+## Table of Contents
+
+- [Pick your path](#pick-your-path)
+- [Just get it working](#just-get-it-working)
+- [Windows](#windows)
+  - [Step 1 - Install PSGadget](#step-1---install-psgadget)
+  - [Step 2 - Install the FTDI D2XX driver](#step-2---install-the-ftdi-d2xx-driver-windows-only)
+  - [Step 3 - Verify](#step-3---verify)
+- [Linux](#linux)
+  - [Step 1 - Install PSGadget](#step-1---install-psgadget-1)
+  - [Step 2 - Install the native FTDI D2XX library](#step-2---install-the-native-ftdi-d2xx-library)
+  - [Step 3 - Verify](#step-3---verify-1)
+- [macOS](#macos)
+  - [Step 1 - Install PSGadget](#step-1---install-psgadget-2)
+  - [Step 2 - Install the native FTDI D2XX library](#step-2---install-the-native-ftdi-d2xx-library-1)
+  - [Step 3 - Verify](#step-3---verify-2)
+- [What is actually loaded](#what-is-actually-loaded)
+- [Maintaining bundled libraries](#maintaining-bundled-libraries)
+  - [Prerequisites](#prerequisites)
+  - [Which DLLs are covered](#which-dlls-are-covered)
+  - [Audit for vulnerabilities](#audit-for-vulnerabilities)
+  - [Checking for changes without writing (dry run)](#checking-for-changes-without-writing-dry-run)
+  - [Updating NuGet DLLs](#updating-nuget-dlls)
+  - [Updating FTDI vendor DLLs (manual)](#updating-ftdi-vendor-dlls-manual)
+  - [Automated CI scanning](#automated-ci-scanning)
+  - [Troubleshooting the update script](#troubleshooting-the-update-script)
+- [Persona guides](#persona-guides)
+  - [Beginner (Nikola)](#beginner-nikola)
+  - [Scripter (Jordan)](#scripter-jordan)
+  - [Engineer (Izzy)](#engineer-izzy)
+  - [Pro (Scott)](#pro-scott)
+- [Troubleshooting](#troubleshooting)
+
+---
+
 ## Pick your path
 
 **By operating system**

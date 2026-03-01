@@ -6,6 +6,23 @@ understand why the code is organised the way it is.
 
 ---
 
+## Table of Contents
+
+- [Pick your path](#pick-your-path)
+- [High-level overview](#high-level-overview)
+- [Layer breakdown](#layer-breakdown)
+  - [Transport layer](#transport-layer)
+  - [Protocol layer](#protocol-layer)
+  - [Device layer](#device-layer)
+  - [API layer](#api-layer)
+- [File map](#file-map)
+- [Module load order](#module-load-order)
+- [Backend selection logic](#backend-selection-logic)
+- [Stub mode](#stub-mode)
+- [Design rules](#design-rules)
+
+---
+
 ## Pick your path
 
 - [High-level overview (everyone)](#high-level-overview)

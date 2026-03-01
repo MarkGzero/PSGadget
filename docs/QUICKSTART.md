@@ -6,6 +6,26 @@ If you have not installed PSGadget yet, start at [INSTALL.md](INSTALL.md).
 
 ---
 
+## Table of Contents
+
+- [Pick your path](#pick-your-path)
+- [No hardware -- stub mode](#no-hardware----stub-mode)
+- [FT232H](#ft232h)
+  - [Minimum happy path](#minimum-happy-path)
+  - [I2C scan (FT232H only)](#i2c-scan-ft232h-only)
+- [FT232R](#ft232r)
+  - [First-time setup (one-time, per device)](#first-time-setup-one-time-per-device)
+  - [Minimum happy path (after EEPROM setup)](#minimum-happy-path-after-eeprom-setup)
+- [SSD1306 OLED](#ssd1306-oled)
+- [MicroPython REPL](#micropython-repl)
+- [Persona walkthroughs](#persona-walkthroughs)
+  - [Nikola -- new to everything](#nikola----new-to-everything)
+  - [Jordan -- PowerShell scripter](#jordan----powershell-scripter)
+  - [Izzy -- hardware engineer](#izzy----hardware-engineer)
+  - [Scott -- quick reference](#scott----quick-reference)
+
+---
+
 ## Pick your path
 
 **By persona**

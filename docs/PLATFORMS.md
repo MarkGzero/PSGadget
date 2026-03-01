@@ -5,6 +5,33 @@ limitations for Windows, Linux, and macOS.
 
 ---
 
+## Table of Contents
+
+- [Pick your platform](#pick-your-platform)
+- [Windows](#windows)
+  - [Supported configurations](#supported-configurations)
+  - [Required components](#required-components)
+  - [Notes](#notes)
+- [Linux](#linux)
+  - [Supported configurations](#supported-configurations-1)
+  - [Required components](#required-components-1)
+  - [Architecture builds](#architecture-builds)
+  - [Kernel module conflict](#kernel-module-conflict)
+  - [USB permissions](#usb-permissions)
+  - [MicroPython serial ports](#micropython-serial-ports)
+  - [Notes](#notes-1)
+- [macOS](#macos)
+  - [Supported configurations](#supported-configurations-2)
+  - [Required components](#required-components-2)
+  - [Kernel extension conflict](#kernel-extension-conflict)
+  - [Gatekeeper quarantine](#gatekeeper-quarantine)
+  - [Apple Silicon (M1/M2/M3)](#apple-silicon-m1m2m3)
+  - [Notes](#notes-2)
+- [Platform comparison](#platform-comparison)
+- [Detecting the platform in scripts](#detecting-the-platform-in-scripts)
+
+---
+
 ## Pick your platform
 
 - [Windows](#windows)
