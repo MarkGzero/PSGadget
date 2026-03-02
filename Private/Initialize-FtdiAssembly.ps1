@@ -106,23 +106,20 @@ function Initialize-FtdiAssembly {
                         Write-Warning (
                             "IoT FTDI DLLs loaded but native 'libftd2xx.so' was not found. " +
                             "Hardware access will fall back to stub mode until it is installed.`n`n" +
-                            "Run the following script in a bash terminal to install (arch: $arch):`n" +
+                            "Run the following in your PowerShell session to install (arch: $arch):`n" +
                             "----------------------------------------------------------------------`n" +
-                            "#!/usr/bin/env bash`n" +
-                            "set -e`n" +
-                            "TGZ=$archTgz`n" +
-                            "URL=$archUrl`n" +
-                            "cd /tmp`n" +
-                            "curl -fsSL `"`$URL`" -o `"`$TGZ`"`n" +
-                            "tar xzf `"`$TGZ`"`n" +
-                            "sudo cp release/build/libftd2xx.so.* /usr/local/lib/`n" +
-                            "sudo ln -sf /usr/local/lib/libftd2xx.so.* /usr/local/lib/libftd2xx.so`n" +
+                            "`$tgz = '$archTgz'`n" +
+                            "`$url = '$archUrl'`n" +
+                            "Invoke-WebRequest `$url -OutFile `"/tmp/`$tgz`"`n" +
+                            "tar xzf `"/tmp/`$tgz`" -C /tmp`n" +
+                            "sudo cp /tmp/release/build/libftd2xx.so.* /usr/local/lib/`n" +
+                            "sudo sh -c 'ln -sf /usr/local/lib/libftd2xx.so.* /usr/local/lib/libftd2xx.so'`n" +
                             "sudo ldconfig`n" +
                             "# If device shows as /dev/ttyUSBx, also run:`n" +
                             "# sudo rmmod ftdi_sio`n" +
                             "# To restore VCP mode later: sudo modprobe ftdi_sio`n" +
                             "----------------------------------------------------------------------`n" +
-                            "Then re-import PSGadget: Import-Module PSGadget -Force"
+                            "Then re-import: Import-Module PSGadget -Force"
                         )
                     }
                 }
