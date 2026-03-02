@@ -59,7 +59,32 @@ function List-PsGadgetFtdi {
         if (-not $ShowVCP) {
             $Filtered = @($Devices | Where-Object { -not $_.IsVcp })
             if ($Filtered.Count -eq 0) {
-                Write-Warning "No PsGadget-compatible FTDI devices found. If you have FTDI devices loaded with the VCP driver, use -ShowVCP to see them."
+                $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+                if ($isWindows) {
+                    Write-Warning (
+                        "No PsGadget-compatible FTDI devices found. " +
+                        "If your device appears in Device Manager as a COM port, the VCP driver is active. " +
+                        "Install the D2XX driver from https://ftdichip.com/drivers/d2xx-drivers/ and retry. " +
+                        "Use -ShowVCP to list VCP-mode devices."
+                    )
+                } else {
+                    $vcpDevices = @($Devices | Where-Object { $_.IsVcp })
+                    if ($vcpDevices.Count -gt 0) {
+                        Write-Warning (
+                            "No PsGadget-compatible FTDI devices found -- $($vcpDevices.Count) device(s) are held by the ftdi_sio VCP kernel module. " +
+                            "D2XX cannot claim a device while ftdi_sio is loaded. " +
+                            "To fix: run 'sudo rmmod ftdi_sio' then re-import the module. " +
+                            "Use -ShowVCP to list VCP-mode devices. " +
+                            "See docs/TROUBLESHOOTING.md#device-shows-as-vcp-only-linux for permanent fix."
+                        )
+                    } else {
+                        Write-Warning (
+                            "No PsGadget-compatible FTDI devices found. " +
+                            "Ensure libftd2xx.so is installed and the device is plugged in. " +
+                            "Use -ShowVCP to list VCP-mode devices."
+                        )
+                    }
+                }
                 Write-Verbose "Run Test-PsGadgetEnvironment -Verbose for driver and native library diagnostics."
                 return @()
             }
