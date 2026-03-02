@@ -58,9 +58,14 @@ function Initialize-FtdiLinuxLibusb {
     # Verify the library is present before attempting Add-Type
     $libLocations = @(
         '/lib/x86_64-linux-gnu/libusb-1.0.so.0',
+        '/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0',
         '/lib/aarch64-linux-gnu/libusb-1.0.so.0',
+        '/usr/lib/aarch64-linux-gnu/libusb-1.0.so.0',
         '/lib/arm-linux-gnueabihf/libusb-1.0.so.0',
+        '/usr/lib/arm-linux-gnueabihf/libusb-1.0.so.0',
+        '/usr/local/lib/libusb-1.0.so.0',
         '/usr/local/lib/libusb-1.0.so',
+        '/usr/lib/libusb-1.0.so.0',
         '/usr/lib/libusb-1.0.so'
     )
     $libPath = $libLocations | Where-Object { Test-Path $_ } | Select-Object -First 1
@@ -73,12 +78,35 @@ function Initialize-FtdiLinuxLibusb {
     try {
         # Guard: type may already exist from a prior Import-Module in this AppDomain
         if (-not ([System.Management.Automation.PSTypeName]'FtdiLinuxLibusb').Type) {
+            # NOTE: DllImport with an absolute path fails on .NET 8+ when the
+            # assembly is in-memory (Add-Type -TypeDefinition without -OutputAssembly)
+            # because Assembly.Location is "" and Path.GetDirectoryName("") returns null,
+            # causing Path.Combine(null, path) to throw "path1 is null" at first P/Invoke.
+            #
+            # Fix: use a placeholder DLL name and redirect via NativeLibrary.SetDllImportResolver
+            # in a static constructor. The actual path ($libPath) is interpolated by
+            # PowerShell before Add-Type compiles the string.
             Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
 
 public class FtdiLinuxLibusb {
+
+    private const string LibProxy = "ftdi_libusb_proxy";
+
+    static FtdiLinuxLibusb() {
+        NativeLibrary.SetDllImportResolver(
+            typeof(FtdiLinuxLibusb).Assembly,
+            (libraryName, assembly, searchPath) => {
+                if (libraryName == LibProxy) {
+                    IntPtr lib;
+                    if (NativeLibrary.TryLoad("$libPath", out lib)) { return lib; }
+                }
+                return IntPtr.Zero;
+            }
+        );
+    }
 
     // libusb_device_descriptor - 18 bytes, packed
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -99,32 +127,32 @@ public class FtdiLinuxLibusb {
         public byte   bNumConfigurations;
     }
 
-    [DllImport("$libPath")]
+    [DllImport(LibProxy)]
     public static extern int libusb_init(out IntPtr context);
 
-    [DllImport("$libPath")]
+    [DllImport(LibProxy)]
     public static extern void libusb_exit(IntPtr context);
 
-    [DllImport("$libPath")]
+    [DllImport(LibProxy)]
     public static extern IntPtr libusb_get_device_list(IntPtr context, out IntPtr list);
 
-    [DllImport("$libPath")]
+    [DllImport(LibProxy)]
     public static extern void libusb_free_device_list(IntPtr list, int unref_devices);
 
-    [DllImport("$libPath")]
+    [DllImport(LibProxy)]
     public static extern int libusb_get_device_descriptor(IntPtr device, out LibusbDeviceDescriptor desc);
 
-    [DllImport("$libPath")]
+    [DllImport(LibProxy)]
     public static extern int libusb_open(IntPtr device, out IntPtr handle);
 
-    [DllImport("$libPath")]
+    [DllImport(LibProxy)]
     public static extern void libusb_close(IntPtr handle);
 
-    [DllImport("$libPath")]
+    [DllImport(LibProxy)]
     public static extern int libusb_get_string_descriptor_ascii(
         IntPtr handle, byte desc_index, byte[] data, int length);
 
-    [DllImport("$libPath")]
+    [DllImport(LibProxy)]
     public static extern int libusb_control_transfer(
         IntPtr handle,
         byte   requestType,
