@@ -124,6 +124,25 @@ function Initialize-FtdiAssembly {
                             Write-Verbose "  IoT backend disabled - will use sysfs enumeration fallback"
                             # IotBackendAvailable stays $false; sysfs/stub path handles enumeration
                         }
+
+                        # Load FTD2XX_NET (netstandard20) for FT232R EEPROM/CBUS operations on Linux.
+                        # LD_LIBRARY_PATH was set above (Fix 1) so libftd2xx.so is reachable by P/Invoke.
+                        # This is the same load that Windows does unconditionally; on Linux it is gated
+                        # on nativeFound so we only attempt it when the .so is present.
+                        $d2xxLinuxPath = Join-Path (Join-Path (Join-Path $ModuleRoot 'lib') 'netstandard20') 'FTD2XX_NET.dll'
+                        if (Test-Path $d2xxLinuxPath) {
+                            try {
+                                [void][Reflection.Assembly]::LoadFrom($d2xxLinuxPath)
+                                $null = [FTD2XX_NET.FTDI]
+                                $script:FTDI_OK    = [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK
+                                $script:D2xxLoaded = $true
+                                Write-Verbose "  FTD2XX_NET.dll (netstandard20) loaded on Linux - FT232R EEPROM/CBUS available"
+                            } catch {
+                                Write-Verbose "  FTD2XX_NET.dll load failed on Linux (non-fatal): $_"
+                            }
+                        } else {
+                            Write-Verbose "  FTD2XX_NET.dll not found at $d2xxLinuxPath - FT232R EEPROM will use stub"
+                        }
                     } else {
                         # Detect arch to guide the user to the right tarball
                         $arch = ''
