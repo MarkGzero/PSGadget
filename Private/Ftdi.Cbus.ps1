@@ -85,6 +85,12 @@ function Get-FtdiFt232rEeprom {
 
     try {
         if (-not $script:FtdiInitialized) {
+            # On Linux FTD2XX_NET cannot be loaded (kernel32.dll finalizer crash).
+            # Route to the libusb-based EEPROM reader instead.
+            $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+            if (-not $isWindows) {
+                return Get-FtdiFt232rEepromLinux -Index $Index -SerialNumber $SerialNumber
+            }
             throw [System.NotImplementedException]::new("FTDI assembly not loaded")
         }
 
@@ -158,17 +164,9 @@ function Get-FtdiFt232rEeprom {
         }
 
     } catch [System.NotImplementedException] {
-        $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
-        if ($isWindows) {
-            Write-Verbose "EEPROM read: FTD2XX_NET assembly not loaded - returning stub EEPROM data"
-        } else {
-            Write-Warning (
-                "Get-PsGadgetFtdiEeprom is not supported on Linux.`n" +
-                "FTD2XX_NET.dll uses kernel32.dll P/Invoke (Windows-only) and cannot be loaded on Linux.`n" +
-                "EEPROM read (and CBUS pin mode programming) require a Windows machine or VM."
-            )
-            return $null
-        }
+        # Only reached on Windows when FTD2XX_NET assembly failed to load.
+        # Linux takes the early-return path above (Get-FtdiFt232rEepromLinux).
+        Write-Verbose "EEPROM read: FTD2XX_NET assembly not loaded - returning stub EEPROM data"
         return [PSCustomObject]@{
             VendorID       = '0x0403'
             ProductID      = '0x6001'
