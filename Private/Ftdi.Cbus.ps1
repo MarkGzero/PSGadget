@@ -158,7 +158,17 @@ function Get-FtdiFt232rEeprom {
         }
 
     } catch [System.NotImplementedException] {
-        Write-Verbose "EEPROM read: FTDI assembly not loaded - returning stub EEPROM data"
+        $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+        if ($isWindows) {
+            Write-Verbose "EEPROM read: FTD2XX_NET assembly not loaded - returning stub EEPROM data"
+        } else {
+            Write-Warning (
+                "Get-PsGadgetFtdiEeprom is not supported on Linux.`n" +
+                "FTD2XX_NET.dll uses kernel32.dll P/Invoke (Windows-only) and cannot be loaded on Linux.`n" +
+                "EEPROM read (and CBUS pin mode programming) require a Windows machine or VM."
+            )
+            return $null
+        }
         return [PSCustomObject]@{
             VendorID       = '0x0403'
             ProductID      = '0x6001'
@@ -365,6 +375,15 @@ function Set-FtdiFt232rCbusPinMode {
         }
 
     } catch [System.NotImplementedException] {
+        $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+        if (-not $isWindows) {
+            Write-Warning (
+                "Set-PsGadgetFt232rCbusMode is not supported on Linux.`n" +
+                "FTD2XX_NET.dll uses kernel32.dll P/Invoke (Windows-only) and cannot be loaded on Linux.`n" +
+                "EEPROM programming requires a Windows machine or VM."
+            )
+            return [PSCustomObject]@{ Success = $false; Error = "Not supported on Linux" }
+        }
         Write-Verbose "Set-FtdiFt232rCbusPinMode: FTDI assembly not loaded - stub mode (no EEPROM written)"
         return [PSCustomObject]@{
             Success        = $true
