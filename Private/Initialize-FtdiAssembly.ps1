@@ -91,26 +91,38 @@ function Initialize-FtdiAssembly {
                         # Detect arch to guide the user to the right tarball
                         $arch = ''
                         try { $arch = (uname -m 2>$null).Trim() } catch {}
-                        $archHint = switch ($arch) {
-                            'x86_64'  { 'libftd2xx-linux-x86_64-*.tar.gz' }
-                            'aarch64' { 'libftd2xx-linux-arm-v8-*.tar.gz' }
-                            'armv7l'  { 'libftd2xx-linux-arm-v7-hf-*.tar.gz' }
-                            default   { 'libftd2xx-linux-<arch>-*.tar.gz' }
+                        $archTgz  = switch ($arch) {
+                            'x86_64'  { 'libftd2xx-linux-x86_64-1.4.34.tgz' }
+                            'aarch64' { 'libftd2xx-linux-arm-v8-1.4.34.tgz' }
+                            'armv7l'  { 'libftd2xx-linux-arm-v7-hf-1.4.34.tgz' }
+                            default   { 'libftd2xx-linux-<arch>-1.4.34.tgz' }
+                        }
+                        $archUrl  = switch ($arch) {
+                            'x86_64'  { 'https://ftdichip.com/wp-content/uploads/2025/11/libftd2xx-linux-x86_64-1.4.34.tgz' }
+                            'aarch64' { 'https://ftdichip.com/drivers/d2xx-drivers/ (select ARM64 v8)' }
+                            'armv7l'  { 'https://ftdichip.com/drivers/d2xx-drivers/ (select ARM v7 HF)' }
+                            default   { 'https://ftdichip.com/drivers/d2xx-drivers/' }
                         }
                         Write-Warning (
                             "IoT FTDI DLLs loaded but native 'libftd2xx.so' was not found. " +
-                            "Hardware access will fall back to stub mode until it is installed.`n" +
-                            "  1. Download the Linux D2XX driver tarball for your arch ($arch) from:`n" +
-                            "     https://ftdichip.com/drivers/d2xx-drivers/`n" +
-                            "     Look for: $archHint`n" +
-                            "  2. Extract and install:`n" +
-                            "     tar xzf $archHint`n" +
-                            "     sudo cp release/build/libftd2xx.so.* /usr/local/lib/`n" +
-                            "     sudo ln -sf /usr/local/lib/libftd2xx.so.* /usr/local/lib/libftd2xx.so`n" +
-                            "     sudo ldconfig`n" +
-                            "  3. If device shows as /dev/ttyUSBx, unload the kernel VCP driver:`n" +
-                            "     sudo rmmod ftdi_sio`n" +
-                            "     To restore it later: sudo modprobe ftdi_sio"
+                            "Hardware access will fall back to stub mode until it is installed.`n`n" +
+                            "Run the following script in a bash terminal to install (arch: $arch):`n" +
+                            "----------------------------------------------------------------------`n" +
+                            "#!/usr/bin/env bash`n" +
+                            "set -e`n" +
+                            "TGZ=$archTgz`n" +
+                            "URL=$archUrl`n" +
+                            "cd /tmp`n" +
+                            "curl -fsSL `"`$URL`" -o `"`$TGZ`"`n" +
+                            "tar xzf `"`$TGZ`"`n" +
+                            "sudo cp release/build/libftd2xx.so.* /usr/local/lib/`n" +
+                            "sudo ln -sf /usr/local/lib/libftd2xx.so.* /usr/local/lib/libftd2xx.so`n" +
+                            "sudo ldconfig`n" +
+                            "# If device shows as /dev/ttyUSBx, also run:`n" +
+                            "# sudo rmmod ftdi_sio`n" +
+                            "# To restore VCP mode later: sudo modprobe ftdi_sio`n" +
+                            "----------------------------------------------------------------------`n" +
+                            "Then re-import PSGadget: Import-Module PSGadget -Force"
                         )
                     }
                 }
