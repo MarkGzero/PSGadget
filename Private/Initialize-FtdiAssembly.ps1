@@ -69,8 +69,7 @@ function Initialize-FtdiAssembly {
                 $null = [Iot.Device.FtCommon.FtCommon]
                 $null = [Iot.Device.Ft232H.Ft232HDevice]
                 $null = [System.Device.Gpio.GpioController]
-                $script:IotBackendAvailable = $true
-                Write-Verbose "IoT backend loaded successfully - using Iot.Device.Bindings"
+                Write-Verbose "IoT backend managed DLLs loaded - using Iot.Device.Bindings"
 
                 # On Linux/macOS the managed DLLs load fine but the native D2XX .so is also
                 # required at runtime.  Probe common install locations and warn early so the
@@ -87,6 +86,44 @@ function Initialize-FtdiAssembly {
                     $nativeFound = $nativeLibLocations | Where-Object { Test-Path $_ } | Select-Object -First 1
                     if ($nativeFound) {
                         Write-Verbose "  Native libftd2xx.so found at: $nativeFound"
+
+                        # .NET P/Invoke on Linux searches LD_LIBRARY_PATH and the assembly directory.
+                        # Snap-confined PowerShell processes cannot see /usr/local/lib via ldconfig.
+                        # Fix 1: add the native lib's directory to LD_LIBRARY_PATH for this session.
+                        $nativeLibDir = [System.IO.Path]::GetDirectoryName($nativeFound)
+                        $existing = $env:LD_LIBRARY_PATH
+                        if (-not ($existing -split ':' | Where-Object { $_ -eq $nativeLibDir })) {
+                            $env:LD_LIBRARY_PATH = if ($existing) { "${nativeLibDir}:${existing}" } else { $nativeLibDir }
+                            Write-Verbose "  Set LD_LIBRARY_PATH += $nativeLibDir"
+                        }
+
+                        # Fix 2: create a local symlink lib/net8/libftd2xx.so -> $nativeFound so that
+                        # .NET also finds it via the assembly directory search path.
+                        $net8Dir    = Join-Path (Join-Path $ModuleRoot 'lib') 'net8'
+                        $localLink  = Join-Path $net8Dir 'libftd2xx.so'
+                        if (-not (Test-Path $localLink)) {
+                            try {
+                                $null = New-Item -ItemType SymbolicLink -Path $localLink -Target $nativeFound -ErrorAction Stop
+                                Write-Verbose "  Created symlink: $localLink -> $nativeFound"
+                            } catch {
+                                Write-Verbose "  Could not create lib/net8/libftd2xx.so symlink (non-fatal): $_"
+                            }
+                        }
+
+                        # Fix 3: probe that GetDevices() actually works with the native lib.
+                        # Marking IoTBackendAvailable based on managed DLL load alone is misleading
+                        # -- the P/Invoke into libftd2xx will fail at first real call if the path
+                        # is wrong. Validate now so enumeration and Test-PsGadgetEnvironment are
+                        # accurate from the start.
+                        try {
+                            $null = [Iot.Device.FtCommon.FtCommon]::GetDevices()
+                            $script:IotBackendAvailable = $true
+                            Write-Verbose "  IoT native probe: OK - GetDevices() succeeded"
+                        } catch {
+                            Write-Verbose "  IoT native probe failed ($($_.Exception.GetType().Name)): $($_.Exception.Message)"
+                            Write-Verbose "  IoT backend disabled - will use sysfs enumeration fallback"
+                            # IotBackendAvailable stays $false; sysfs/stub path handles enumeration
+                        }
                     } else {
                         # Detect arch to guide the user to the right tarball
                         $arch = ''
@@ -128,6 +165,16 @@ function Initialize-FtdiAssembly {
                             "----------------------------------------------------------------------`n" +
                             "Then re-import: Import-Module PSGadget -Force"
                         )
+                    }
+                } else {
+                    # Windows: IoT managed DLLs loaded; native ftd2xx.dll is in system PATH via CDM driver.
+                    # Probe GetDevices() to confirm ftd2xx.dll is reachable before marking backend ready.
+                    try {
+                        $null = [Iot.Device.FtCommon.FtCommon]::GetDevices()
+                        $script:IotBackendAvailable = $true
+                        Write-Verbose "  IoT native probe: OK (Windows)"
+                    } catch {
+                        Write-Verbose "  IoT native probe failed on Windows: $($_.Exception.Message)"
                     }
                 }
             } else {

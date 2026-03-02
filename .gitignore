@@ -62,6 +62,12 @@ coverage/
 # dotnet restore artifacts (lib/nuget-deps.csproj)
 lib/obj/
 
+# Runtime-generated symlinks - created by Initialize-FtdiAssembly on Linux to
+# expose libftd2xx.so to .NET P/Invoke from the assembly directory.
+# System-specific; must not be committed.
+lib/net8/libftd2xx.so
+lib/net8/ftd2xx.so
+
 # ---------------------------------------------------------------------------
 # Security: credentials, secrets, keys, device data
 # ---------------------------------------------------------------------------
