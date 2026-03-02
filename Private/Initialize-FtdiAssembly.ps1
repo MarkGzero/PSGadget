@@ -88,12 +88,29 @@ function Initialize-FtdiAssembly {
                     if ($nativeFound) {
                         Write-Verbose "  Native libftd2xx.so found at: $nativeFound"
                     } else {
+                        # Detect arch to guide the user to the right tarball
+                        $arch = ''
+                        try { $arch = (uname -m 2>$null).Trim() } catch {}
+                        $archHint = switch ($arch) {
+                            'x86_64'  { 'libftd2xx-linux-x86_64-*.tar.gz' }
+                            'aarch64' { 'libftd2xx-linux-arm-v8-*.tar.gz' }
+                            'armv7l'  { 'libftd2xx-linux-arm-v7-hf-*.tar.gz' }
+                            default   { 'libftd2xx-linux-<arch>-*.tar.gz' }
+                        }
                         Write-Warning (
                             "IoT FTDI DLLs loaded but native 'libftd2xx.so' was not found. " +
                             "Hardware access will fall back to stub mode until it is installed.`n" +
-                            "  1. Download FTDI D2XX driver from: https://ftdichip.com/drivers/d2xx-drivers/`n" +
-                            "  2. sudo cp libftd2xx.so /usr/local/lib && sudo ldconfig`n" +
-                            "  3. If device shows as /dev/ttyUSBx: sudo rmmod ftdi_sio"
+                            "  1. Download the Linux D2XX driver tarball for your arch ($arch) from:`n" +
+                            "     https://ftdichip.com/drivers/d2xx-drivers/`n" +
+                            "     Look for: $archHint`n" +
+                            "  2. Extract and install:`n" +
+                            "     tar xzf $archHint`n" +
+                            "     sudo cp release/build/libftd2xx.so.* /usr/local/lib/`n" +
+                            "     sudo ln -sf /usr/local/lib/libftd2xx.so.* /usr/local/lib/libftd2xx.so`n" +
+                            "     sudo ldconfig`n" +
+                            "  3. If device shows as /dev/ttyUSBx, unload the kernel VCP driver:`n" +
+                            "     sudo rmmod ftdi_sio`n" +
+                            "     To restore it later: sudo modprobe ftdi_sio"
                         )
                     }
                 }

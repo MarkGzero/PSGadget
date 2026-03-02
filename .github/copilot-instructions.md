@@ -167,7 +167,8 @@ Rules for keeping it current:
 ## External Context: PSGadget CTF Server (Separate Project - Read Only)
 
 The CTF scoring backend is a **separate Flask project** running on a Raspberry Pi 4B+ in an
-isolated VLAN. Do NOT add server code to this repository. This section exists so agents
+isolated VLAN. **The server is live at `https://psgadget.ltdl.familyds.com:56826`.**
+Do NOT add server code to this repository. This section exists so agents
 understand how PsGadget hardware-side work fits into the overall CTF architecture.
 
 ### Architecture Overview
