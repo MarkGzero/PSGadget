@@ -112,12 +112,19 @@ function Initialize-FtdiAssembly {
                             "`$url = '$archUrl'`n" +
                             "Invoke-WebRequest `$url -OutFile `"/tmp/`$tgz`"`n" +
                             "tar xzf `"/tmp/`$tgz`" -C /tmp`n" +
-                            "sudo cp /tmp/release/build/libftd2xx.so.* /usr/local/lib/`n" +
+                            "sudo sh -c 'find /tmp/release -name `"libftd2xx.so.*`" -exec cp {} /usr/local/lib/ \;'`n" +
                             "sudo sh -c 'ln -sf /usr/local/lib/libftd2xx.so.* /usr/local/lib/libftd2xx.so'`n" +
                             "sudo ldconfig`n" +
-                            "# If device shows as /dev/ttyUSBx, also run:`n" +
-                            "# sudo rmmod ftdi_sio`n" +
-                            "# To restore VCP mode later: sudo modprobe ftdi_sio`n" +
+                            "# NOTE: D2XX and the VCP kernel driver (ftdi_sio) cannot share the same device.`n" +
+                            "# If your device only appears under 'List-PsGadgetFtdi -ShowVCP' (i.e. shows as`n" +
+                            "# /dev/ttyUSBx), you MUST unload the VCP module so D2XX can claim the device:`n" +
+                            "`n" +
+                            "#   sudo rmmod ftdi_sio`n" +
+                            "`n" +
+                            "# This lasts until the next reboot. To make it permanent across reboots:`n" +
+                            "#   echo 'blacklist ftdi_sio' | sudo tee /etc/modprobe.d/ftdi-d2xx.conf`n" +
+                            "#   sudo update-initramfs -u`n" +
+                            "# To restore VCP mode at any time: sudo modprobe ftdi_sio`n" +
                             "----------------------------------------------------------------------`n" +
                             "Then re-import: Import-Module PSGadget -Force"
                         )

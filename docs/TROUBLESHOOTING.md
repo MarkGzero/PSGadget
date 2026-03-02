@@ -11,6 +11,7 @@ automatically.
 - [Quick diagnostics](#quick-diagnostics)
 - [Symptom index](#symptom-index)
 - [No devices found](#no-devices-found)
+- [Device shows as VCP only (Linux)](#device-shows-as-vcp-only-linux)
 - [Stub backend](#stub-backend)
 - [Missing native library (Linux/macOS)](#missing-native-library-linuxmacos)
 - [Access denied or device busy](#access-denied-or-device-busy)
@@ -44,6 +45,7 @@ If `Status` is `Fail`, `NextStep` tells you exactly what command to run.
 ## Symptom index
 
 - [Module imports but no devices are found](#no-devices-found)
+- [Device listed only under List-PsGadgetFtdi -ShowVCP on Linux](#device-shows-as-vcp-only-linux)
 - [Backend shows "Stub (no hardware access)"](#stub-backend)
 - [Status is Fail: native library not found (Linux/macOS)](#missing-native-library-linux-macos)
 - [Device found but Connect-PsGadgetFtdi throws an access error](#access-denied-or-device-busy)
@@ -86,6 +88,61 @@ lsmod | grep ftdi_sio
 # if shown:
 sudo rmmod ftdi_sio
 ```
+
+---
+
+## Device shows as VCP only (Linux)
+
+**Symptom**: `List-PsGadgetFtdi` returns nothing, but `List-PsGadgetFtdi -ShowVCP`
+shows the device with `Driver: ftdi_sio (VCP)` and `LocationId: /dev/ttyUSBx`.
+
+**Cause**: The Linux `ftdi_sio` kernel module has claimed the device as a virtual
+COM port. D2XX and `ftdi_sio` cannot share the same device -- whichever driver
+binds first wins. `ftdi_sio` loads automatically on plug-in unless it is blacklisted.
+
+**Fix**:
+
+1. Confirm `ftdi_sio` is loaded and holding the device:
+
+```bash
+lsmod | grep ftdi_sio
+```
+
+2. Unload it:
+
+```bash
+sudo rmmod ftdi_sio
+```
+
+3. Replug the USB cable (or run `sudo udevadm trigger`) so D2XX re-enumerates
+   the device.
+
+4. Reimport the module and confirm:
+
+```powershell
+Import-Module PSGadget -Force
+List-PsGadgetFtdi
+```
+
+**Make it permanent** (survives reboots): blacklist the VCP module so the kernel
+never auto-loads it for FTDI devices:
+
+```bash
+echo 'blacklist ftdi_sio' | sudo tee /etc/modprobe.d/ftdi-d2xx.conf
+sudo update-initramfs -u   # Debian/Ubuntu
+# On RHEL/Fedora: sudo dracut --force
+```
+
+**Restore VCP mode** at any time (if you need `/dev/ttyUSB0` back):
+
+```bash
+sudo modprobe ftdi_sio
+# or remove the blacklist file and reboot
+```
+
+> **Note**: `libftd2xx.so` must also be installed for D2XX to work. If the device
+> claims correctly after `rmmod` but `List-PsGadgetFtdi` still returns nothing,
+> see [Missing native library (Linux/macOS)](#missing-native-library-linuxmacos).
 
 ---
 
