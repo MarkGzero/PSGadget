@@ -62,26 +62,34 @@ function List-PsGadgetFtdi {
                 $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
                 if ($isWindows) {
                     Write-Warning (
-                        "No PsGadget-compatible FTDI devices found. " +
-                        "If your device appears in Device Manager as a COM port, the VCP driver is active. " +
-                        "Install the D2XX driver from https://ftdichip.com/drivers/d2xx-drivers/ and retry. " +
-                        "Use -ShowVCP to list VCP-mode devices."
+                        "No PsGadget-compatible FTDI devices found.`n" +
+                        "`n" +
+                        "  Cause : Device is likely in VCP mode (shown as COM port in Device Manager).`n" +
+                        "  Fix   : Install the D2XX driver from https://ftdichip.com/drivers/d2xx-drivers/`n" +
+                        "  Tip   : Use -ShowVCP to list VCP-mode devices."
                     )
                 } else {
                     $vcpDevices = @($Devices | Where-Object { $_.IsVcp })
                     if ($vcpDevices.Count -gt 0) {
                         Write-Warning (
-                            "No PsGadget-compatible FTDI devices found -- $($vcpDevices.Count) device(s) are held by the ftdi_sio VCP kernel module. " +
-                            "D2XX cannot claim a device while ftdi_sio is loaded. " +
-                            "To fix: run 'sudo rmmod ftdi_sio' then re-import the module. " +
-                            "Use -ShowVCP to list VCP-mode devices. " +
-                            "See docs/TROUBLESHOOTING.md#device-shows-as-vcp-only-linux for permanent fix."
+                            "No PsGadget-compatible FTDI devices found -- $($vcpDevices.Count) device(s) held by ftdi_sio (VCP).`n" +
+                            "`n" +
+                            "  Cause   : The ftdi_sio kernel module has claimed the device(s). D2XX cannot`n" +
+                            "            claim a device while ftdi_sio is loaded.`n" +
+                            "  Fix     : sudo rmmod ftdi_sio`n" +
+                            "            Then: Import-Module PSGadget -Force`n" +
+                            "  Perm    : echo 'blacklist ftdi_sio' | sudo tee /etc/modprobe.d/ftdi-d2xx.conf`n" +
+                            "  Restore : sudo modprobe ftdi_sio  (re-enables /dev/ttyUSBx VCP mode)`n" +
+                            "  Tip     : Use -ShowVCP to list VCP-mode devices."
                         )
                     } else {
                         Write-Warning (
-                            "No PsGadget-compatible FTDI devices found. " +
-                            "Ensure libftd2xx.so is installed and the device is plugged in. " +
-                            "Use -ShowVCP to list VCP-mode devices."
+                            "No PsGadget-compatible FTDI devices found.`n" +
+                            "`n" +
+                            "  Cause : libftd2xx.so may not be installed, or no device is connected.`n" +
+                            "  Fix   : Confirm libftd2xx.so is installed (ldconfig -p | grep ftd2xx)`n" +
+                            "          and device is plugged in (lsusb | grep -i ftdi).`n" +
+                            "  Tip   : Use -ShowVCP to list VCP-mode devices."
                         )
                     }
                 }

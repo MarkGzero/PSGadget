@@ -96,49 +96,52 @@ sudo rmmod ftdi_sio
 **Symptom**: `List-PsGadgetFtdi` returns nothing, but `List-PsGadgetFtdi -ShowVCP`
 shows the device with `Driver: ftdi_sio (VCP)` and `LocationId: /dev/ttyUSBx`.
 
-**Cause**: The Linux `ftdi_sio` kernel module has claimed the device as a virtual
-COM port. D2XX and `ftdi_sio` cannot share the same device -- whichever driver
-binds first wins. `ftdi_sio` loads automatically on plug-in unless it is blacklisted.
+**Cause**: The `ftdi_sio` kernel module has claimed the device as a virtual COM
+port. D2XX and `ftdi_sio` cannot share the same device -- whichever driver binds
+first wins. `ftdi_sio` loads automatically on plug-in unless it is blacklisted.
 
-**Fix**:
+---
 
-1. Confirm `ftdi_sio` is loaded and holding the device:
-
-```bash
-lsmod | grep ftdi_sio
-```
-
-2. Unload it:
+**Fix** -- unload the VCP module so D2XX can claim the device:
 
 ```bash
 sudo rmmod ftdi_sio
 ```
 
-3. Replug the USB cable (or run `sudo udevadm trigger`) so D2XX re-enumerates
-   the device.
-
-4. Reimport the module and confirm:
+Then reimport:
 
 ```powershell
 Import-Module PSGadget -Force
 List-PsGadgetFtdi
 ```
 
-**Make it permanent** (survives reboots): blacklist the VCP module so the kernel
-never auto-loads it for FTDI devices:
+To confirm `ftdi_sio` is the culprit before unloading:
+
+```bash
+lsmod | grep ftdi_sio
+```
+
+---
+
+**Perm** -- blacklist the module so it never auto-loads across reboots:
 
 ```bash
 echo 'blacklist ftdi_sio' | sudo tee /etc/modprobe.d/ftdi-d2xx.conf
-sudo update-initramfs -u   # Debian/Ubuntu
+sudo update-initramfs -u     # Debian/Ubuntu
 # On RHEL/Fedora: sudo dracut --force
 ```
 
-**Restore VCP mode** at any time (if you need `/dev/ttyUSB0` back):
+---
+
+**Restore** -- re-enable VCP mode at any time (if you need `/dev/ttyUSBx` back):
 
 ```bash
 sudo modprobe ftdi_sio
-# or remove the blacklist file and reboot
+# or remove the blacklist file and reboot:
+sudo rm /etc/modprobe.d/ftdi-d2xx.conf && sudo reboot
 ```
+
+---
 
 > **Note**: `libftd2xx.so` must also be installed for D2XX to work. If the device
 > claims correctly after `rmmod` but `List-PsGadgetFtdi` still returns nothing,
