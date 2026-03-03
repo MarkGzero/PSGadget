@@ -94,7 +94,9 @@ function Invoke-FtdiUnixEnumerate {
 
                 $typeName = if ($ftdiPidMap.ContainsKey($pid)) { $ftdiPidMap[$pid] } else { "FTDI-$pid" }
                 $caps     = Get-FtdiChipCapabilities -TypeName $typeName
-                $deviceId = '0x{0}{1}' -f ([string]$vid).ToUpper(), ([string]$pid).ToUpper()
+                # DeviceId format matches IoT/Windows output: 0x + 4-char VID + 8-char device ID
+                # e.g. VID=0403 PID=6014 -> 0x040300006014
+                $deviceId = '0x{0}0000{1}' -f $vid.ToUpper(), $pid.ToUpper()
 
                 $found += [PSCustomObject]@{
                     Index          = $found.Count
