@@ -101,15 +101,28 @@ function Get-FtdiDeviceList {
             # because the kernel VCP driver has it claimed. All devices come back as
             # 'UnknownDevice' with DeviceId=0x00000000 and Flags bit 0 set (PortOpened).
             # Fall back to sysfs for accurate chip identification; warn about the conflict.
+            # Only emit the ftdi_sio warning if the module is actually loaded - IoT can
+            # return UnknownDevice for other reasons (e.g. incomplete descriptor read on
+            # Linux), so we verify lsmod before attributing it to ftdi_sio.
             if ($devices -and @($devices).Count -gt 0) {
-                $allUnknown = @($devices) | Where-Object { $_.Type -ne 'UnknownDevice' } | Measure-Object | Select-Object -ExpandProperty Count
+                $allUnknown = (@($devices) | Where-Object { $_.Type -ne 'UnknownDevice' } | Measure-Object).Count
                 if ($allUnknown -eq 0) {
                     $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
                     if (-not $isWindows) {
-                        Write-Warning "ftdi_sio kernel module is holding the device - D2XX cannot read chip type."
-                        Write-Warning "Enumeration metadata falls back to sysfs (read-only; connect will fail until ftdi_sio is unloaded)."
-                        Write-Warning "To enable D2XX/IoT hardware access: sudo rmmod ftdi_sio"
-                        Write-Warning "To make permanent: echo 'blacklist ftdi_sio' | sudo tee /etc/modprobe.d/ftdi-d2xx.conf"
+                        $ftdiSioLoaded = $false
+                        try {
+                            $lsmodOut = & lsmod 2>/dev/null
+                            $ftdiSioLoaded = $lsmodOut -match '\bftdi_sio\b'
+                        } catch {}
+
+                        if ($ftdiSioLoaded) {
+                            Write-Warning "ftdi_sio kernel module is holding the device - D2XX cannot read chip type."
+                            Write-Warning "Enumeration metadata falls back to sysfs (read-only; connect will fail until ftdi_sio is unloaded)."
+                            Write-Warning "To enable D2XX/IoT hardware access: sudo rmmod ftdi_sio"
+                            Write-Warning "To make permanent: echo 'blacklist ftdi_sio' | sudo tee /etc/modprobe.d/ftdi-d2xx.conf"
+                        } else {
+                            Write-Verbose "IoT returned UnknownDevice (ftdi_sio not loaded); falling back to sysfs for chip identification"
+                        }
                         $devices = $null   # trigger sysfs fallback below
                     }
                 }
