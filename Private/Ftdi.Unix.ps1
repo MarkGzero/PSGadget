@@ -28,15 +28,18 @@ function Invoke-FtdiUnixEnumerate {
     try {
         $found = @()
 
-        Get-ChildItem -Path $sysDevicesPath -Directory -ErrorAction Stop | ForEach-Object {
-            # Wrap each device entry in its own try/catch so one malformed or
-            # inaccessible sysfs entry cannot abort the entire enumeration.
+        # Use [System.IO.Directory]::GetDirectories() for sysfs traversal at every level.
+        # Get-ChildItem on Linux sysfs (a virtual pseudo-filesystem) can return DirectoryInfo
+        # objects with null FullName/Name properties for certain kernel-internal nodes.
+        # Calling any method on those null-property objects throws 'You cannot call a method
+        # on a null-valued expression'.  Directory.GetDirectories() returns plain string[]
+        # (absolute path strings), which are never null, avoiding the problem entirely.
+        foreach ($devDir in [System.IO.Directory]::GetDirectories($sysDevicesPath)) {
             try {
-                $devDir    = $_.FullName
                 $vendorFile = Join-Path $devDir 'idVendor'
 
                 # Only process FTDI devices (VID 0403)
-                if (-not (Test-Path $vendorFile)) { return }
+                if (-not (Test-Path $vendorFile)) { continue }
 
                 # Cast all Get-Content results to [string] before calling any methods.
                 # sysfs files for optional attributes (serial, product) may not exist;
@@ -44,7 +47,7 @@ function Invoke-FtdiUnixEnumerate {
                 # throws 'You cannot call a method on a null-valued expression'.
                 # Casting $null to [string] yields '' so .Trim() always succeeds.
                 $vid     = ([string](Get-Content $vendorFile                          -Raw -ErrorAction SilentlyContinue)).Trim()
-                if ($vid -ne '0403') { return }
+                if ($vid -ne '0403') { continue }
 
                 $pid     = ([string](Get-Content (Join-Path $devDir 'idProduct') -Raw -ErrorAction SilentlyContinue)).Trim()
                 $serial  = ([string](Get-Content (Join-Path $devDir 'serial')    -Raw -ErrorAction SilentlyContinue)).Trim()
