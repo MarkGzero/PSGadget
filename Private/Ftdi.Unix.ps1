@@ -39,21 +39,29 @@ function Invoke-FtdiUnixEnumerate {
                 $vendorFile = Join-Path $devDir 'idVendor'
 
                 # Only process FTDI devices (VID 0403)
-                if (-not (Test-Path $vendorFile)) { continue }
+                if (-not ([System.IO.File]::Exists($vendorFile))) { continue }
 
-                # Cast all Get-Content results to [string] before calling any methods.
-                # sysfs files for optional attributes (serial, product) may not exist;
-                # Get-Content returns $null for missing files.  Calling .Trim() on $null
-                # throws 'You cannot call a method on a null-valued expression'.
-                # Casting $null to [string] yields '' so .Trim() always succeeds.
-                $vid     = ([string](Get-Content $vendorFile                          -Raw -ErrorAction SilentlyContinue)).Trim()
+                # Use [System.IO.File]::ReadAllText() for all sysfs attribute reads.
+                # Get-Content on Linux sysfs can produce null or behave unexpectedly even
+                # with -ErrorAction SilentlyContinue; File.ReadAllText() returns a plain
+                # string (never null) and throws IOException on failure, which is caught by
+                # the per-device try/catch below.
+                $readSysfs = {
+                    param([string]$path)
+                    if ([System.IO.File]::Exists($path)) {
+                        try { return [System.IO.File]::ReadAllText($path).Trim() } catch { return '' }
+                    }
+                    return ''
+                }
+
+                $vid     = & $readSysfs $vendorFile
                 if ($vid -ne '0403') { continue }
 
-                $pid     = ([string](Get-Content (Join-Path $devDir 'idProduct') -Raw -ErrorAction SilentlyContinue)).Trim()
-                $serial  = ([string](Get-Content (Join-Path $devDir 'serial')    -Raw -ErrorAction SilentlyContinue)).Trim()
-                $product = ([string](Get-Content (Join-Path $devDir 'product')   -Raw -ErrorAction SilentlyContinue)).Trim()
-                $busNum  = ([string](Get-Content (Join-Path $devDir 'busnum')    -Raw -ErrorAction SilentlyContinue)).Trim()
-                $devNum  = ([string](Get-Content (Join-Path $devDir 'devnum')    -Raw -ErrorAction SilentlyContinue)).Trim()
+                $pid     = & $readSysfs (Join-Path $devDir 'idProduct')
+                $serial  = & $readSysfs (Join-Path $devDir 'serial')
+                $product = & $readSysfs (Join-Path $devDir 'product')
+                $busNum  = & $readSysfs (Join-Path $devDir 'busnum')
+                $devNum  = & $readSysfs (Join-Path $devDir 'devnum')
 
                 # Find associated /dev/ttyUSBx.
                 # USB sysfs layout: <devDir>/<devBase>:1.0/ttyUSB0
@@ -107,8 +115,9 @@ function Invoke-FtdiUnixEnumerate {
                     CapabilityNote = $caps.CapabilityNote
                 }
             } catch {
-                # $_ here is the ErrorRecord; use $devDir (captured at top of try block) for context.
+                # Include ScriptStackTrace so the exact failing line is visible in -Verbose output.
                 Write-Verbose "  sysfs: skipped device '$devDir': $($_.Exception.Message)"
+                Write-Verbose "    at: $($_.ScriptStackTrace -replace '\n','; ')"
             }
         }
 
