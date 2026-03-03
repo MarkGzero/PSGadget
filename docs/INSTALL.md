@@ -205,13 +205,29 @@ echo "blacklist ftdi_sio" | sudo tee /etc/modprobe.d/ftdi-psgadget.conf
 sudo update-initramfs -u
 ```
 
-4. Add your user to the `plugdev` group so you can access USB devices
-   without root:
+4. Add your user to the `plugdev` group and add a udev rule so you can access
+   USB devices without root:
 
 ```bash
 sudo usermod -aG plugdev $USER
-# log out and back in for this to take effect
+# log out and back in for the group change to take effect
+
+echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", MODE="0664", GROUP="plugdev"' \
+  | sudo tee /etc/udev/rules.d/99-ftdi-d2xx.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+# Replug (or usbipd detach+attach on WSL) to apply to the current device.
 ```
+
+   > **WSL (Windows Subsystem for Linux)**: attach the device with
+   > [usbipd-win](https://github.com/dorssel/usbipd-win) first
+   > (`usbipd bind` then `usbipd attach --wsl`). After the first attach,
+   > udev rules fire automatically on every re-attach. For the initial
+   > session before replugging, run:
+   >
+   > ```bash
+   > sudo chown root:plugdev /dev/bus/usb/001/<devnum>
+   > sudo chmod 0664 /dev/bus/usb/001/<devnum>
+   > ```
 
 > **Beginner (Nikola)**: The commands above that start with `sudo` require
 > your password and need administrator-equivalent access. Open a terminal
@@ -224,6 +240,9 @@ sudo usermod -aG plugdev $USER
 > an aarch64 machine (Pi 4/5, Jetson) use the `aarch64` build instead. The
 > managed .NET IoT layer invokes the native library via P/Invoke; the `.so`
 > must be resolvable by `ldconfig` (checked at `dlopen` time, not load time).
+> On PS 7.4+ / .NET 8+, FT232H MPSSE uses `Iot.Device.Bindings`; FT232R CBUS
+> uses a native P/Invoke path directly against `libftd2xx.so` via
+> `Private/Ftdi.PInvoke.ps1` (`FT_Open` / `FT_SetBitMode` / `FT_WriteEE`).
 
 ### Step 3 - Verify
 

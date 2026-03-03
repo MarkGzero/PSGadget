@@ -19,6 +19,7 @@ limitations for Windows, Linux, and macOS.
   - [Kernel module conflict](#kernel-module-conflict)
   - [USB permissions](#usb-permissions)
   - [MicroPython serial ports](#micropython-serial-ports)
+  - [WSL (Windows Subsystem for Linux)](#wsl-windows-subsystem-for-linux)
   - [Notes](#notes-1)
 - [macOS](#macos)
   - [Supported configurations](#supported-configurations-2)
@@ -116,16 +117,23 @@ sudo update-initramfs -u
 ### USB permissions
 
 ```bash
-# Add user to plugdev group
+# Add user to plugdev group (log out and back in after this)
 sudo usermod -aG plugdev $USER
 
 # Add udev rule for FTDI devices (0403 = FTDI vendor ID)
-echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="0403", MODE="0666", GROUP="plugdev"' \
-  | sudo tee /etc/udev/rules.d/99-ftdi.rules
+# MODE="0664" gives owner+group read/write; plugdev group owns the node.
+echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", MODE="0664", GROUP="plugdev"' \
+  | sudo tee /etc/udev/rules.d/99-ftdi-d2xx.rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
+# Replug (or usbipd detach+attach on WSL) to apply to the current device.
 ```
 
 Log out and back in after `usermod` for the group change to take effect.
+
+> **WSL note**: `udevadm trigger` does not retroactively fix permissions on
+> devices already attached via usbipd. Run `sudo chown root:plugdev` and
+> `sudo chmod 0664` on the `/dev/bus/usb/BUS/DEV` node for the current
+> session. Future attach events will pick up the udev rule automatically.
 
 ### MicroPython serial ports
 
@@ -136,12 +144,41 @@ MicroPython boards appear as `/dev/ttyUSB0` (CP210x/FTDI) or `/dev/ttyACM0`
 sudo usermod -aG dialout $USER
 ```
 
+### WSL (Windows Subsystem for Linux)
+
+WSL requires an extra step when attaching a USB device. Use
+[usbipd-win](https://github.com/dorssel/usbipd-win) to bind and attach the
+device:
+
+```powershell
+# In Windows PowerShell (not WSL)
+usbipd list
+usbipd bind --busid <busid>        # one-time
+usbipd attach --wsl --busid <busid>
+```
+
+After attaching, `udevadm trigger` inside WSL does not retroactively apply
+`MODE`/`GROUP` udev rules to already-attached devices. Fix permissions for
+the current session:
+
+```bash
+sudo chown root:plugdev /dev/bus/usb/001/<devnum>
+sudo chmod 0664 /dev/bus/usb/001/<devnum>
+```
+
+The udev rule in the USB permissions section above covers future plug events
+automatically. Detach/reattach via usbipd will also trigger the rule.
+
 ### Notes
 
 - PS 5.1 is not available on Linux. Minimum is PS 7.0.
-- FT232R CBUS on Linux: the IoT backend does not implement CBUS bit-bang.
-  CBUS GPIO on Linux is currently stub-only and returns simulated data.
-  Full implementation is planned for a future release.
+- FT232R CBUS GPIO on Linux is fully supported when `libftd2xx.so` is
+  installed. GPIO is driven via native P/Invoke (`FT_Open` / `FT_SetBitMode`)
+  using the P/Invoke declarations in `Private/Ftdi.PInvoke.ps1`.
+  EEPROM programming (`Set-PsGadgetFt232rCbusMode`) is also supported on
+  Linux via the same native path.
+- FT232R CBUS requires a one-time EEPROM setup step on every platform.
+  See [QUICKSTART.md](QUICKSTART.md) and the CBUS section below.
 
 ---
 
@@ -188,7 +225,9 @@ calls. Confirm the architecture with `file /usr/local/lib/libftd2xx.dylib`.
 ### Notes
 
 - PS 5.1 is not available on macOS. Minimum is PS 7.0.
-- FT232R CBUS on macOS has the same limitation as Linux (stub-only).
+- FT232R CBUS on macOS: requires `libftd2xx.dylib` installed and the kexts
+  unloaded. Once the native library is loaded, the same P/Invoke path used
+  on Linux applies. Testing on macOS is ongoing -- report issues on GitHub.
 
 ---
 
@@ -199,15 +238,17 @@ calls. Confirm the architecture with `file /usr/local/lib/libftd2xx.dylib`.
 | FT232H GPIO (MPSSE) | Yes | Yes | Yes | Yes |
 | FT232H I2C scan | Yes | Yes | Yes | Yes |
 | FT232H SSD1306 | Yes | Yes | Yes | Yes |
-| FT232R CBUS GPIO | Yes | Yes | Stub only | Stub only |
-| FT232R EEPROM programming | Yes | Yes | Planned | Planned |
+| FT232R CBUS GPIO | Yes | Yes | Yes [1] | Yes [1] |
+| FT232R EEPROM programming | Yes | Yes | Yes [1] | Yes [1] |
 | MicroPython REPL | Yes | Yes | Yes | Yes |
 | Stub mode (no hardware) | Yes | Yes | Yes | Yes |
 | Install-Module from Gallery | Yes | Yes | Yes | Yes |
 | Native library bundled | Yes (DLL) | Yes (DLL) | No (.so required) | No (.dylib required) |
 
-"Stub only" means the cmdlets run without error but do not send data to the
-device. Output is simulated.
+[1] Requires `libftd2xx.so` / `libftd2xx.dylib` installed and `ftdi_sio`
+unloaded. Uses native P/Invoke (`FT_Open` / `FT_SetBitMode` / `FT_WriteEE`)
+via `Private/Ftdi.PInvoke.ps1`. Stub mode is returned automatically if the
+native library is not found.
 
 ---
 

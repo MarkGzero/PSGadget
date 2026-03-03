@@ -117,9 +117,15 @@ function Connect-PsGadgetFtdi {
             try {
                 $connection = Invoke-FtdiIotOpen -DeviceInfo $targetDevice
             } catch {
-                $errMsg = $_.Exception.Message
-                # Detect missing native libftd2xx on Linux/macOS and give actionable help
-                if ($errMsg -match "ftd2xx" -and
+                $errMsg   = $_.Exception.Message
+                $exType   = $_.Exception.GetType().Name
+                $isNotImpl = $_.Exception -is [System.NotImplementedException]
+                # Warn about a missing native library only if:
+                #   - NOT a NotImplementedException (which has a different actionable message)
+                #   - The error mentions "ftd2xx" (DllNotFoundException or P/Invoke failure)
+                #   - We are on Linux/macOS where libftd2xx.so is required
+                if (-not $isNotImpl -and
+                    $errMsg -match 'ftd2xx|Unable to load shared library' -and
                     [System.Environment]::OSVersion.Platform -ne 'Win32NT') {
                     Write-Warning (
                         "FTDI D2XX native library not found. " +
@@ -129,7 +135,7 @@ function Connect-PsGadgetFtdi {
                         "Falling back to stub mode."
                     )
                 } else {
-                    Write-Verbose "IoT open failed ($($_.Exception.GetType().Name)); falling back to platform backend"
+                    Write-Verbose "IoT open failed ($exType): $errMsg -- falling back to platform backend"
                 }
                 $connection = $null
             }

@@ -187,76 +187,95 @@ function Invoke-FtdiUnixOpen {
         [Parameter(Mandatory = $true)]
         [int]$Index
     )
-    
-    try {
-        # TODO: Implement Unix FTDI device open via libftdi or direct USB access
-        # This could use libftdi bindings, pyftdi bridge, or direct USB device access
-        
-        throw [System.NotImplementedException]::new("Unix FTDI device open not yet implemented")
-        
-    } catch [System.NotImplementedException] {
-        # Return enhanced stub connection for Unix development
-        Write-Verbose "Creating stub connection for device $Index (Unix)"
-        
-        # Get device info for realistic stub
-        $devices = Invoke-FtdiUnixEnumerate
-        $targetDevice = if ($Index -lt $devices.Count) { $devices[$Index] } else {
-            [PSCustomObject]@{
-                SerialNumber = "UNIXSTUB$Index"
-                Description = "Unix STUB Device"
-                Type = "FT232H"
-                LocationId = "/dev/ttyUSB$Index"
+
+    # Get device info from sysfs enumeration for metadata
+    $devices     = Invoke-FtdiUnixEnumerate
+    $targetDevice = if ($Index -lt $devices.Count) { $devices[$Index] } else { $null }
+
+    $serial  = if ($targetDevice) { $targetDevice.SerialNumber } else { "DEV$Index" }
+    $desc    = if ($targetDevice) { $targetDevice.Description  } else { "Unknown FTDI Device" }
+    $type    = if ($targetDevice) { $targetDevice.Type         } else { 'FT232H' }
+    $locId   = if ($targetDevice) { $targetDevice.LocationId   } else { "usb-bus?-dev?" }
+    $caps    = Get-FtdiChipCapabilities -TypeName $type
+
+    # ---------------------------------------------------------------------------
+    # Path A: native P/Invoke (libftd2xx.so loaded) - real hardware handle
+    # ---------------------------------------------------------------------------
+    if ($script:FtdiNativeAvailable) {
+        try {
+            Write-Verbose "Invoke-FtdiUnixOpen: opening device $Index via native P/Invoke (FT_Open)"
+            $nativeHandle = Invoke-FtdiNativeOpen -Index $Index
+
+            $conn = [PSCustomObject]@{
+                Device         = $null          # No FTD2XX_NET.FTDI object on Linux
+                NativeHandle   = $nativeHandle  # IntPtr from FT_Open
+                Index          = $Index
+                SerialNumber   = $serial
+                Description    = $desc
+                Type           = $type
+                LocationId     = $locId
+                IsOpen         = $true
+                GpioMethod     = $caps.GpioMethod
+                GpioPins       = $caps.GpioPins
+                HasMpsse       = $caps.HasMpsse
+                MpsseEnabled   = $caps.HasMpsse
+                CapabilityNote = $caps.CapabilityNote
+                Platform       = 'Unix'
             }
+
+            $conn | Add-Member -MemberType ScriptMethod -Name 'Close' -Value {
+                if ($this.IsOpen -and $this.NativeHandle -ne [IntPtr]::Zero) {
+                    Invoke-FtdiNativeClose -Handle $this.NativeHandle
+                }
+                $this.IsOpen     = $false
+                $this.NativeHandle = [IntPtr]::Zero
+            } | Out-Null
+
+            Write-Verbose "Invoke-FtdiUnixOpen: device $Index opened via native D2XX handle"
+            return $conn
+
+        } catch {
+            Write-Verbose "Invoke-FtdiUnixOpen: native open failed ($($_.Exception.Message)); falling back to stub"
         }
-        
-        return [PSCustomObject]@{
-            Device = $null
-            Index = $Index
-            SerialNumber = $targetDevice.SerialNumber
-            Description = $targetDevice.Description
-            Type = $targetDevice.Type
-            LocationId = $targetDevice.LocationId
-            IsOpen = $true
-            MpsseEnabled = $true
-            Platform = "Unix (STUB)"
-        } | Add-Member -MemberType ScriptMethod -Name 'Close' -Value { $this.IsOpen = $false } -PassThru |
-          Add-Member -MemberType ScriptMethod -Name 'Write' -Value { 
-            param([byte[]]$data, [int]$length, [ref]$bytesWritten)
-            $bytesWritten.Value = $length
-            return 0  # Simulate FT_OK equivalent
-          } -PassThru |
-          Add-Member -MemberType ScriptMethod -Name 'Read' -Value { 
-            param([byte[]]$buffer, [int]$length, [ref]$bytesRead)
-            $bytesRead.Value = 1
-            $buffer[0] = 0x55  # Stub data
-            return 0  # Simulate FT_OK equivalent
-          } -PassThru
-        
-    } catch {
-        Write-Error "Failed to open Unix FTDI device: $_"
-        return $null
     }
+
+    # ---------------------------------------------------------------------------
+    # Path B: stub (native lib not loaded or open failed)
+    # ---------------------------------------------------------------------------
+    Write-Verbose "Creating stub connection for device $Index (Unix)"
+
+    return [PSCustomObject]@{
+        Device         = $null
+        NativeHandle   = [IntPtr]::Zero
+        Index          = $Index
+        SerialNumber   = $serial
+        Description    = $desc
+        Type           = $type
+        LocationId     = $locId
+        IsOpen         = $true
+        GpioMethod     = $caps.GpioMethod
+        GpioPins       = $caps.GpioPins
+        HasMpsse       = $caps.HasMpsse
+        MpsseEnabled   = $caps.HasMpsse
+        CapabilityNote = $caps.CapabilityNote
+        Platform       = 'Unix (STUB)'
+    } | Add-Member -MemberType ScriptMethod -Name 'Close' -Value {
+        $this.IsOpen = $false
+    } -PassThru
 }
 
 function Invoke-FtdiUnixClose {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
-        [string]$Handle
+        [System.Object]$Connection
     )
-    
+
     try {
-        # TODO: Implement Unix FTDI device close via libftdi
-        throw [System.NotImplementedException]::new("Unix FTDI device close not yet implemented")
-        
-    } catch [System.NotImplementedException] {
-        Write-Verbose "Closed FTDI device handle $Handle on Unix (STUB MODE)"
-        return [PSCustomObject]@{
-            Success = $true
-            Message = "Device closed successfully (Unix STUB)"
+        if ($null -ne $Connection -and $Connection.PSObject.Methods['Close']) {
+            $Connection.Close()
         }
     } catch {
-        Write-Warning "Failed to close Unix FTDI device: $($_.Exception.Message)"
-        throw
+        Write-Warning "Invoke-FtdiUnixClose: $_"
     }
 }

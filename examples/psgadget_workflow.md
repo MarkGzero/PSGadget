@@ -153,6 +153,8 @@ List-PsGadgetFtdi | Format-Table Index, SerialNumber, LocationId
 
 ### Step 2 - Inspect current EEPROM (optional, recommended first time)
 
+**On Windows** (uses FTD2XX_NET):
+
 ```powershell
 # Use the Index with ftd2xx.dll driver from Step 1
 $ee = Get-PsGadgetFtdiEeprom -Index 0
@@ -162,6 +164,18 @@ $ee | Select-Object Cbus0, Cbus1, Cbus2, Cbus3
 # Cbus0          Cbus1          Cbus2         Cbus3
 # -----          -----          -----         -----
 # FT_CBUS_TXLED  FT_CBUS_RXLED  FT_CBUS_PWRON FT_CBUS_SLEEP
+```
+
+**On Linux/macOS** (uses native P/Invoke -- requires libftd2xx.so):
+
+```powershell
+# Call via module scope (Get-FtdiNativeCbusEepromInfo is a private function)
+& (Get-Module PSGadget) { Get-FtdiNativeCbusEepromInfo -Index 0 }
+
+# After EEPROM programming:
+# Cbus0          Cbus1          Cbus2         Cbus3
+# -----          -----          -----         -----
+# FT_CBUS_IOMODE FT_CBUS_IOMODE FT_CBUS_IOMODE FT_CBUS_IOMODE
 ```
 
 ### Step 3 - Program EEPROM for GPIO (one time per device)
@@ -442,13 +456,16 @@ All fields are optional; omitted keys use built-in defaults.
 | GPIO pin count       | 8               | 4                    |
 | GPIO mechanism       | MPSSE (0x02)    | CBUS bit-bang (0x20) |
 | One-time EEPROM setup| Not required    | Required (once)      |
-| EEPROM inspection    | N/A             | Get-PsGadgetFtdiEeprom |
-| EEPROM programming   | N/A             | Set-PsGadgetFt232rCbusMode |
+| EEPROM inspection    | N/A             | Get-PsGadgetFtdiEeprom (Windows) / Get-FtdiNativeCbusEepromInfo (Linux) |
+| EEPROM programming   | N/A             | Set-PsGadgetFt232rCbusMode (all platforms) |
 | GpioMethod value     | MPSSE           | CBUS                 |
 | HasMpsse             | True            | False                |
 | SPI / I2C / JTAG     | Yes (MPSSE)     | No                   |
 | SSD1306 OLED display | Yes             | No                   |
 | Async bit-bang ADBUS | No              | Not yet implemented  |
+| Windows GPIO support | Yes             | Yes                  |
+| Linux GPIO support   | Yes (IoT .NET)  | Yes (native P/Invoke, requires libftd2xx.so) |
+| macOS GPIO support   | Yes (IoT .NET)  | Yes (native P/Invoke, requires libftd2xx.dylib) |
 
 ---
 

@@ -18,6 +18,9 @@ automatically.
 - [Linux: NativeLibOk reports True but backend stays in stub mode](#linux-nativelibOk-reports-true-but-backend-stays-in-stub-mode)
 - [Access denied or device busy](#access-denied-or-device-busy)
 - [FT232R CBUS pins do not respond](#ft232r-cbus-pins-do-not-respond)
+  - [Step 1: program the EEPROM](#step-1-program-the-eeprom-all-platforms)
+  - [Step 2: install libftd2xx.so (Linux/macOS)](#step-2-linuxmacos-only----install-libftd2xxso)
+  - [Step 3: verify native connection](#step-3-verify-the-connection-is-native-not-stub)
 - [SSD1306 shows nothing](#ssd1306-shows-nothing)
 - [MicroPython connection fails](#micropython-connection-fails)
 - [Module fails to import](#module-fails-to-import)
@@ -318,6 +321,8 @@ the copy step if a valid (non-zero-byte) file already exists at that path.
 
 ---
 
+## Access denied or device busy
+
 **Symptom**: `Connect-PsGadgetFtdi` throws an access or "device not found"
 error even though the device is listed.
 
@@ -327,19 +332,34 @@ Your user account needs to be in the `plugdev` group:
 
 ```bash
 sudo usermod -aG plugdev $USER
-# log out and back in
+# log out and back in for the group change to take effect
 ```
 
-You may also need a udev rule:
+You also need a udev rule that grants the `plugdev` group write access to
+FTDI USB nodes:
 
 ```bash
-echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="0403", MODE="0666", GROUP="plugdev"' \
-  | sudo tee /etc/udev/rules.d/99-ftdi.rules
+echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", MODE="0664", GROUP="plugdev"' \
+  | sudo tee /etc/udev/rules.d/99-ftdi-d2xx.rules
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
 
-Then unplug and replug the device.
+Then unplug and replug the device (or, on WSL, detach and reattach via
+usbipd). The udev rule fires automatically on plug events.
+
+> **WSL-specific**: `udevadm trigger` does not retroactively apply
+> `MODE`/`GROUP` to a device that was attached before the rule was written.
+> Fix permissions for the current session without replugging:
+>
+> ```bash
+> # Find your device: lsusb shows Bus NNN Device MMM
+> sudo chown root:plugdev /dev/bus/usb/001/002
+> sudo chmod 0664 /dev/bus/usb/001/002
+> ```
+>
+> Detach and reattach via `usbipd detach` / `usbipd attach --wsl` to have
+> the rule apply automatically going forward.
 
 **On Windows**:
 
@@ -354,23 +374,95 @@ Manager to update the driver to the D2XX driver (not the VCP driver).
 **Symptom**: `Set-PsGadgetGpio` runs without error but pins stay LOW or do
 not do anything.
 
-The FT232R requires a one-time EEPROM programming step to enable CBUS
-bit-bang mode. This is not needed for FT232H.
+FT232R CBUS GPIO has a **two-step** requirement on every platform:
+
+1. **EEPROM programming** (one-time per device)
+2. **libftd2xx.so installed** (Linux/macOS) or D2XX driver installed (Windows)
+
+---
+
+### Step 1: program the EEPROM (all platforms)
+
+The FT232R ships with CBUS pins set to LED / clock functions, not GPIO.
+You must program the EEPROM once to set them to `FT_CBUS_IOMODE`:
 
 ```powershell
-# Program the EEPROM on device at index 0 (only needed once per device)
-Set-PsGadgetFt232rCbusMode -Index 0
+# Configure CBUS0-3 as GPIO on device at index 0 (only needed once per device)
+Set-PsGadgetFt232rCbusMode -Index 0 -Pins @(0, 1, 2, 3)
 ```
 
 After this command, **unplug and replug the USB cable**. The EEPROM change
 does not take effect until the device re-enumerates.
 
-If the device was already programmed but pins still do not respond, read the
-EEPROM to confirm the mode was saved:
+To confirm the EEPROM was written correctly:
 
 ```powershell
+# Windows only (uses FTD2XX_NET)
 Get-PsGadgetFtdiEeprom -Index 0
+
+# Linux/macOS (uses native P/Invoke)
+& (Get-Module PSGadget) { Get-FtdiNativeCbusEepromInfo -Index 0 }
 ```
+
+Expected output shows `Cbus0 : FT_CBUS_IOMODE` (and Cbus1-3 if programmed).
+If any pin shows a different value (e.g. `FT_CBUS_TXLED`), run
+`Set-PsGadgetFt232rCbusMode` again and replug.
+
+---
+
+### Step 2: Linux/macOS only -- install libftd2xx.so
+
+FT232R CBUS uses the native D2XX library (`libftd2xx.so`) via P/Invoke on
+Linux. The IoT backend (used for MPSSE chips like FT232H) does not implement
+CBUS bit-bang. Check the module loaded the native path:
+
+```powershell
+Import-Module PSGadget -Verbose
+# Look for:
+#   VERBOSE:   NativeLibrary.Load: OK (/path/to/libftd2xx.so)
+#   VERBOSE:   FtdiNative P/Invoke: registered
+```
+
+If either line is missing, install `libftd2xx.so` first:
+See [Missing native library](#missing-native-library-linuxmacos).
+
+Also ensure USB permissions are set -- D2XX needs write access to the
+`/dev/bus/usb/BUS/DEV` node. See [Access denied or device busy](#access-denied-or-device-busy).
+
+---
+
+### Step 3: verify the connection is native (not stub)
+
+```powershell
+$dev = Connect-PsGadgetFtdi -Index 0
+$dev | Select-Object Platform, GpioMethod, NativeHandle
+```
+
+Expected:
+
+```
+Platform    GpioMethod NativeHandle
+--------    ---------- ------------
+Unix        CBUS       135635811853744   # non-zero IntPtr
+```
+
+If `Platform` shows `Unix (STUB)` or `NativeHandle` is `0`, the device
+opened in stub mode -- either `libftd2xx.so` was not loaded, USB permissions
+are wrong, or `ftdi_sio` still holds the device. Check verbose import output
+and run `sudo rmmod ftdi_sio` if needed.
+
+---
+
+### Still not working after all steps?
+
+Run the full diagnostic:
+
+```powershell
+Test-PsGadgetEnvironment -Verbose | Format-List
+```
+
+Key fields to check: `NativeLibOk`, `IotBackend`, `FtdiNativePInvoke`,
+`Backend`, `DeviceCount`.
 
 ---
 

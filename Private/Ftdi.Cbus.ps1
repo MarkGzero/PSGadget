@@ -288,11 +288,29 @@ function Set-FtdiFt232rCbusPinMode {
         if (-not $script:FtdiInitialized) {
             $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
             if (-not $isWindows) {
+                # Linux/macOS: use native P/Invoke EEPROM path when available
+                if ($script:FtdiNativeAvailable) {
+                    Write-Verbose "Set-FtdiFt232rCbusPinMode: using native P/Invoke EEPROM path on Linux"
+                    $ok = Set-FtdiNativeCbusEeprom -Index $Index -Pins $Pins -Mode $Mode
+                    if ($ok) {
+                        return [PSCustomObject]@{
+                            Success        = $true
+                            DeviceIndex    = $Index
+                            PinsChanged    = $Pins
+                            NewMode        = $Mode
+                            HighDriveIOs   = $null
+                            PullDownEnable = $null
+                            RIsD2XX        = $null
+                            Message        = "EEPROM written via native D2XX. Replug device to activate."
+                        }
+                    }
+                    return [PSCustomObject]@{ Success = $false; Error = 'Set-FtdiNativeCbusEeprom returned false' }
+                }
                 Write-Warning (
                     "Set-PsGadgetFt232rCbusMode: FT232R EEPROM programming is not supported on Linux.`n" +
-                    "Use an FT232H device instead -- it has MPSSE and full Linux support via the IoT backend."
+                    "Install libftd2xx.so and reload the module to enable native EEPROM access."
                 )
-                return [PSCustomObject]@{ Success = $false; Error = 'Not supported on Linux. Use FT232H.' }
+                return [PSCustomObject]@{ Success = $false; Error = 'libftd2xx.so not loaded. Install from ftdichip.com.' }
             }
             throw [System.NotImplementedException]::new("FTDI assembly not loaded")
         }
@@ -493,6 +511,7 @@ function Set-FtdiCbusBits {
             ($Pins -join ','), $State, $dirNibble, $valNibble, $mask)
 
         if ($script:FtdiInitialized -and $null -ne $Connection.Device) {
+            # Windows path: FTD2XX_NET managed object
             $status = $Connection.Device.SetBitMode($mask, 0x20)
 
             if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
@@ -513,6 +532,19 @@ function Set-FtdiCbusBits {
                 # Invert value nibble to pulse
                 [byte]$invertMask = (($dirNibble -band 0x0F) -shl 4) -bor ((-bnot $valNibble) -band $dirNibble -band 0x0F)
                 $Connection.Device.SetBitMode($invertMask, 0x20) | Out-Null
+            }
+
+        } elseif ($script:FtdiNativeAvailable -and
+                  $Connection.PSObject.Properties['NativeHandle'] -and
+                  $Connection.NativeHandle -ne [IntPtr]::Zero) {
+            # Linux/Unix path: native P/Invoke via libftd2xx.so
+            Invoke-FtdiNativeSetBitMode -Handle $Connection.NativeHandle -Mask $mask -Mode 0x20
+
+            if ($DurationMs) {
+                Start-Sleep -Milliseconds $DurationMs
+
+                [byte]$invertMask = (($dirNibble -band 0x0F) -shl 4) -bor ((-bnot $valNibble) -band $dirNibble -band 0x0F)
+                Invoke-FtdiNativeSetBitMode -Handle $Connection.NativeHandle -Mask $invertMask -Mode 0x20
             }
         } else {
             Write-Verbose ("CBUS bit-bang (STUB): mask=0x{0:X2}" -f $mask)

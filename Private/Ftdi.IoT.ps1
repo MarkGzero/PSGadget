@@ -110,17 +110,23 @@ function Invoke-FtdiIotOpen {
     try {
         # CBUS devices (FT232R, FT-X) are not supported by the IoT Ft232HDevice class.
         # On Windows with FTD2XX_NET loaded: fall back to the D2XX path.
-        # On Unix without D2XX: stub mode (same as before this integration).
+        # On Unix with native P/Invoke loaded: delegate to Invoke-FtdiUnixOpen.
+        # Otherwise: throw so Connect-PsGadgetFtdi can create an appropriate stub.
         if (-not $DeviceInfo.HasMpsse) {
             $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
             if ($isWindows -and $script:D2xxLoaded) {
                 Write-Verbose "$($DeviceInfo.Type) is a CBUS device; using FTD2XX_NET backend to open"
                 return Invoke-FtdiWindowsOpen -DeviceInfo $DeviceInfo
             }
+            if (-not $isWindows -and $script:FtdiNativeAvailable) {
+                Write-Verbose "$($DeviceInfo.Type) is a CBUS device; using native P/Invoke backend on Unix"
+                return Invoke-FtdiUnixOpen -Index $DeviceInfo.Index
+            }
             throw [System.NotImplementedException]::new(
                 "$($DeviceInfo.Type) uses CBUS GPIO, which requires the FTD2XX_NET backend. " +
                 "On Windows, install the FTDI CDM driver package (includes ftd2xx.dll). " +
-                "On Linux/macOS, FT232R CBUS is not yet supported.")
+                "On Linux/macOS with libftd2xx.so installed and loaded, this should work via " +
+                "native P/Invoke -- ensure Initialize-FtdiNative ran successfully.")
         }
 
         # Obtain the raw IoT FtDevice object.

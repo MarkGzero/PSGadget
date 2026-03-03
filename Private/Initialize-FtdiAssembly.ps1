@@ -164,6 +164,16 @@ function Initialize-FtdiAssembly {
                         try {
                             $nativeHandle = [System.Runtime.InteropServices.NativeLibrary]::Load($nativeFound)
                             Write-Verbose "  NativeLibrary.Load: OK ($nativeFound)"
+
+                            # Register P/Invoke declarations so module code can call
+                            # FT_Open / FT_SetBitMode / FT_ReadEE directly without
+                            # needing FTD2XX_NET.dll (which is Windows-only).
+                            $piResult = Initialize-FtdiNative -LibraryPath $nativeFound -Verbose:($VerbosePreference -ne 'SilentlyContinue')
+                            if ($piResult) {
+                                Write-Verbose "  FtdiNative P/Invoke: registered"
+                            } else {
+                                Write-Verbose "  FtdiNative P/Invoke: registration failed (CBUS GPIO will use stub on Linux)"
+                            }
                         } catch {
                             $loadErr = $_.Exception.Message
                             Write-Warning "  NativeLibrary.Load failed for $nativeFound"
