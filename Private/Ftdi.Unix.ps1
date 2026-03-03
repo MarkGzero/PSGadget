@@ -52,9 +52,12 @@ function Invoke-FtdiUnixEnumerate {
                 $busNum  = ([string](Get-Content (Join-Path $devDir 'busnum')    -Raw -ErrorAction SilentlyContinue)).Trim()
                 $devNum  = ([string](Get-Content (Join-Path $devDir 'devnum')    -Raw -ErrorAction SilentlyContinue)).Trim()
 
-                # Find associated /dev/ttyUSBx by looking for ttyUSB* nodes under this device tree
+                # Find associated /dev/ttyUSBx by looking for ttyUSB* nodes under this device tree.
+                # Get-ChildItem -ErrorAction SilentlyContinue may return $null (not an empty array)
+                # when there are no matches.  @($null) produces a 1-element array whose only element
+                # is $null, so [0].Name would throw.  Filter nulls explicitly with -ne $null.
                 $ttyDirs    = Get-ChildItem -Path $devDir -Recurse -Filter 'ttyUSB*' -Directory -ErrorAction SilentlyContinue
-                $ttyDirArr  = @($ttyDirs)   # guarantee array so [0] is always safe
+                $ttyDirArr  = @($ttyDirs) -ne $null
                 $locationId = if ($ttyDirArr.Count -gt 0) { "/dev/$($ttyDirArr[0].Name)" } else { "usb-bus$busNum-dev$devNum" }
 
                 # If the kernel ftdi_sio (VCP) driver claimed the device, a ttyUSBx will exist.
@@ -84,7 +87,8 @@ function Invoke-FtdiUnixEnumerate {
                     CapabilityNote = $caps.CapabilityNote
                 }
             } catch {
-                Write-Verbose "  sysfs: skipped device '$($_.FullName)': $($_.Exception.Message)"
+                # $_ here is the ErrorRecord; use $devDir (captured at top of try block) for context.
+                Write-Verbose "  sysfs: skipped device '$devDir': $($_.Exception.Message)"
             }
         }
 
