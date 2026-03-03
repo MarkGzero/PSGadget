@@ -97,36 +97,49 @@ function Initialize-FtdiAssembly {
                             Write-Verbose "  Set LD_LIBRARY_PATH += $nativeLibDir"
                         }
 
-                        # Fix 2: create a local symlink lib/net8/libftd2xx.so -> $nativeFound so that
-                        # .NET also finds it via the assembly directory search path.
-                        $net8Dir    = Join-Path (Join-Path $ModuleRoot 'lib') 'net8'
-                        $localLink  = Join-Path $net8Dir 'libftd2xx.so'
-                        if (-not (Test-Path $localLink)) {
+                        # Fix 2: copy libftd2xx.so into lib/net8/ so that .NET assembly-directory
+                        # probing finds it regardless of LD_LIBRARY_PATH restrictions.
+                        # A symlink is not used: snap-confined PowerShell processes cannot follow
+                        # symlinks that point outside the snap directory tree, so the symlink would
+                        # appear present but the dynamic linker would fail to open it.
+                        $net8Dir   = Join-Path (Join-Path $ModuleRoot 'lib') 'net8'
+                        $localCopy = Join-Path $net8Dir 'libftd2xx.so'
+                        if (-not (Test-Path $localCopy)) {
                             try {
-                                $null = New-Item -ItemType SymbolicLink -Path $localLink -Target $nativeFound -ErrorAction Stop
-                                Write-Verbose "  Created symlink: $localLink -> $nativeFound"
+                                Copy-Item -Path $nativeFound -Destination $localCopy -ErrorAction Stop
+                                Write-Verbose "  Copied libftd2xx.so to $localCopy"
                             } catch {
-                                Write-Verbose "  Could not create lib/net8/libftd2xx.so symlink (non-fatal): $_"
+                                Write-Verbose "  Could not copy libftd2xx.so to lib/net8/ (non-fatal): $_"
                             }
+                        } else {
+                            Write-Verbose "  lib/net8/libftd2xx.so already present"
                         }
 
                         # Fix 3: probe that GetDevices() can reach the native lib.
-                        # Mark IotBackendAvailable = $true based on managed DLL load + libftd2xx.so
-                        # presence.  GetDevices() may fail legitimately when ftdi_sio (VCP kernel
-                        # module) has already claimed the device -- that is a runtime driver conflict,
-                        # NOT a signal that the backend is unusable.  After 'sudo rmmod ftdi_sio' the
-                        # user can call Connect-PsGadgetFtdi without reimporting the module.
-                        # Only disable the backend if DLLImport itself crashes (wrong arch, missing
-                        # symbols) which would throw at type resolution, not here.
-                        $script:IotBackendAvailable = $true
+                        # Two distinct failure modes:
+                        #   a) 'Unable to load shared library' -- the native libftd2xx.so is not
+                        #      visible to the runtime (missing file, wrong path, snap sandbox).
+                        #      IotBackendAvailable = $false; sysfs handles enumeration.
+                        #   b) Any other exception (device busy, ftdi_sio holds the device, etc.) --
+                        #      the DLLs are correctly loaded; the conflict is ephemeral.
+                        #      IotBackendAvailable = $true; after 'sudo rmmod ftdi_sio' the user
+                        #      can call Connect-PsGadgetFtdi without reimporting.
                         try {
                             $null = [Iot.Device.FtCommon.FtCommon]::GetDevices()
+                            $script:IotBackendAvailable = $true
                             Write-Verbose "  IoT native probe: OK - GetDevices() succeeded"
                         } catch {
-                            Write-Verbose "  IoT native probe: GetDevices() call failed ($($_.Exception.GetType().Name)): $($_.Exception.Message)"
-                            Write-Verbose "  Backend DLLs are loaded; this commonly means ftdi_sio has the device."
-                            Write-Verbose "  Run: sudo rmmod ftdi_sio   then connect without reimporting."
-                            # IotBackendAvailable stays $true - the DLLs are ready.
+                            $exMsg = $_.Exception.Message
+                            if ($exMsg -match 'Unable to load shared library|DllNotFoundException') {
+                                Write-Verbose "  IoT native probe: native library not loadable - backend disabled"
+                                Write-Verbose "  Error: $exMsg"
+                                # IotBackendAvailable stays $false
+                            } else {
+                                $script:IotBackendAvailable = $true
+                                Write-Verbose "  IoT native probe: GetDevices() call failed (non-fatal: $($_.Exception.GetType().Name))"
+                                Write-Verbose "  DLLs are loaded; likely ftdi_sio holds the device."
+                                Write-Verbose "  Run: sudo rmmod ftdi_sio   then connect without reimporting."
+                            }
                         }
 
                         # NOTE: FTD2XX_NET.dll (netstandard20) is Windows-only.

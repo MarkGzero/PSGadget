@@ -29,53 +29,62 @@ function Invoke-FtdiUnixEnumerate {
         $found = @()
 
         Get-ChildItem -Path $sysDevicesPath -Directory -ErrorAction Stop | ForEach-Object {
-            $devDir    = $_.FullName
-            $vendorFile = Join-Path $devDir 'idVendor'
+            # Wrap each device entry in its own try/catch so one malformed or
+            # inaccessible sysfs entry cannot abort the entire enumeration.
+            try {
+                $devDir    = $_.FullName
+                $vendorFile = Join-Path $devDir 'idVendor'
 
-            # Only process FTDI devices (VID 0403)
-            if (-not (Test-Path $vendorFile)) { return }
-            $vid = ([string](Get-Content $vendorFile -Raw -ErrorAction SilentlyContinue)).Trim()
-            if ($vid -ne '0403') { return }
+                # Only process FTDI devices (VID 0403)
+                if (-not (Test-Path $vendorFile)) { return }
 
-            # Cast to [string] before .Trim() - devices without a serial number
-            # have no 'serial' sysfs file; Get-Content returns $null in that case
-            # and calling .Trim() on $null throws "You cannot call a method on a
-            # null-valued expression".
-            $pid     = ([string](Get-Content (Join-Path $devDir 'idProduct') -Raw -ErrorAction SilentlyContinue)).Trim()
-            $serial  = ([string](Get-Content (Join-Path $devDir 'serial')    -Raw -ErrorAction SilentlyContinue)).Trim()
-            $product = ([string](Get-Content (Join-Path $devDir 'product')   -Raw -ErrorAction SilentlyContinue)).Trim()
-            $busNum  = ([string](Get-Content (Join-Path $devDir 'busnum')    -Raw -ErrorAction SilentlyContinue)).Trim()
-            $devNum  = ([string](Get-Content (Join-Path $devDir 'devnum')    -Raw -ErrorAction SilentlyContinue)).Trim()
+                # Cast all Get-Content results to [string] before calling any methods.
+                # sysfs files for optional attributes (serial, product) may not exist;
+                # Get-Content returns $null for missing files.  Calling .Trim() on $null
+                # throws 'You cannot call a method on a null-valued expression'.
+                # Casting $null to [string] yields '' so .Trim() always succeeds.
+                $vid     = ([string](Get-Content $vendorFile                          -Raw -ErrorAction SilentlyContinue)).Trim()
+                if ($vid -ne '0403') { return }
 
-            # Find associated /dev/ttyUSBx by looking for ttyUSB* nodes under this device tree
-            $ttyDirs = Get-ChildItem -Path $devDir -Recurse -Filter 'ttyUSB*' -Directory -ErrorAction SilentlyContinue
-            $locationId = if ($ttyDirs) { "/dev/$($ttyDirs[0].Name)" } else { "usb-bus$busNum-dev$devNum" }
+                $pid     = ([string](Get-Content (Join-Path $devDir 'idProduct') -Raw -ErrorAction SilentlyContinue)).Trim()
+                $serial  = ([string](Get-Content (Join-Path $devDir 'serial')    -Raw -ErrorAction SilentlyContinue)).Trim()
+                $product = ([string](Get-Content (Join-Path $devDir 'product')   -Raw -ErrorAction SilentlyContinue)).Trim()
+                $busNum  = ([string](Get-Content (Join-Path $devDir 'busnum')    -Raw -ErrorAction SilentlyContinue)).Trim()
+                $devNum  = ([string](Get-Content (Join-Path $devDir 'devnum')    -Raw -ErrorAction SilentlyContinue)).Trim()
 
-            # If the kernel ftdi_sio (VCP) driver claimed the device, a ttyUSBx will exist.
-            # D2XX / libftdi requires that driver to be unbound first.
-            $isVcp = [bool]$ttyDirs
+                # Find associated /dev/ttyUSBx by looking for ttyUSB* nodes under this device tree
+                $ttyDirs    = Get-ChildItem -Path $devDir -Recurse -Filter 'ttyUSB*' -Directory -ErrorAction SilentlyContinue
+                $ttyDirArr  = @($ttyDirs)   # guarantee array so [0] is always safe
+                $locationId = if ($ttyDirArr.Count -gt 0) { "/dev/$($ttyDirArr[0].Name)" } else { "usb-bus$busNum-dev$devNum" }
 
-            $typeName   = if ($ftdiPidMap.ContainsKey($pid)) { $ftdiPidMap[$pid] } else { "FTDI-$pid" }
-            $caps       = Get-FtdiChipCapabilities -TypeName $typeName
-            $deviceId   = '0x{0}{1}' -f $vid.ToUpper(), $pid.ToUpper()
+                # If the kernel ftdi_sio (VCP) driver claimed the device, a ttyUSBx will exist.
+                # D2XX / libftdi requires that driver to be unbound first.
+                $isVcp = $ttyDirArr.Count -gt 0
 
-            $found += [PSCustomObject]@{
-                Index          = $found.Count
-                Type           = $typeName
-                Description    = if ($product) { $product } else { "FTDI $typeName" }
-                SerialNumber   = if ($serial)  { $serial }  else { '' }
-                LocationId     = $locationId
-                IsOpen         = $false
-                Flags          = '0x00000000'
-                DeviceId       = $deviceId
-                Handle         = $null
-                Driver         = if ($isVcp) { 'ftdi_sio (VCP)' } else { 'sysfs' }
-                Platform       = 'Unix'
-                IsVcp          = $isVcp
-                GpioMethod     = $caps.GpioMethod
-                GpioPins       = $caps.GpioPins
-                HasMpsse       = $caps.HasMpsse
-                CapabilityNote = $caps.CapabilityNote
+                $typeName = if ($ftdiPidMap.ContainsKey($pid)) { $ftdiPidMap[$pid] } else { "FTDI-$pid" }
+                $caps     = Get-FtdiChipCapabilities -TypeName $typeName
+                $deviceId = '0x{0}{1}' -f ([string]$vid).ToUpper(), ([string]$pid).ToUpper()
+
+                $found += [PSCustomObject]@{
+                    Index          = $found.Count
+                    Type           = $typeName
+                    Description    = if ($product) { $product } else { "FTDI $typeName" }
+                    SerialNumber   = if ($serial)  { $serial }  else { '' }
+                    LocationId     = $locationId
+                    IsOpen         = $false
+                    Flags          = '0x00000000'
+                    DeviceId       = $deviceId
+                    Handle         = $null
+                    Driver         = if ($isVcp) { 'ftdi_sio (VCP)' } else { 'sysfs' }
+                    Platform       = 'Unix'
+                    IsVcp          = $isVcp
+                    GpioMethod     = $caps.GpioMethod
+                    GpioPins       = $caps.GpioPins
+                    HasMpsse       = $caps.HasMpsse
+                    CapabilityNote = $caps.CapabilityNote
+                }
+            } catch {
+                Write-Verbose "  sysfs: skipped device '$($_.FullName)': $($_.Exception.Message)"
             }
         }
 
