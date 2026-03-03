@@ -76,14 +76,25 @@ function Initialize-FtdiAssembly {
                 # user gets a clear message at module import rather than a wall of P/Invoke
                 # errors when they first call Connect-PsGadgetFtdi.
                 if (-not $isWindows) {
+                    $net8Dir = Join-Path (Join-Path $ModuleRoot 'lib') 'net8'
                     $nativeLibLocations = @(
+                        # Check the local lib/net8/ copy first - this survives snap confinement
+                        # because it is inside the module directory (always readable by pwsh).
+                        (Join-Path $net8Dir 'libftd2xx.so'),
                         '/usr/local/lib/libftd2xx.so',
                         '/usr/lib/libftd2xx.so',
                         '/usr/lib/x86_64-linux-gnu/libftd2xx.so',
                         '/usr/lib/aarch64-linux-gnu/libftd2xx.so',
                         '/usr/lib/arm-linux-gnueabihf/libftd2xx.so'
                     )
-                    $nativeFound = $nativeLibLocations | Where-Object { Test-Path $_ } | Select-Object -First 1
+                    # Use [System.IO.FileInfo]::Exists instead of Test-Path.
+                    # Snap-confined pwsh overrides Test-Path with a provider that can
+                    # return $true for paths outside the snap tree even when the file
+                    # is not readable by .NET P/Invoke or bash.  FileInfo.Exists uses
+                    # the .NET System.IO stat() path which matches what the runtime sees.
+                    $nativeFound = $nativeLibLocations | Where-Object {
+                        try { ([System.IO.FileInfo]::new($_)).Exists } catch { $false }
+                    } | Select-Object -First 1
                     if ($nativeFound) {
                         Write-Verbose "  Native libftd2xx.so found at: $nativeFound"
 

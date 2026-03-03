@@ -65,14 +65,25 @@ function Test-PsGadgetEnvironment {
     $nativePath   = $null
 
     if (-not $isWindows) {
+        $moduleNet8Dir = Join-Path (Join-Path $PSScriptRoot '..') 'lib/net8'
+        $moduleNet8Dir = [System.IO.Path]::GetFullPath($moduleNet8Dir)
         $nativeLibLocations = @(
+            # Local copy inside lib/net8/ - always readable by pwsh regardless of snap confinement
+            (Join-Path $moduleNet8Dir 'libftd2xx.so'),
             '/usr/local/lib/libftd2xx.so',
             '/usr/lib/libftd2xx.so',
             '/usr/lib/x86_64-linux-gnu/libftd2xx.so',
             '/usr/lib/aarch64-linux-gnu/libftd2xx.so',
             '/usr/lib/arm-linux-gnueabihf/libftd2xx.so'
         )
-        $nativePath = $nativeLibLocations | Where-Object { Test-Path $_ } | Select-Object -First 1
+        # Use [System.IO.FileInfo]::Exists instead of Test-Path.
+        # Snap-confined pwsh overrides Test-Path with a provider that returns $true
+        # for paths outside the snap tree even when those files are not accessible
+        # to .NET P/Invoke or bash. FileInfo.Exists uses System.IO stat(), which
+        # matches what the runtime actually sees.
+        $nativePath = $nativeLibLocations | Where-Object {
+            try { ([System.IO.FileInfo]::new($_)).Exists } catch { $false }
+        } | Select-Object -First 1
 
         if ($nativePath) {
             $nativeStatus = "[OK] $nativePath"
