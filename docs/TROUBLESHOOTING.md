@@ -14,6 +14,8 @@ automatically.
 - [Device shows as VCP only (Linux)](#device-shows-as-vcp-only-linux)
 - [Stub backend](#stub-backend)
 - [Missing native library (Linux/macOS)](#missing-native-library-linuxmacos)
+- [Linux: snap-confined pwsh and glibc mismatch](#linux-snap-confined-pwsh-and-glibc-mismatch)
+- [Linux: NativeLibOk reports True but backend stays in stub mode](#linux-nativelibOk-reports-true-but-backend-stays-in-stub-mode)
 - [Access denied or device busy](#access-denied-or-device-busy)
 - [FT232R CBUS pins do not respond](#ft232r-cbus-pins-do-not-respond)
 - [SSD1306 shows nothing](#ssd1306-shows-nothing)
@@ -185,15 +187,31 @@ The verbose output shows every DLL path attempted and the result.
 2. Install:
 
 ```bash
-sudo cp libftd2xx.so.* /usr/local/lib/
-sudo ln -sf /usr/local/lib/libftd2xx.so.* /usr/local/lib/libftd2xx.so
+# Step 1: download and extract (adjust version/arch as needed)
+cd /tmp
+wget https://ftdichip.com/wp-content/uploads/2025/11/libftd2xx-linux-x86_64-1.4.34.tgz
+tar xzf libftd2xx-linux-x86_64-1.4.34.tgz
+# The tarball extracts to linux-x86_64/ (NOT release/)
+
+# Step 2: capture the versioned .so path before using sudo
+# (glob expansion does not work inside sudo)
+versioned=$(find /tmp -maxdepth 3 -name 'libftd2xx.so.*' -not -path '*/usr/*' | head -1)
+sudo cp "$versioned" /usr/local/lib/
+sudo rm -f /usr/local/lib/libftd2xx.so
+sudo ln -sf "$versioned" /usr/local/lib/libftd2xx.so
 sudo ldconfig
+
+# Step 3: copy into lib/net8/ so snap-confined pwsh can load it
+# (snap AppArmor blocks open() on /usr/local/lib but allows reads from
+# the module directory, so a local copy is required for snap pwsh)
+cp "$versioned" ~/psgadget/lib/net8/libftd2xx.so
 ```
 
 3. Verify:
 
 ```bash
-ldconfig -p | grep ftd2xx
+ls -la /usr/local/lib/libftd2xx*
+ls -lh ~/psgadget/lib/net8/libftd2xx.so
 ```
 
 4. Reimport the module:
@@ -210,7 +228,95 @@ Check with `file libftd2xx.so` and compare to `uname -m`.
 
 ---
 
-## Access denied or device busy
+## Linux: snap-confined pwsh and glibc mismatch
+
+**Symptom**: module import prints:
+
+```
+WARNING: NativeLibrary.Load failed for .../libftd2xx.so
+  GLIBC_2.38 not found (required by .../libftd2xx.so)
+```
+
+or `IotBackend: False` after installing `libftd2xx.so.1.4.34`.
+
+**Cause**: The version of `pwsh` installed via snap uses the `core22` base snap
+(Ubuntu 22.04 userland, glibc 2.35). `libftd2xx.so.1.4.34` was compiled on
+Ubuntu 24.04 and requires glibc 2.38. The host glibc (2.39 on Ubuntu 24.04)
+is compatible, but snap-confined processes use the snap's bundled glibc, not
+the host version.
+
+**Confirm whether your pwsh is snap or native**:
+
+```bash
+readlink -f $(which pwsh)
+# /usr/bin/snap  -> snap-confined (the culprit)
+# /usr/bin/pwsh  -> native apt package (no issue)
+```
+
+**Fix A (recommended) -- install native pwsh via apt**:
+
+```bash
+wget -q https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb
+sudo dpkg -i packages-microsoft-prod.deb
+sudo apt-get update && sudo apt-get install -y powershell
+# Launch with:
+/usr/bin/pwsh
+```
+
+The apt-installed pwsh links against the host glibc and loads
+`libftd2xx.so.1.4.34` without issue.
+
+**Fix B -- downgrade to an older FTDI library (glibc <= 2.35)**:
+
+If you must use snap pwsh, use a library version compiled against an older
+glibc. Check the requirement first:
+
+```bash
+objdump -p /tmp/linux-x86_64/libftd2xx.so.1.4.30 | grep GLIBC
+```
+
+Then install it the same way as the newer version (see
+[Missing native library](#missing-native-library-linuxmacos)).
+
+---
+
+## Linux: NativeLibOk reports True but backend stays in stub mode
+
+**Symptom**: `Test-PsGadgetEnvironment` shows `NativeLibOk: True` with a path
+under `/usr/local/lib/`, but `IotBackend: False` and
+`Backend: Stub (no hardware access)`. Trying to copy the file manually with
+`cp /usr/local/lib/libftd2xx.so ...` fails with "No such file or directory".
+
+**Cause**: snap-confined `pwsh` overrides the PowerShell `Test-Path` provider
+with an AppArmor-aware virtual filesystem view. `Test-Path` can return `$true`
+for paths outside the snap tree even when the file is not accessible to
+.NET P/Invoke or the bash shell. The module now uses `[System.IO.FileInfo]::Exists`
+to detect library files, but older versions used `Test-Path` and were vulnerable
+to this false positive.
+
+**Diagnosis**:
+
+```bash
+# From bash (not pwsh) -- this tells the truth:
+ls /usr/local/lib/libftd2xx* 2>/dev/null || echo "File not found by bash"
+```
+
+If bash says "not found" but `Test-PsGadgetEnvironment` reports `[OK]`, you
+have the snap false-positive bug. Upgrade to the latest dev1 branch.
+
+**Fix**: see [Missing native library](#missing-native-library-linuxmacos) --
+install the library from bash, then copy the versioned `.so` into `lib/net8/`:
+
+```bash
+# Run from bash, not pwsh
+cp /usr/local/lib/libftd2xx.so.1.4.34 ~/psgadget/lib/net8/libftd2xx.so
+```
+
+The module checks `lib/net8/libftd2xx.so` first in the native library search
+order. A file placed there persists across module reimports -- the module skips
+the copy step if a valid (non-zero-byte) file already exists at that path.
+
+---
 
 **Symptom**: `Connect-PsGadgetFtdi` throws an access or "device not found"
 error even though the device is listed.
