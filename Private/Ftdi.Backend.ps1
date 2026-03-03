@@ -96,6 +96,24 @@ function Get-FtdiDeviceList {
                 Write-Verbose "IoT enumeration returned no devices; falling back to platform-specific backend"
                 $devices = $null
             }
+
+            # Detect ftdi_sio conflict: D2XX sees the device but can't query its type
+            # because the kernel VCP driver has it claimed. All devices come back as
+            # 'UnknownDevice' with DeviceId=0x00000000 and Flags bit 0 set (PortOpened).
+            # Fall back to sysfs for accurate chip identification; warn about the conflict.
+            if ($devices -and @($devices).Count -gt 0) {
+                $allUnknown = @($devices) | Where-Object { $_.Type -ne 'UnknownDevice' } | Measure-Object | Select-Object -ExpandProperty Count
+                if ($allUnknown -eq 0) {
+                    $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+                    if (-not $isWindows) {
+                        Write-Warning "ftdi_sio kernel module is holding the device - D2XX cannot read chip type."
+                        Write-Warning "Enumeration metadata falls back to sysfs (read-only; connect will fail until ftdi_sio is unloaded)."
+                        Write-Warning "To enable D2XX/IoT hardware access: sudo rmmod ftdi_sio"
+                        Write-Warning "To make permanent: echo 'blacklist ftdi_sio' | sudo tee /etc/modprobe.d/ftdi-d2xx.conf"
+                        $devices = $null   # trigger sysfs fallback below
+                    }
+                }
+            }
         }
         if ($null -eq $devices) {
             if ($PSVersionTable.PSVersion.Major -le 5 -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
