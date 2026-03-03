@@ -110,19 +110,23 @@ function Initialize-FtdiAssembly {
                             }
                         }
 
-                        # Fix 3: probe that GetDevices() actually works with the native lib.
-                        # Marking IoTBackendAvailable based on managed DLL load alone is misleading
-                        # -- the P/Invoke into libftd2xx will fail at first real call if the path
-                        # is wrong. Validate now so enumeration and Test-PsGadgetEnvironment are
-                        # accurate from the start.
+                        # Fix 3: probe that GetDevices() can reach the native lib.
+                        # Mark IotBackendAvailable = $true based on managed DLL load + libftd2xx.so
+                        # presence.  GetDevices() may fail legitimately when ftdi_sio (VCP kernel
+                        # module) has already claimed the device -- that is a runtime driver conflict,
+                        # NOT a signal that the backend is unusable.  After 'sudo rmmod ftdi_sio' the
+                        # user can call Connect-PsGadgetFtdi without reimporting the module.
+                        # Only disable the backend if DLLImport itself crashes (wrong arch, missing
+                        # symbols) which would throw at type resolution, not here.
+                        $script:IotBackendAvailable = $true
                         try {
                             $null = [Iot.Device.FtCommon.FtCommon]::GetDevices()
-                            $script:IotBackendAvailable = $true
                             Write-Verbose "  IoT native probe: OK - GetDevices() succeeded"
                         } catch {
-                            Write-Verbose "  IoT native probe failed ($($_.Exception.GetType().Name)): $($_.Exception.Message)"
-                            Write-Verbose "  IoT backend disabled - will use sysfs enumeration fallback"
-                            # IotBackendAvailable stays $false; sysfs/stub path handles enumeration
+                            Write-Verbose "  IoT native probe: GetDevices() call failed ($($_.Exception.GetType().Name)): $($_.Exception.Message)"
+                            Write-Verbose "  Backend DLLs are loaded; this commonly means ftdi_sio has the device."
+                            Write-Verbose "  Run: sudo rmmod ftdi_sio   then connect without reimporting."
+                            # IotBackendAvailable stays $true - the DLLs are ready.
                         }
 
                         # NOTE: FTD2XX_NET.dll (netstandard20) is Windows-only.

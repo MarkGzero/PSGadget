@@ -34,14 +34,18 @@ function Invoke-FtdiUnixEnumerate {
 
             # Only process FTDI devices (VID 0403)
             if (-not (Test-Path $vendorFile)) { return }
-            $vid = (Get-Content $vendorFile -Raw -ErrorAction SilentlyContinue).Trim()
+            $vid = ([string](Get-Content $vendorFile -Raw -ErrorAction SilentlyContinue)).Trim()
             if ($vid -ne '0403') { return }
 
-            $pid     = (Get-Content (Join-Path $devDir 'idProduct') -Raw -ErrorAction SilentlyContinue).Trim()
-            $serial  = (Get-Content (Join-Path $devDir 'serial')    -Raw -ErrorAction SilentlyContinue).Trim()
-            $product = (Get-Content (Join-Path $devDir 'product')   -Raw -ErrorAction SilentlyContinue).Trim()
-            $busNum  = (Get-Content (Join-Path $devDir 'busnum')    -Raw -ErrorAction SilentlyContinue).Trim()
-            $devNum  = (Get-Content (Join-Path $devDir 'devnum')    -Raw -ErrorAction SilentlyContinue).Trim()
+            # Cast to [string] before .Trim() - devices without a serial number
+            # have no 'serial' sysfs file; Get-Content returns $null in that case
+            # and calling .Trim() on $null throws "You cannot call a method on a
+            # null-valued expression".
+            $pid     = ([string](Get-Content (Join-Path $devDir 'idProduct') -Raw -ErrorAction SilentlyContinue)).Trim()
+            $serial  = ([string](Get-Content (Join-Path $devDir 'serial')    -Raw -ErrorAction SilentlyContinue)).Trim()
+            $product = ([string](Get-Content (Join-Path $devDir 'product')   -Raw -ErrorAction SilentlyContinue)).Trim()
+            $busNum  = ([string](Get-Content (Join-Path $devDir 'busnum')    -Raw -ErrorAction SilentlyContinue)).Trim()
+            $devNum  = ([string](Get-Content (Join-Path $devDir 'devnum')    -Raw -ErrorAction SilentlyContinue)).Trim()
 
             # Find associated /dev/ttyUSBx by looking for ttyUSB* nodes under this device tree
             $ttyDirs = Get-ChildItem -Path $devDir -Recurse -Filter 'ttyUSB*' -Directory -ErrorAction SilentlyContinue
