@@ -165,8 +165,27 @@ function Initialize-FtdiAssembly {
                             $nativeHandle = [System.Runtime.InteropServices.NativeLibrary]::Load($nativeFound)
                             Write-Verbose "  NativeLibrary.Load: OK ($nativeFound)"
                         } catch {
-                            Write-Warning "  NativeLibrary.Load failed for $nativeFound : $($_.Exception.Message)"
-                            Write-Warning "  IoT backend will not be available."
+                            $loadErr = $_.Exception.Message
+                            Write-Warning "  NativeLibrary.Load failed for $nativeFound"
+                            if ($loadErr -match 'GLIBC_(\S+)\s*not found') {
+                                $reqVer = $Matches[1]
+                                Write-Warning "  GLIBC version mismatch: libftd2xx.so requires GLIBC $reqVer but the"
+                                Write-Warning "  snap-confined pwsh uses an older bundled glibc (core22 = 2.35)."
+                                Write-Warning "  Solutions:"
+                                Write-Warning "    A) Use native (non-snap) pwsh: sudo apt-get install -y powershell"
+                                Write-Warning "       Then launch with: /usr/bin/pwsh  (not the snap alias)"
+                                Write-Warning "    B) Use older FTDI library compiled against glibc <= 2.35:"
+                                Write-Warning "       cd /tmp && wget https://ftdichip.com/wp-content/uploads/2024/04/libftd2xx-linux-x86_64-1.4.30.tgz"
+                                Write-Warning "       tar xzf libftd2xx-linux-x86_64-1.4.30.tgz"
+                                Write-Warning "       sudo cp linux-x86_64/libftd2xx.so.1.4.30 /usr/local/lib/"
+                                Write-Warning "       sudo rm -f /usr/local/lib/libftd2xx.so"
+                                Write-Warning "       sudo ln -sf /usr/local/lib/libftd2xx.so.1.4.30 /usr/local/lib/libftd2xx.so"
+                                Write-Warning "       sudo ldconfig"
+                                Write-Warning "       cp linux-x86_64/libftd2xx.so.1.4.30 $nativeFound"
+                            } else {
+                                Write-Warning "  Error: $loadErr"
+                            }
+                            Write-Warning "  IoT backend will not be available until resolved."
                         }
 
                         # Fix 4: probe that GetDevices() can reach the native lib.
