@@ -203,30 +203,27 @@ function Initialize-FtdiAssembly {
                             'armv7l'  { 'https://ftdichip.com/drivers/d2xx-drivers/ (select ARM v7 HF)' }
                             default   { 'https://ftdichip.com/drivers/d2xx-drivers/' }
                         }
+                        $net8CopyDest = Join-Path $net8Dir 'libftd2xx.so'
                         Write-Warning (
                             "IoT FTDI DLLs loaded but native 'libftd2xx.so' was not found. " +
                             "Hardware access will fall back to stub mode until it is installed.`n`n" +
-                            "Run the following in your PowerShell session to install (arch: $arch):`n" +
+                            "Run the following in bash (not pwsh) to install (arch: $arch):`n" +
                             "----------------------------------------------------------------------`n" +
-                            "`$tgz = '$archTgz'`n" +
-                            "`$url = '$archUrl'`n" +
-                            "Invoke-WebRequest `$url -OutFile `"/tmp/`$tgz`"`n" +
-                            "tar xzf `"/tmp/`$tgz`" -C /tmp`n" +
-                            "sudo sh -c 'find /tmp/release -name `"libftd2xx.so.*`" -exec cp {} /usr/local/lib/ \;'`n" +
-                            "sudo sh -c 'ln -sf /usr/local/lib/libftd2xx.so.* /usr/local/lib/libftd2xx.so'`n" +
+                            "# Step 1: download and extract`n" +
+                            "cd /tmp`n" +
+                            "wget '$archUrl' -O '$archTgz'`n" +
+                            "tar xzf '$archTgz'`n" +
+                            "# Step 2: find and install the .so (directory name varies by version)`n" +
+                            "sudo find /tmp -maxdepth 3 -name 'libftd2xx.so.*' -not -path '*/usr/*' -exec cp {} /usr/local/lib/ \;`n" +
                             "sudo ldconfig`n" +
+                            "# Step 3: copy into lib/net8/ so snap-confined pwsh can reach it`n" +
+                            "cp `$(find /usr/local/lib -name 'libftd2xx.so*' | head -1) '$net8CopyDest'`n" +
                             "# NOTE: D2XX and the VCP kernel driver (ftdi_sio) cannot share the same device.`n" +
-                            "# If your device only appears under 'List-PsGadgetFtdi -ShowVCP' (i.e. shows as`n" +
-                            "# /dev/ttyUSBx), you MUST unload the VCP module so D2XX can claim the device:`n" +
-                            "`n" +
+                            "# If your device shows as /dev/ttyUSBx, unload ftdi_sio first:`n" +
                             "#   sudo rmmod ftdi_sio`n" +
-                            "`n" +
-                            "# This lasts until the next reboot. To make it permanent across reboots:`n" +
-                            "#   echo 'blacklist ftdi_sio' | sudo tee /etc/modprobe.d/ftdi-d2xx.conf`n" +
-                            "#   sudo update-initramfs -u`n" +
-                            "# To restore VCP mode at any time: sudo modprobe ftdi_sio`n" +
+                            "# To make permanent: echo 'blacklist ftdi_sio' | sudo tee /etc/modprobe.d/ftdi-d2xx.conf`n" +
                             "----------------------------------------------------------------------`n" +
-                            "Then re-import: Import-Module PSGadget -Force"
+                            "Then in pwsh: Import-Module PSGadget -Force"
                         )
                     }
                 } else {
