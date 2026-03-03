@@ -95,7 +95,9 @@ function Set-PsGadgetFt232rCbusMode {
     - HighDriveIOs, PullDownEnable, and RIsD2XX default to the values in
       ~/.psgadget/config.json (see Get-Help about_PsGadgetConfig).
     - To verify the EEPROM after cycling/replugging, use Get-PsGadgetFtdiEeprom.
-    - This function only works on Windows with the D2XX driver loaded.
+    - This function requires Windows with the D2XX driver loaded.
+      On Linux, use an FT232H device instead -- it has MPSSE and is fully supported
+      via the IoT backend without any EEPROM pre-programming step.
     #>
 
     [CmdletBinding(

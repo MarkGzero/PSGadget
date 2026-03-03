@@ -85,11 +85,13 @@ function Get-FtdiFt232rEeprom {
 
     try {
         if (-not $script:FtdiInitialized) {
-            # On Linux FTD2XX_NET cannot be loaded (kernel32.dll finalizer crash).
-            # Route to the libusb-based EEPROM reader instead.
             $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
             if (-not $isWindows) {
-                return Get-FtdiFt232rEepromLinux -Index $Index -SerialNumber $SerialNumber
+                Write-Warning (
+                    "Get-PsGadgetFtdiEeprom: FT232R EEPROM read is not supported on Linux.`n" +
+                    "Use an FT232H device instead -- it has MPSSE and full Linux support via the IoT backend."
+                )
+                return $null
             }
             throw [System.NotImplementedException]::new("FTDI assembly not loaded")
         }
@@ -165,7 +167,6 @@ function Get-FtdiFt232rEeprom {
 
     } catch [System.NotImplementedException] {
         # Only reached on Windows when FTD2XX_NET assembly failed to load.
-        # Linux takes the early-return path above (Get-FtdiFt232rEepromLinux).
         Write-Verbose "EEPROM read: FTD2XX_NET assembly not loaded - returning stub EEPROM data"
         return [PSCustomObject]@{
             VendorID       = '0x0403'
@@ -285,10 +286,13 @@ function Set-FtdiFt232rCbusPinMode {
 
     try {
         if (-not $script:FtdiInitialized) {
-            # On Linux FTD2XX_NET cannot be loaded. Route to the libusb-based EEPROM writer.
             $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
             if (-not $isWindows) {
-                return Set-FtdiFt232rCbusModeLinux -Index $Index -SerialNumber $SerialNumber -Pins $Pins -Mode $Mode
+                Write-Warning (
+                    "Set-PsGadgetFt232rCbusMode: FT232R EEPROM programming is not supported on Linux.`n" +
+                    "Use an FT232H device instead -- it has MPSSE and full Linux support via the IoT backend."
+                )
+                return [PSCustomObject]@{ Success = $false; Error = 'Not supported on Linux. Use FT232H.' }
             }
             throw [System.NotImplementedException]::new("FTDI assembly not loaded")
         }
@@ -379,7 +383,6 @@ function Set-FtdiFt232rCbusPinMode {
 
     } catch [System.NotImplementedException] {
         # Only reached on Windows when FTD2XX_NET assembly failed to load.
-        # Linux takes the early-return path above (Set-FtdiFt232rCbusModeLinux).
         Write-Verbose "Set-FtdiFt232rCbusPinMode: FTDI assembly not loaded - stub mode (no EEPROM written)"
         return [PSCustomObject]@{
             Success        = $true
