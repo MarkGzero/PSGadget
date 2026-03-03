@@ -53,25 +53,33 @@ function Invoke-FtdiUnixEnumerate {
                 $devNum  = ([string](Get-Content (Join-Path $devDir 'devnum')    -Raw -ErrorAction SilentlyContinue)).Trim()
 
                 # Find associated /dev/ttyUSBx.
-                # USB sysfs structure: device/interface/driver/ttyUSBx
+                # USB sysfs layout: <devDir>/<devBase>:1.0/ttyUSB0
                 # e.g. /sys/bus/usb/devices/1-2/1-2:1.0/ttyUSB0
-                # Do NOT use -Recurse: sysfs entries in /sys/bus/usb/devices/ are symlinks;
-                # unbounded recursion follows them across the whole sysfs tree and returns
-                # objects with null or unexpected properties that crash downstream code.
-                # Two explicit levels (device -> interface -> ttyUSBx) are sufficient.
-                $ttyDirArr = @(
-                    Get-ChildItem -Path $devDir -Directory -ErrorAction SilentlyContinue |
-                        Where-Object { $_ -ne $null } |             # guard against null entries
-                        ForEach-Object {
-                            Get-ChildItem -Path $_.FullName -Filter 'ttyUSB*' -Directory -ErrorAction SilentlyContinue
-                        } |
-                        Where-Object { $_ -ne $null }
-                )
-                $locationId = if ($ttyDirArr.Count -gt 0) { "/dev/$($ttyDirArr[0].Name)" } else { "usb-bus$busNum-dev$devNum" }
+                #
+                # Use [System.IO.Directory]::GetDirectories() rather than Get-ChildItem.
+                # PowerShell's Get-ChildItem produces DirectoryInfo objects backed by
+                # sysfs virtual nodes; some of those nodes expose null property values
+                # (Name, FullName) that crash any .Trim() / string interpolation downstream.
+                # .NET Directory methods return plain strings (paths) which are never null.
+                $isVcp      = $false
+                $locationId = "usb-bus$busNum-dev$devNum"
+                try {
+                    $devBaseName = [System.IO.Path]::GetFileName($devDir)   # e.g. "1-2"
+                    foreach ($ifPath in [System.IO.Directory]::GetDirectories($devDir, "${devBaseName}:*")) {
+                        foreach ($ttyPath in [System.IO.Directory]::GetDirectories($ifPath, 'ttyUSB*')) {
+                            $locationId = '/dev/' + [System.IO.Path]::GetFileName($ttyPath)
+                            $isVcp      = $true
+                            break
+                        }
+                        if ($isVcp) { break }
+                    }
+                } catch {
+                    # ttyUSB probe failed for this device; treat as non-VCP (safe default)
+                    Write-Verbose "  sysfs: ttyUSB probe failed for '${devDir}': $($_.Exception.Message)"
+                }
 
                 # If the kernel ftdi_sio (VCP) driver claimed the device, a ttyUSBx will exist.
                 # D2XX / libftdi requires that driver to be unbound first.
-                $isVcp = $ttyDirArr.Count -gt 0
 
                 $typeName = if ($ftdiPidMap.ContainsKey($pid)) { $ftdiPidMap[$pid] } else { "FTDI-$pid" }
                 $caps     = Get-FtdiChipCapabilities -TypeName $typeName
