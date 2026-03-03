@@ -213,14 +213,17 @@ function Initialize-FtdiAssembly {
                             "cd /tmp`n" +
                             "wget '$archUrl' -O '$archTgz'`n" +
                             "tar xzf '$archTgz'`n" +
-                            "# Step 2: find and install the .so (directory name varies by version)`n" +
-                            "sudo find /tmp -maxdepth 3 -name 'libftd2xx.so.*' -not -path '*/usr/*' -exec cp {} /usr/local/lib/ \;`n" +
+                            "# Step 2: find the versioned .so and install it`n" +
+                            "#   (the extracted subdirectory name varies by arch/version)`n" +
+                            "versioned=`$(find /tmp -maxdepth 3 -name 'libftd2xx.so.*' -not -path '*/usr/*' | head -1)`n" +
+                            "sudo cp `"`$versioned`" /usr/local/lib/`n" +
+                            "sudo rm -f /usr/local/lib/libftd2xx.so`n" +
+                            "sudo ln -sf `"`$versioned`" /usr/local/lib/libftd2xx.so`n" +
                             "sudo ldconfig`n" +
-                            "# Step 3: copy into lib/net8/ so snap-confined pwsh can reach it`n" +
-                            "cp `$(find /usr/local/lib -name 'libftd2xx.so*' | head -1) '$net8CopyDest'`n" +
-                            "# NOTE: D2XX and the VCP kernel driver (ftdi_sio) cannot share the same device.`n" +
-                            "# If your device shows as /dev/ttyUSBx, unload ftdi_sio first:`n" +
-                            "#   sudo rmmod ftdi_sio`n" +
+                            "# Step 3: copy versioned .so into lib/net8/ for snap-confined pwsh`n" +
+                            "cp `"`$versioned`" '$net8CopyDest'`n" +
+                            "# NOTE: D2XX and ftdi_sio (VCP) cannot share the device.`n" +
+                            "# If device shows as /dev/ttyUSBx: sudo rmmod ftdi_sio`n" +
                             "# To make permanent: echo 'blacklist ftdi_sio' | sudo tee /etc/modprobe.d/ftdi-d2xx.conf`n" +
                             "----------------------------------------------------------------------`n" +
                             "Then in pwsh: Import-Module PSGadget -Force"
