@@ -285,6 +285,11 @@ function Set-FtdiFt232rCbusPinMode {
 
     try {
         if (-not $script:FtdiInitialized) {
+            # On Linux FTD2XX_NET cannot be loaded. Route to the libusb-based EEPROM writer.
+            $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+            if (-not $isWindows) {
+                return Set-FtdiFt232rCbusModeLinux -Index $Index -SerialNumber $SerialNumber -Pins $Pins -Mode $Mode
+            }
             throw [System.NotImplementedException]::new("FTDI assembly not loaded")
         }
 
@@ -373,15 +378,8 @@ function Set-FtdiFt232rCbusPinMode {
         }
 
     } catch [System.NotImplementedException] {
-        $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
-        if (-not $isWindows) {
-            Write-Warning (
-                "Set-PsGadgetFt232rCbusMode is not supported on Linux.`n" +
-                "FTD2XX_NET.dll uses kernel32.dll P/Invoke (Windows-only) and cannot be loaded on Linux.`n" +
-                "EEPROM programming requires a Windows machine or VM."
-            )
-            return [PSCustomObject]@{ Success = $false; Error = "Not supported on Linux" }
-        }
+        # Only reached on Windows when FTD2XX_NET assembly failed to load.
+        # Linux takes the early-return path above (Set-FtdiFt232rCbusModeLinux).
         Write-Verbose "Set-FtdiFt232rCbusPinMode: FTDI assembly not loaded - stub mode (no EEPROM written)"
         return [PSCustomObject]@{
             Success        = $true

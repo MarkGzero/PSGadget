@@ -91,15 +91,18 @@ function Initialize-FtdiLinuxLibusb {
     $dllPath   = Join-Path $cacheDir 'FtdiLinuxLibusb.dll'
     $pathStamp = Join-Path $cacheDir 'FtdiLinuxLibusb.libpath'
 
-    # Check if cached DLL was compiled against the same libusb path
+    # v2: added libusb_reset_device. Bump this when C# source changes to force DLL recompile.
+    $wrapperVersion = 'v2'
+
+    # Check if cached DLL was compiled against the same libusb path and wrapper version
     $needCompile = $true
     if ((Test-Path $dllPath) -and (Test-Path $pathStamp)) {
-        $stamped = (Get-Content $pathStamp -Raw).Trim()
-        if ($stamped -eq $libPath) {
+        $stampLines = (Get-Content $pathStamp -Raw).Trim() -split '\r?\n' | ForEach-Object { $_.Trim() }
+        if ($stampLines.Count -ge 2 -and $stampLines[0] -eq $libPath -and $stampLines[1] -eq $wrapperVersion) {
             $needCompile = $false
             Write-Verbose "Ftdi.Linux.Eeprom: using cached wrapper DLL from $dllPath"
         } else {
-            Write-Verbose "Ftdi.Linux.Eeprom: libusb path changed ($stamped -> $libPath); recompiling"
+            Write-Verbose "Ftdi.Linux.Eeprom: wrapper changed or libusb path changed; recompiling DLL"
         }
     }
 
@@ -164,6 +167,9 @@ public class FtdiLinuxLibusb {
         byte[] data,
         ushort length,
         uint   timeout);
+
+    [DllImport("$libPath")]
+    public static extern int libusb_reset_device(IntPtr handle);
 }
 "@
 
@@ -177,7 +183,7 @@ public class FtdiLinuxLibusb {
                 if (Test-Path $dllPath) { Remove-Item $dllPath -Force }
                 Write-Verbose "Ftdi.Linux.Eeprom: compiling wrapper DLL to $dllPath"
                 Add-Type -TypeDefinition $csSource -OutputAssembly $dllPath -ErrorAction Stop
-                Set-Content -Path $pathStamp -Value $libPath -Encoding UTF8
+                Set-Content -Path $pathStamp -Value "$libPath`n$wrapperVersion" -Encoding UTF8
             } else {
                 # Load previously compiled DLL from disk
                 [System.Reflection.Assembly]::LoadFrom($dllPath) | Out-Null
@@ -482,6 +488,315 @@ function Get-FtdiFt232rEepromLinux {
     } catch {
         Write-Error "Get-FtdiFt232rEepromLinux failed: $_"
         return $null
+    } finally {
+        if ($handle  -ne [IntPtr]::Zero) { [FtdiLinuxLibusb]::libusb_close($handle) }
+        if ($listPtr -ne [IntPtr]::Zero) { [FtdiLinuxLibusb]::libusb_free_device_list($listPtr, 1) }
+        if ($ctx     -ne [IntPtr]::Zero) { [FtdiLinuxLibusb]::libusb_exit($ctx) }
+    }
+}
+
+function Write-FtdiEepromWordLinux {
+    <#
+    .SYNOPSIS
+    Writes one 16-bit word to the FT232R EEPROM via a libusb control transfer.
+
+    .PARAMETER Handle
+    Open libusb device handle (IntPtr).
+
+    .PARAMETER WordAddress
+    Zero-based 16-bit word address in the EEPROM.
+
+    .PARAMETER WordValue
+    16-bit value to write.
+
+    .OUTPUTS
+    [int] 0 on success, negative libusb error code on failure.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [IntPtr]$Handle,
+
+        [Parameter(Mandatory = $true)]
+        [int]$WordAddress,
+
+        [Parameter(Mandatory = $true)]
+        [uint16]$WordValue
+    )
+
+    # bmRequestType = 0x40: host-to-device, vendor, device
+    # bRequest      = 0x91: FTDI_SIO_WRITE_EEPROM_REQUEST
+    # wValue        = word data to write
+    # wIndex        = word address
+    # length        = 0 (no data buffer; data is in wValue)
+    $emptyBuf = [byte[]]::new(2)   # non-null pointer; length param below is 0
+    $rc = [FtdiLinuxLibusb]::libusb_control_transfer(
+        $Handle,
+        [byte]0x40,           # requestType
+        [byte]0x91,           # request: WRITE_EEPROM
+        [uint16]$WordValue,   # value: word data
+        [uint16]$WordAddress, # index: word address
+        $emptyBuf,
+        [uint16]0,            # length: 0 (no data phase)
+        [uint32]5000
+    )
+    if ($rc -lt 0) {
+        Write-Verbose ("  EEPROM write word 0x{0:X2} = 0x{1:X4} failed (rc={2})" -f $WordAddress, $WordValue, $rc)
+    }
+    return $rc
+}
+
+function Set-FtdiFt232rCbusModeLinux {
+    <#
+    .SYNOPSIS
+    Programs FT232R CBUS pin functions via EEPROM write on Linux using libusb-1.0.
+
+    .DESCRIPTION
+    Reads the FT232R EEPROM word at offset 0x0a (CBUS0-3 mux config, 4 nibbles),
+    modifies the nibbles for the requested pins, recalculates the EEPROM checksum
+    (word 0x3F), and writes both words back. All via libusb control transfers on
+    endpoint 0 -- no interface claim required, works whether ftdi_sio is loaded or not.
+
+    EEPROM word 0x0a layout (per Linux kernel ftdi_sio + pyftdi):
+      bits  3:0  = CBUS0 mux  (0xa = FT_CBUS_IOMODE)
+      bits  7:4  = CBUS1 mux
+      bits 11:8  = CBUS2 mux
+      bits 15:12 = CBUS3 mux
+    EEPROM word 0x0b bits 3:0 = CBUS4 mux (EEPROM-config only; not runtime bit-bangable)
+
+    Checksum algorithm (pyftdi / ftdi_sio):
+      checksum = 0xAAAA
+      for each word[0..62]: checksum = ROL16(checksum XOR word, 1)
+      result written to word[63] (0x3F)
+
+    After writing, the device is reset via libusb_reset_device so the new EEPROM
+    settings take effect immediately without physical replug. Pass -ResetDevice $false
+    to skip the reset (e.g. when writing multiple fields before applying).
+
+    .PARAMETER Index
+    Zero-based FTDI device index.
+
+    .PARAMETER SerialNumber
+    Target device serial number (preferred over Index for disambiguation).
+
+    .PARAMETER Pins
+    CBUS pin numbers to reconfigure (0-3). Defaults to @(0,1,2,3).
+
+    .PARAMETER Mode
+    FT_CBUS_OPTIONS mode name to write. Defaults to FT_CBUS_IOMODE.
+
+    .PARAMETER ResetDevice
+    Reset the device after writing to force re-enumeration. Default: $true.
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    [OutputType([System.Object])]
+    param(
+        [Parameter(Mandatory = $false)]
+        [int]$Index = 0,
+
+        [Parameter(Mandatory = $false)]
+        [string]$SerialNumber = '',
+
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(0, 3)]
+        [int[]]$Pins = @(0, 1, 2, 3),
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet(
+            'FT_CBUS_TXDEN','FT_CBUS_PWREN','FT_CBUS_RXLED','FT_CBUS_TXLED',
+            'FT_CBUS_TXRXLED','FT_CBUS_SLEEP','FT_CBUS_CLK48','FT_CBUS_CLK24',
+            'FT_CBUS_CLK12','FT_CBUS_CLK6','FT_CBUS_IOMODE',
+            'FT_CBUS_BITBANG_WR','FT_CBUS_BITBANG_RD'
+        )]
+        [string]$Mode = 'FT_CBUS_IOMODE',
+
+        [Parameter(Mandatory = $false)]
+        [bool]$ResetDevice = $true
+    )
+
+    if (-not (Initialize-FtdiLinuxLibusb)) {
+        Write-Warning "Set-FtdiFt232rCbusModeLinux: libusb-1.0 not available. Install with: sudo apt-get install libusb-1.0-0"
+        return [PSCustomObject]@{ Success = $false; Error = 'libusb not available' }
+    }
+
+    if (-not $script:FT_CBUS_VALUES.ContainsKey($Mode)) {
+        Write-Error "Unknown CBUS mode '$Mode'"
+        return [PSCustomObject]@{ Success = $false; Error = "Unknown mode: $Mode" }
+    }
+    $targetNibble = [byte]$script:FT_CBUS_VALUES[$Mode]
+
+    $ctx     = [IntPtr]::Zero
+    $handle  = [IntPtr]::Zero
+    $listPtr = [IntPtr]::Zero
+    $count   = [IntPtr]::Zero
+
+    try {
+        $rc = [FtdiLinuxLibusb]::libusb_init([ref]$ctx)
+        if ($rc -ne 0) {
+            Write-Warning "Set-FtdiFt232rCbusModeLinux: libusb_init failed ($rc)"
+            return [PSCustomObject]@{ Success = $false; Error = "libusb_init failed: $rc" }
+        }
+
+        $count   = [FtdiLinuxLibusb]::libusb_get_device_list($ctx, [ref]$listPtr)
+        $numDevs = $count.ToInt64()
+        if ($numDevs -le 0) {
+            Write-Warning "Set-FtdiFt232rCbusModeLinux: no USB devices found"
+            return [PSCustomObject]@{ Success = $false; Error = 'No USB devices found' }
+        }
+
+        $ftdiCandidates = [System.Collections.Generic.List[IntPtr]]::new()
+        for ($i = 0; $i -lt $numDevs; $i++) {
+            $devPtr = [System.Runtime.InteropServices.Marshal]::ReadIntPtr($listPtr, $i * [IntPtr]::Size)
+            if ($devPtr -eq [IntPtr]::Zero) { break }
+            $desc = [FtdiLinuxLibusb+LibusbDeviceDescriptor]::new()
+            $rc   = [FtdiLinuxLibusb]::libusb_get_device_descriptor($devPtr, [ref]$desc)
+            if ($rc -ne 0) { continue }
+            if ($desc.idVendor -eq 0x0403 -and $desc.idProduct -eq 0x6001) {
+                $ftdiCandidates.Add($devPtr)
+            }
+        }
+
+        if ($ftdiCandidates.Count -eq 0) {
+            Write-Warning "Set-FtdiFt232rCbusModeLinux: no FT232R device found (VID=0x0403 PID=0x6001)"
+            return [PSCustomObject]@{ Success = $false; Error = 'No FT232R found' }
+        }
+
+        # Open target device: match by serial or by index order
+        foreach ($devPtr in $ftdiCandidates) {
+            $testHandle = [IntPtr]::Zero
+            $openRc = [FtdiLinuxLibusb]::libusb_open($devPtr, [ref]$testHandle)
+            if ($openRc -ne 0) {
+                Write-Verbose "  libusb_open failed ($openRc) - check udev rules: SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"0403\", MODE=\"0666\""
+                continue
+            }
+
+            if ($SerialNumber -ne '') {
+                $strBuf = [byte[]]::new(64)
+                $strRc  = [FtdiLinuxLibusb]::libusb_get_string_descriptor_ascii($testHandle, [byte]3, $strBuf, $strBuf.Length)
+                if ($strRc -gt 0) {
+                    $devSerial = [System.Text.Encoding]::ASCII.GetString($strBuf, 0, $strRc).TrimEnd([char]0)
+                    if ($devSerial -eq $SerialNumber) {
+                        $handle = $testHandle; $testHandle = [IntPtr]::Zero; break
+                    }
+                }
+            } else {
+                if ($ftdiCandidates.IndexOf($devPtr) -eq $Index) {
+                    $handle = $testHandle; $testHandle = [IntPtr]::Zero; break
+                }
+            }
+
+            if ($testHandle -ne [IntPtr]::Zero) { [FtdiLinuxLibusb]::libusb_close($testHandle) }
+        }
+
+        if ($handle -eq [IntPtr]::Zero) {
+            $msg = if ($SerialNumber -ne '') { "serial '$SerialNumber'" } else { "index $Index" }
+            Write-Warning "Set-FtdiFt232rCbusModeLinux: could not open device ($msg). Check udev rules."
+            return [PSCustomObject]@{ Success = $false; Error = "Device not opened ($msg)" }
+        }
+
+        # --- Read all 64 EEPROM words for checksum calculation ---
+        $words = [int[]]::new(64)
+        for ($i = 0; $i -lt 64; $i++) {
+            $words[$i] = Read-FtdiEepromWordLinux -Handle $handle -WordAddress $i
+        }
+
+        # Decode current CBUS nibbles from word 0x0a
+        $w0a = if ($words[0x0a] -ge 0) { [uint16]$words[0x0a] } else { [uint16]0 }
+        $prevNibs = @(
+            ($w0a -band 0x000F),
+            (($w0a -shr 4) -band 0x000F),
+            (($w0a -shr 8) -band 0x000F),
+            (($w0a -shr 12) -band 0x000F)
+        )
+        $prevNames = $prevNibs | ForEach-Object {
+            if ($script:FT_CBUS_NAMES.ContainsKey([int]$_)) { $script:FT_CBUS_NAMES[[int]$_] } else { "UNKNOWN(0x$('{0:X}' -f $_))" }
+        }
+
+        # Show planned changes
+        $pinLines = $Pins | ForEach-Object { "  CBUS$_ : $($prevNames[$_]) -> $Mode" }
+        Write-Verbose ("EEPROM CBUS change plan:`n" + ($pinLines -join "`n"))
+
+        $pinNames = ($Pins | ForEach-Object { "CBUS$_" }) -join ', '
+        if (-not $PSCmdlet.ShouldProcess("FT232R EEPROM (device index $Index)", "Set $pinNames to $Mode")) {
+            return $null
+        }
+
+        # Apply new nibble values to word 0x0a
+        $new0a = $w0a
+        foreach ($pin in $Pins) {
+            # Clear the 4-bit nibble for this pin then write the target value
+            $shift   = $pin * 4
+            $clearMask = [uint16](0xFFFF -bxor ([uint16](0xF -shl $shift)))
+            $new0a = [uint16](($new0a -band $clearMask) -bor ([uint16]($targetNibble -shl $shift)))
+        }
+        Write-Verbose ("  Word 0x0a: 0x{0:X4} -> 0x{1:X4}" -f $w0a, $new0a)
+
+        # Substitute new word into array for checksum recalculation
+        $words[0x0a] = [int]$new0a
+
+        # Recalculate checksum over words 0x00-0x3E (Hovold / pyftdi algorithm)
+        [uint32]$cs = 0xAAAA
+        for ($i = 0; $i -lt 63; $i++) {
+            $w = if ($words[$i] -ge 0) { [uint32]($words[$i] -band 0xFFFF) } else { [uint32]0 }
+            $cs = ($cs -bxor $w) -band 0xFFFF
+            $cs = (($cs -shl 1) -bor ($cs -shr 15)) -band 0xFFFF
+        }
+        $newChecksum = [uint16]($cs -band 0xFFFF)
+        Write-Verbose ("  Checksum: 0x{0:X4} -> 0x{1:X4}" -f $words[0x3F], $newChecksum)
+
+        # Write modified word 0x0a
+        $rc0a = Write-FtdiEepromWordLinux -Handle $handle -WordAddress 0x0a -WordValue $new0a
+        if ($rc0a -lt 0) {
+            throw "EEPROM write word 0x0a failed (libusb rc=$rc0a). Check udev rules: SUBSYSTEM==""usb"", ATTRS{idVendor}==""0403"", MODE=""0666"""
+        }
+
+        # Write updated checksum to word 0x3F
+        $rc3f = Write-FtdiEepromWordLinux -Handle $handle -WordAddress 0x3F -WordValue $newChecksum
+        if ($rc3f -lt 0) {
+            throw "EEPROM write word 0x3F (checksum) failed (libusb rc=$rc3f)"
+        }
+
+        Write-Verbose "  EEPROM words written successfully"
+
+        # Build restore command(s) for undo
+        $restoreLines = @()
+        $byMode = @{}
+        foreach ($pin in $Pins) {
+            $prev = $prevNames[$pin]
+            if (-not $byMode.ContainsKey($prev)) { $byMode[$prev] = [System.Collections.Generic.List[int]]::new() }
+            $byMode[$prev].Add($pin)
+        }
+        foreach ($modeName in $byMode.Keys) {
+            $pinsStr = '@(' + ($byMode[$modeName] -join ',') + ')'
+            $restoreLines += "Set-PsGadgetFt232rCbusMode -Index $Index -Pins $pinsStr -Mode $modeName"
+        }
+
+        # Reset device so new EEPROM takes effect without physical replug
+        if ($ResetDevice) {
+            Write-Verbose "  Resetting device for re-enumeration..."
+            [FtdiLinuxLibusb]::libusb_reset_device($handle) | Out-Null
+            Write-Host "Device reset. New CBUS settings are active."
+        } else {
+            Write-Warning "EEPROM written. Replug the USB device for changes to take effect."
+        }
+
+        return [PSCustomObject]@{
+            Success        = $true
+            DeviceIndex    = $Index
+            PinsChanged    = $Pins
+            NewMode        = $Mode
+            PreviousCbus0  = $prevNames[0]
+            PreviousCbus1  = $prevNames[1]
+            PreviousCbus2  = $prevNames[2]
+            PreviousCbus3  = $prevNames[3]
+            PortCycled     = $ResetDevice
+            RestoreCommand = $restoreLines -join "`n"
+            Message        = "EEPROM written. $pinNames set to $Mode."
+        }
+
+    } catch {
+        Write-Error "Set-FtdiFt232rCbusModeLinux failed: $_"
+        return [PSCustomObject]@{ Success = $false; Error = $_.Exception.Message }
     } finally {
         if ($handle  -ne [IntPtr]::Zero) { [FtdiLinuxLibusb]::libusb_close($handle) }
         if ($listPtr -ne [IntPtr]::Zero) { [FtdiLinuxLibusb]::libusb_free_device_list($listPtr, 1) }
