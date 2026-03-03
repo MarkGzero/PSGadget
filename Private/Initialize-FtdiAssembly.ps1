@@ -102,21 +102,46 @@ function Initialize-FtdiAssembly {
                         # A symlink is not used: snap-confined PowerShell processes cannot follow
                         # symlinks that point outside the snap directory tree, so the symlink would
                         # appear present but the dynamic linker would fail to open it.
-                        # IMPORTANT: a previous session may have left a broken symlink at this path.
-                        # Test-Path returns $false for broken symlinks, so the copy would be attempted
-                        # but Copy-Item fails because an entry (the symlink) already exists.
-                        # Remove any existing file or symlink before copying.
+                        #
+                        # Snap confinement note: snap-confined pwsh can stat() files outside the
+                        # snap tree (so Test-Path returns $true) but AppArmor blocks open() on those
+                        # paths (Copy-Item/File.Copy throws FileNotFoundException).  Never remove an
+                        # existing valid copy unconditionally -- doing so destroys a user-placed file
+                        # and leaves no way to recover without re-running the bash copy command.
+                        # Strategy:
+                        #   1. If lib/net8/libftd2xx.so already exists and is a non-empty regular
+                        #      file, keep it and skip the copy entirely.
+                        #   2. If it is missing or a broken symlink, remove the stale entry and
+                        #      attempt Copy-Item.
+                        #   3. If Copy-Item fails (snap AppArmor, permissions, etc.) warn the user
+                        #      to run the copy from a normal bash terminal, not from snap pwsh.
                         $net8Dir   = Join-Path (Join-Path $ModuleRoot 'lib') 'net8'
                         $localCopy = Join-Path $net8Dir 'libftd2xx.so'
+                        $needCopy  = $true
                         try {
-                            # Remove-Item with -Force removes both regular files and symlinks.
-                            # -ErrorAction SilentlyContinue is safe: if nothing exists, it is a no-op.
-                            Remove-Item -Path $localCopy -Force -ErrorAction SilentlyContinue
-                            Copy-Item -Path $nativeFound -Destination $localCopy -ErrorAction Stop
-                            Write-Verbose "  Copied libftd2xx.so to $localCopy"
+                            $fi = [System.IO.FileInfo]::new($localCopy)
+                            if ($fi.Exists -and $fi.Length -gt 0) {
+                                Write-Verbose "  libftd2xx.so already in lib/net8/ ($($fi.Length) bytes) - skipping copy"
+                                $needCopy = $false
+                            } else {
+                                # Broken symlink or zero-byte file - remove before copying
+                                Remove-Item -Path $localCopy -Force -ErrorAction SilentlyContinue
+                            }
                         } catch {
-                            Write-Warning "  Could not copy libftd2xx.so to $localCopy : $_"
-                            Write-Warning "  Manual fix: cp $nativeFound $localCopy"
+                            # FileInfo threw - entry may be a broken symlink; remove it
+                            Remove-Item -Path $localCopy -Force -ErrorAction SilentlyContinue
+                        }
+
+                        if ($needCopy) {
+                            try {
+                                Copy-Item -Path $nativeFound -Destination $localCopy -ErrorAction Stop
+                                Write-Verbose "  Copied libftd2xx.so to $localCopy"
+                            } catch {
+                                Write-Warning "  Could not copy libftd2xx.so to $localCopy"
+                                Write-Warning "  This is expected under snap-confined pwsh (AppArmor blocks file reads from /usr/local/lib/)."
+                                Write-Warning "  Run the following once in a bash terminal (not pwsh), then re-import:"
+                                Write-Warning "    cp $nativeFound $localCopy"
+                            }
                         }
 
                         # Fix 3: probe that GetDevices() can reach the native lib.
