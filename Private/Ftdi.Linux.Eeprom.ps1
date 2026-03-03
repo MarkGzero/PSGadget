@@ -46,8 +46,19 @@ $script:LibusbTypeLoaded = $false
 function Initialize-FtdiLinuxLibusb {
     <#
     .SYNOPSIS
-    Registers the libusb-1.0 P/Invoke type via Add-Type (once per session).
+    Compiles and loads the libusb-1.0 P/Invoke wrapper DLL (once per user).
     Returns $true on success, $false if libusb is not available.
+
+    .NOTES
+    Root cause of "Value cannot be null (Parameter 'path1')":
+    Add-Type -TypeDefinition compiles to an in-memory assembly with Assembly.Location == "".
+    On .NET 8+, DllImport absolute-path resolution calls Path.GetDirectoryName("") -> null,
+    then Path.Combine(null, absPath) throws ArgumentNullException("path1") at first P/Invoke.
+
+    Fix: compile to a real .dll file on disk via Add-Type -OutputAssembly. When the
+    assembly has a real Location, DllImport absolute paths resolve correctly. The compiled
+    DLL is cached in ~/.psgadget/ and reused across sessions; it is only recompiled when
+    the resolved libusb .so path changes (tracked via a companion .path file).
     #>
     [CmdletBinding()]
     [OutputType([bool])]
@@ -55,7 +66,7 @@ function Initialize-FtdiLinuxLibusb {
 
     if ($script:LibusbTypeLoaded) { return $true }
 
-    # Verify the library is present before attempting Add-Type
+    # Locate libusb-1.0 shared library
     $libLocations = @(
         '/lib/x86_64-linux-gnu/libusb-1.0.so.0',
         '/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0',
@@ -75,38 +86,29 @@ function Initialize-FtdiLinuxLibusb {
     }
     Write-Verbose "Ftdi.Linux.Eeprom: using libusb from $libPath"
 
-    try {
-        # Guard: type may already exist from a prior Import-Module in this AppDomain
-        if (-not ([System.Management.Automation.PSTypeName]'FtdiLinuxLibusb').Type) {
-            # NOTE: DllImport with an absolute path fails on .NET 8+ when the
-            # assembly is in-memory (Add-Type -TypeDefinition without -OutputAssembly)
-            # because Assembly.Location is "" and Path.GetDirectoryName("") returns null,
-            # causing Path.Combine(null, path) to throw "path1 is null" at first P/Invoke.
-            #
-            # Fix: use a placeholder DLL name and redirect via NativeLibrary.SetDllImportResolver
-            # in a static constructor. The actual path ($libPath) is interpolated by
-            # PowerShell before Add-Type compiles the string.
-            Add-Type -TypeDefinition @"
+    # Paths for cached compiled DLL
+    $cacheDir  = Join-Path ([System.Environment]::GetFolderPath('UserProfile')) '.psgadget'
+    $dllPath   = Join-Path $cacheDir 'FtdiLinuxLibusb.dll'
+    $pathStamp = Join-Path $cacheDir 'FtdiLinuxLibusb.libpath'
+
+    # Check if cached DLL was compiled against the same libusb path
+    $needCompile = $true
+    if ((Test-Path $dllPath) -and (Test-Path $pathStamp)) {
+        $stamped = (Get-Content $pathStamp -Raw).Trim()
+        if ($stamped -eq $libPath) {
+            $needCompile = $false
+            Write-Verbose "Ftdi.Linux.Eeprom: using cached wrapper DLL from $dllPath"
+        } else {
+            Write-Verbose "Ftdi.Linux.Eeprom: libusb path changed ($stamped -> $libPath); recompiling"
+        }
+    }
+
+    $csSource = @"
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
 
 public class FtdiLinuxLibusb {
-
-    private const string LibProxy = "ftdi_libusb_proxy";
-
-    static FtdiLinuxLibusb() {
-        NativeLibrary.SetDllImportResolver(
-            typeof(FtdiLinuxLibusb).Assembly,
-            (libraryName, assembly, searchPath) => {
-                if (libraryName == LibProxy) {
-                    IntPtr lib;
-                    if (NativeLibrary.TryLoad("$libPath", out lib)) { return lib; }
-                }
-                return IntPtr.Zero;
-            }
-        );
-    }
 
     // libusb_device_descriptor - 18 bytes, packed
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -127,32 +129,32 @@ public class FtdiLinuxLibusb {
         public byte   bNumConfigurations;
     }
 
-    [DllImport(LibProxy)]
+    [DllImport("$libPath")]
     public static extern int libusb_init(out IntPtr context);
 
-    [DllImport(LibProxy)]
+    [DllImport("$libPath")]
     public static extern void libusb_exit(IntPtr context);
 
-    [DllImport(LibProxy)]
+    [DllImport("$libPath")]
     public static extern IntPtr libusb_get_device_list(IntPtr context, out IntPtr list);
 
-    [DllImport(LibProxy)]
+    [DllImport("$libPath")]
     public static extern void libusb_free_device_list(IntPtr list, int unref_devices);
 
-    [DllImport(LibProxy)]
+    [DllImport("$libPath")]
     public static extern int libusb_get_device_descriptor(IntPtr device, out LibusbDeviceDescriptor desc);
 
-    [DllImport(LibProxy)]
+    [DllImport("$libPath")]
     public static extern int libusb_open(IntPtr device, out IntPtr handle);
 
-    [DllImport(LibProxy)]
+    [DllImport("$libPath")]
     public static extern void libusb_close(IntPtr handle);
 
-    [DllImport(LibProxy)]
+    [DllImport("$libPath")]
     public static extern int libusb_get_string_descriptor_ascii(
         IntPtr handle, byte desc_index, byte[] data, int length);
 
-    [DllImport(LibProxy)]
+    [DllImport("$libPath")]
     public static extern int libusb_control_transfer(
         IntPtr handle,
         byte   requestType,
@@ -163,13 +165,29 @@ public class FtdiLinuxLibusb {
         ushort length,
         uint   timeout);
 }
-"@ -ErrorAction Stop
+"@
+
+    try {
+        if (-not ([System.Management.Automation.PSTypeName]'FtdiLinuxLibusb').Type) {
+            if ($needCompile) {
+                if (-not (Test-Path $cacheDir)) {
+                    New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
+                }
+                # Remove stale DLL before recompiling (Add-Type -OutputAssembly fails if file exists)
+                if (Test-Path $dllPath) { Remove-Item $dllPath -Force }
+                Write-Verbose "Ftdi.Linux.Eeprom: compiling wrapper DLL to $dllPath"
+                Add-Type -TypeDefinition $csSource -OutputAssembly $dllPath -ErrorAction Stop
+                Set-Content -Path $pathStamp -Value $libPath -Encoding UTF8
+            } else {
+                # Load previously compiled DLL from disk
+                [System.Reflection.Assembly]::LoadFrom($dllPath) | Out-Null
+            }
         }
         $script:LibusbTypeLoaded = $true
-        Write-Verbose "Ftdi.Linux.Eeprom: FtdiLinuxLibusb type registered"
+        Write-Verbose "Ftdi.Linux.Eeprom: FtdiLinuxLibusb type ready"
         return $true
     } catch {
-        Write-Verbose "Ftdi.Linux.Eeprom: Add-Type failed: $_"
+        Write-Verbose "Ftdi.Linux.Eeprom: failed to load wrapper: $_"
         return $false
     }
 }
