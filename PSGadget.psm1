@@ -40,7 +40,7 @@ foreach ($PublicFile in $PublicFiles) {
 # 4. Initialize FTDI assembly loading
 $script:FtdiInitialized = $false
 try {
-    $script:FtdiInitialized = Initialize-FtdiAssembly -ModuleRoot $ModuleRoot
+    $script:FtdiInitialized = Initialize-FtdiAssembly -ModuleRoot $ModuleRoot -Verbose:($VerbosePreference -ne 'SilentlyContinue')
     if ($script:FtdiInitialized) {
         Write-Verbose "FTDI D2XX assembly loaded successfully"
     } else {

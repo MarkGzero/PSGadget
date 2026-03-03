@@ -115,7 +115,8 @@ function Initialize-FtdiAssembly {
                             Copy-Item -Path $nativeFound -Destination $localCopy -ErrorAction Stop
                             Write-Verbose "  Copied libftd2xx.so to $localCopy"
                         } catch {
-                            Write-Verbose "  Could not copy libftd2xx.so to lib/net8/ (non-fatal): $_"
+                            Write-Warning "  Could not copy libftd2xx.so to $localCopy : $_"
+                            Write-Warning "  Manual fix: cp $nativeFound $localCopy"
                         }
 
                         # Fix 3: probe that GetDevices() can reach the native lib.
