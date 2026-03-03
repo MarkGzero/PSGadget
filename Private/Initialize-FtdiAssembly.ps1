@@ -102,17 +102,20 @@ function Initialize-FtdiAssembly {
                         # A symlink is not used: snap-confined PowerShell processes cannot follow
                         # symlinks that point outside the snap directory tree, so the symlink would
                         # appear present but the dynamic linker would fail to open it.
+                        # IMPORTANT: a previous session may have left a broken symlink at this path.
+                        # Test-Path returns $false for broken symlinks, so the copy would be attempted
+                        # but Copy-Item fails because an entry (the symlink) already exists.
+                        # Remove any existing file or symlink before copying.
                         $net8Dir   = Join-Path (Join-Path $ModuleRoot 'lib') 'net8'
                         $localCopy = Join-Path $net8Dir 'libftd2xx.so'
-                        if (-not (Test-Path $localCopy)) {
-                            try {
-                                Copy-Item -Path $nativeFound -Destination $localCopy -ErrorAction Stop
-                                Write-Verbose "  Copied libftd2xx.so to $localCopy"
-                            } catch {
-                                Write-Verbose "  Could not copy libftd2xx.so to lib/net8/ (non-fatal): $_"
-                            }
-                        } else {
-                            Write-Verbose "  lib/net8/libftd2xx.so already present"
+                        try {
+                            # Remove-Item with -Force removes both regular files and symlinks.
+                            # -ErrorAction SilentlyContinue is safe: if nothing exists, it is a no-op.
+                            Remove-Item -Path $localCopy -Force -ErrorAction SilentlyContinue
+                            Copy-Item -Path $nativeFound -Destination $localCopy -ErrorAction Stop
+                            Write-Verbose "  Copied libftd2xx.so to $localCopy"
+                        } catch {
+                            Write-Verbose "  Could not copy libftd2xx.so to lib/net8/ (non-fatal): $_"
                         }
 
                         # Fix 3: probe that GetDevices() can reach the native lib.

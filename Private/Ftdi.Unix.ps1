@@ -52,12 +52,21 @@ function Invoke-FtdiUnixEnumerate {
                 $busNum  = ([string](Get-Content (Join-Path $devDir 'busnum')    -Raw -ErrorAction SilentlyContinue)).Trim()
                 $devNum  = ([string](Get-Content (Join-Path $devDir 'devnum')    -Raw -ErrorAction SilentlyContinue)).Trim()
 
-                # Find associated /dev/ttyUSBx by looking for ttyUSB* nodes under this device tree.
-                # Get-ChildItem -ErrorAction SilentlyContinue may return $null (not an empty array)
-                # when there are no matches.  @($null) produces a 1-element array whose only element
-                # is $null, so [0].Name would throw.  Filter nulls explicitly with -ne $null.
-                $ttyDirs    = Get-ChildItem -Path $devDir -Recurse -Filter 'ttyUSB*' -Directory -ErrorAction SilentlyContinue
-                $ttyDirArr  = @($ttyDirs) -ne $null
+                # Find associated /dev/ttyUSBx.
+                # USB sysfs structure: device/interface/driver/ttyUSBx
+                # e.g. /sys/bus/usb/devices/1-2/1-2:1.0/ttyUSB0
+                # Do NOT use -Recurse: sysfs entries in /sys/bus/usb/devices/ are symlinks;
+                # unbounded recursion follows them across the whole sysfs tree and returns
+                # objects with null or unexpected properties that crash downstream code.
+                # Two explicit levels (device -> interface -> ttyUSBx) are sufficient.
+                $ttyDirArr = @(
+                    Get-ChildItem -Path $devDir -Directory -ErrorAction SilentlyContinue |
+                        Where-Object { $_ -ne $null } |             # guard against null entries
+                        ForEach-Object {
+                            Get-ChildItem -Path $_.FullName -Filter 'ttyUSB*' -Directory -ErrorAction SilentlyContinue
+                        } |
+                        Where-Object { $_ -ne $null }
+                )
                 $locationId = if ($ttyDirArr.Count -gt 0) { "/dev/$($ttyDirArr[0].Name)" } else { "usb-bus$busNum-dev$devNum" }
 
                 # If the kernel ftdi_sio (VCP) driver claimed the device, a ttyUSBx will exist.
