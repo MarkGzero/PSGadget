@@ -155,7 +155,21 @@ function Initialize-FtdiAssembly {
                             }
                         }
 
-                        # Fix 3: probe that GetDevices() can reach the native lib.
+                        # Fix 3: explicitly load the native library by absolute path before P/Invoke
+                        # resolves it.  Setting LD_LIBRARY_PATH is not sufficient under snap
+                        # confinement because AppArmor intercepts the environment variable.
+                        # NativeLibrary.Load() pins the .so into the process by exact path,
+                        # bypassing LD_LIBRARY_PATH and snap namespace restrictions entirely.
+                        # If the library is already loaded, Load() is a no-op (returns the handle).
+                        try {
+                            $nativeHandle = [System.Runtime.InteropServices.NativeLibrary]::Load($nativeFound)
+                            Write-Verbose "  NativeLibrary.Load: OK ($nativeFound)"
+                        } catch {
+                            Write-Warning "  NativeLibrary.Load failed for $nativeFound : $($_.Exception.Message)"
+                            Write-Warning "  IoT backend will not be available."
+                        }
+
+                        # Fix 4: probe that GetDevices() can reach the native lib.
                         # Two distinct failure modes:
                         #   a) 'Unable to load shared library' -- the native libftd2xx.so is not
                         #      visible to the runtime (missing file, wrong path, snap sandbox).
