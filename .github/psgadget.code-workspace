@@ -19,6 +19,7 @@
 			"**/summitpiserver/**": true
 		},
 		"editor.formatOnSave": false,
-		"powershell.scriptAnalysis.enable": true
+		"powershell.scriptAnalysis.enable": true,
+		"powershell.cwd": "psgadget"
 	}
 }
