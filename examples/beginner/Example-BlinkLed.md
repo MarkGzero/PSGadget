@@ -17,7 +17,7 @@ No prior hardware experience assumed.
 **Software**
 - PowerShell 7 (download free from https://aka.ms/powershell)
 - PSGadget installed (run `Install-Module PSGadget -Scope CurrentUser`)
-- FTDI D2XX driver installed (Windows -- see [INSTALL.md](../../docs/INSTALL.md))
+- FTDI D2XX driver installed (Windows -- see [Getting Started](../../docs/wiki/Getting-Started.md))
 
 ---
 

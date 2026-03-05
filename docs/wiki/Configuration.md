@@ -233,4 +233,4 @@ The next import recreates `config.json` with all defaults.
 
 - [Function Reference: Get-PsGadgetConfig](Function-Reference.md#get-psgadgetconfig)
 - [Function Reference: Set-PsGadgetConfig](Function-Reference.md#set-psgadgetconfig)
-- [Full Key Detail](../about_PsGadgetConfig.md)
+- Full key details are included above in this page. (Original about_PsGadgetConfig.md has been archived.)
