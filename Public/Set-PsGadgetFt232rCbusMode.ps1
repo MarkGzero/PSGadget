@@ -22,7 +22,7 @@ function Set-PsGadgetFt232rCbusMode {
     Workflow:
         1. Run Set-PsGadgetFt232rCbusMode once per device to enable GPIO on CBUS pins.
         2. Accept the prompt to cycle the port, or unplug and replug the USB cable.
-        3. Use Set-PsGadgetGpio -DeviceIndex N -Pins @(0..3) -State HIGH/LOW freely.
+        3. Use Set-PsGadgetGpio -Index N -Pins @(0..3) -State HIGH/LOW freely.
 
     Available -Mode values:
         FT_CBUS_IOMODE       GPIO / bit-bang  [DEFAULT - enables Set-PsGadgetGpio]

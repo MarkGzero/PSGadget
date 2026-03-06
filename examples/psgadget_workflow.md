@@ -79,13 +79,12 @@ ACBUS0-7 (physical pins 21-31). No EEPROM programming is required.
 List-PsGadgetFtdi | Format-Table
 
 # Set ACBUS2 and ACBUS4 HIGH
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(2, 4) -State HIGH
-
+Set-PsGadgetGpio -Index 0 -Pins @(2, 4) -State HIGH
 # Pulse ACBUS0 LOW for 500 ms then restore
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State LOW -DurationMs 500
+Set-PsGadgetGpio -Index 0 -Pins @(0) -State LOW -DurationMs 500
 
 # Turn both off
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(2, 4) -State LOW
+Set-PsGadgetGpio -Index 0 -Pins @(2, 4) -State LOW
 
 # Address by serial number instead of index
 Set-PsGadgetGpio -SerialNumber "FT4ABCDE" -Pins @(2) -State HIGH
@@ -220,16 +219,16 @@ Get-PsGadgetFtdiEeprom -Index 0 | Select-Object Cbus0, Cbus1, Cbus2, Cbus3
 
 ```powershell
 # Set CBUS0 and CBUS1 HIGH (use your D2XX-enabled index from Step 1)
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0, 1) -State HIGH
+Set-PsGadgetGpio -Index 0 -Pins @(0, 1) -State HIGH
 
 # Pulse CBUS0 LOW for 200 ms
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State LOW -DurationMs 200
+Set-PsGadgetGpio -Index 0 -Pins @(0) -State LOW -DurationMs 200
 
 # Restore
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0, 1) -State LOW
+Set-PsGadgetGpio -Index 0 -Pins @(0, 1) -State LOW
 
 # Pins 4-7 will throw a clear error (CBUS bit-bang supports 0-3 only):
-# Set-PsGadgetGpio -DeviceIndex 0 -Pins @(4) -State HIGH
+# Set-PsGadgetGpio -Index 0 -Pins @(4) -State HIGH
 # ERROR: Pin(s) [4] are out of range for CBUS bit-bang. FT232R CBUS GPIO supports CBUS0-3 only.
 ```
 
@@ -462,7 +461,7 @@ All fields are optional; omitted keys use built-in defaults.
 | HasMpsse             | True            | False                |
 | SPI / I2C / JTAG     | Yes (MPSSE)     | No                   |
 | SSD1306 OLED display | Yes             | No                   |
-| Async bit-bang ADBUS | No              | Not yet implemented  |
+| Async bit-bang ADBUS | Yes             | Supported via Set-PsGadgetFtdiMode (AsyncBitBang) |
 | Windows GPIO support | Yes             | Yes                  |
 | Linux GPIO support   | Yes (IoT .NET)  | Yes (native P/Invoke, requires libftd2xx.so) |
 | macOS GPIO support   | Yes (IoT .NET)  | Yes (native P/Invoke, requires libftd2xx.dylib) |

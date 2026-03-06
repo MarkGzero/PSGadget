@@ -232,7 +232,7 @@ backend based on the device's `GpioMethod` (MPSSE or CBUS).
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `-DeviceIndex` | int | ByIndex | Zero-based device index |
+| `-Index` | int | ByIndex | Zero-based device index |
 | `-SerialNumber` | string | BySerial | FTDI serial number |
 | `-Connection` | object | ByConnection | Open connection from `Connect-PsGadgetFtdi` |
 | `-Pins` | int[] | Yes (all sets) | Pin numbers. FT232H: 0-7 (ACBUS). FT232R: 0-3 (CBUS) |
@@ -251,7 +251,7 @@ backend based on the device's `GpioMethod` (MPSSE or CBUS).
 
 ```powershell
 # Set two pins HIGH by index
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0, 1) -State HIGH
+Set-PsGadgetGpio -Index 0 -Pins @(0, 1) -State HIGH
 
 # Pulse LOW for 200 ms
 Set-PsGadgetGpio -SerialNumber "FT4ABCDE" -Pins @(2) -State LOW -DurationMs 200

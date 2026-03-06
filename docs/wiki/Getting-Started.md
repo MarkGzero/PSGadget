@@ -170,13 +170,13 @@ FT232H devices are ready to use immediately.
 
 ```powershell
 # Set ACBUS0 and ACBUS1 HIGH
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0, 1) -State HIGH
+Set-PsGadgetGpio -Index 0 -Pins @(0, 1) -State HIGH
 
 # Pulse ACBUS2 LOW for 250 ms, then release
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(2) -State LOW -DurationMs 250
+Set-PsGadgetGpio -Index 0 -Pins @(2) -State LOW -DurationMs 250
 
 # Turn all back off
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0, 1) -State LOW
+Set-PsGadgetGpio -Index 0 -Pins @(0, 1) -State LOW
 ```
 
 For repeated or scripted use, the OOP interface is cleaner:
@@ -214,7 +214,7 @@ Get-PsGadgetFtdiEeprom -Index 1 | Select-Object Cbus0, Cbus1, Cbus2, Cbus3
 # Expected: FT_CBUS_IOMODE for all four
 
 # Now GPIO works
-Set-PsGadgetGpio -DeviceIndex 1 -Pins @(0) -State HIGH
+Set-PsGadgetGpio -Index 1 -Pins @(0) -State HIGH
 ```
 
 > See [Workflow Reference](../../examples/psgadget_workflow.md) for the full
@@ -255,7 +255,7 @@ $mpy.Invoke("import sys; print(sys.version)")
 ## Addressing by Serial Number or LocationId
 
 Both `Set-PsGadgetGpio` and `New-PsGadgetFtdi` accept `-SerialNumber` or
-`-LocationId` as alternatives to `-Index` / `-DeviceIndex`:
+`-LocationId` as alternatives to `-Index`:
 
 ```powershell
 # Stable across re-plugs on the same USB port

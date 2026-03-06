@@ -118,6 +118,20 @@ class PsGadgetFtdi : System.IDisposable {
         $this.SetPin($Pin, $state)
     }
 
+    # Set the baud rate on an open connection (useful for async bit-bang timing)
+    [void] SetBaudRate([uint32]$BaudRate) {
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new("Device not open. Call Connect() first.")
+        }
+        if (-not $this._connection -or -not ($this._connection | Get-Member -Name SetBaudRate -MemberType Method -ErrorAction SilentlyContinue)) {
+            throw "Underlying connection object does not support SetBaudRate"
+        }
+        $status = $this._connection.SetBaudRate($BaudRate)
+        if ($status -ne 0) {
+            throw "SetBaudRate failed with status $status"
+        }
+    }
+
     # Set multiple GPIO pins simultaneously
     [void] SetPins([int[]]$Pins, [string]$State) {
         $this.Logger.WriteTrace("SetPins([$($Pins -join ',')] $State)")

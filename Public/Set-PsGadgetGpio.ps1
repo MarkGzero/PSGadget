@@ -17,7 +17,7 @@ function Set-PsGadgetGpio {
 
     Supports timing control and multiple pin operations.
     
-    .PARAMETER DeviceIndex
+    .PARAMETER Index
     Index of the FTDI device to control (from List-PsGadgetFtdi)
     
     .PARAMETER Pins
@@ -34,7 +34,7 @@ function Set-PsGadgetGpio {
     Optional duration to hold the pin state in milliseconds
     
     .PARAMETER SerialNumber
-    Alternative to DeviceIndex - specify device by serial number
+    Alternative to Index - specify device by serial number
 
     .PARAMETER Connection
     An already-open connection object returned by Connect-PsGadgetFtdi.
@@ -42,11 +42,11 @@ function Set-PsGadgetGpio {
     
     .EXAMPLE
     # FT232H / MPSSE device - control ACBUS pins
-    Set-PsGadgetGpio -DeviceIndex 0 -Pins @(2, 4) -State HIGH
+    Set-PsGadgetGpio -Index 0 -Pins @(2, 4) -State HIGH
     
     .EXAMPLE
     # FT232R CBUS GPIO (after running Set-PsGadgetFt232rCbusMode -Index 1 once)
-    Set-PsGadgetGpio -DeviceIndex 1 -Pins @(0, 1) -State HIGH
+    Set-PsGadgetGpio -Index 1 -Pins @(0, 1) -State HIGH
     
     .EXAMPLE
     # Pulse ACBUS0 LOW for 500ms
@@ -69,9 +69,9 @@ function Set-PsGadgetGpio {
     
     .EXAMPLE
     # LED Control Example (FT232H)
-    Set-PsGadgetGpio -DeviceIndex 0 -Pins @(2) -State HIGH   # Red LED on
-    Set-PsGadgetGpio -DeviceIndex 0 -Pins @(4) -State HIGH   # Green LED on
-    Set-PsGadgetGpio -DeviceIndex 0 -Pins @(2, 4) -State LOW  # Both off
+    Set-PsGadgetGpio -Index 0 -Pins @(2) -State HIGH   # Red LED on
+    Set-PsGadgetGpio -Index 0 -Pins @(4) -State HIGH   # Green LED on
+    Set-PsGadgetGpio -Index 0 -Pins @(2, 4) -State LOW  # Both off
     
     .NOTES
     Requires FTDI D2XX drivers and FTD2XX_NET.dll assembly.
@@ -83,7 +83,7 @@ function Set-PsGadgetGpio {
     [CmdletBinding(DefaultParameterSetName = 'ByIndex')]
     param(
         [Parameter(Mandatory = $true, ParameterSetName = 'ByIndex', Position = 0)]
-        [int]$DeviceIndex,
+        [int]$Index,
         
         [Parameter(Mandatory = $true, ParameterSetName = 'BySerial')]
         [string]$SerialNumber,
@@ -138,10 +138,10 @@ function Set-PsGadgetGpio {
             # Find target device
             $targetDevice = $null
             if ($PSCmdlet.ParameterSetName -eq 'ByIndex') {
-                if ($DeviceIndex -lt 0 -or $DeviceIndex -ge $devices.Count) {
-                    throw "Device index $DeviceIndex is out of range. Available devices: 0-$($devices.Count - 1)"
+                if ($Index -lt 0 -or $Index -ge $devices.Count) {
+                    throw "Device index $Index is out of range. Available devices: 0-$($devices.Count - 1)"
                 }
-                $targetDevice = $devices[$DeviceIndex]
+                $targetDevice = $devices[$Index]
             } else {
                 $targetDevice = $devices | Where-Object { $_.SerialNumber -eq $SerialNumber }
                 if (-not $targetDevice) {
@@ -230,11 +230,32 @@ function Set-PsGadgetGpio {
                 }
 
                 'AsyncBitBang' {
-                    # FT232BM / FT232AM - async bit-bang on ADBUS0-7 (not yet implemented)
-                    throw (
-                        "Async bit-bang GPIO (ADBUS0-7) for '$($targetDevice.Type)' is not yet implemented. " +
-                        "Note: $($targetDevice.CapabilityNote)"
-                    )
+                    # Async bit-bang on ADBUS0-7 (UART data pins). This mode must be
+                    # enabled beforehand via Set-PsGadgetFtdiMode -Mode AsyncBitBang
+                    # with an appropriate direction mask (default 0xFF).
+                    # We simply write a byte with the requested pin states to the
+                    # device; higher-level sequence streaming is handled by user
+                    # scripts (see example StepperMotor.md).
+                    $badPins = $Pins | Where-Object { $_ -lt 0 -or $_ -gt 7 }
+                    if ($badPins) {
+                        throw "Pin(s) [$($badPins -join ', ')] are out of range for async bit-bang. ADBUS GPIO supports pins 0-7."
+                    }
+                    # build output byte
+                    [int]$outByte = 0
+                    foreach ($p in $Pins) {
+                        if ($State -in @('HIGH','H','1')) {
+                            $outByte = $outByte -bor (1 -shl $p)
+                        }
+                    }
+                    $written = 0
+                    $Connection.Write([byte[]]@($outByte), 1, [ref]$written) | Out-Null
+                    if ($DurationMs) {
+                        Start-Sleep -Milliseconds $DurationMs
+                        # clear outputs after duration
+                        $Connection.Write([byte[]]@(0), 1, [ref]$written) | Out-Null
+                    }
+                    $pinLabel = "ADBUS pins [$($Pins -join ', ')]"
+                    $success = $true
                 }
 
                 default {

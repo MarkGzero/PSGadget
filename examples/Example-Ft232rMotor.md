@@ -405,9 +405,9 @@ try {
 
 ```powershell
 # One-liner to turn motor on for 3 seconds then off
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State HIGH
+Set-PsGadgetGpio -Index 0 -Pins @(0) -State HIGH
 Start-Sleep -Seconds 3
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State LOW
+Set-PsGadgetGpio -Index 0 -Pins @(0) -State LOW
 ```
 
 > **Pro**: `-DurationMs` parameter holds the state for the specified milliseconds then
@@ -415,7 +415,7 @@ Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State LOW
 
 ```powershell
 # Pulse CBUS0 HIGH for 500 ms, then LOW automatically
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State HIGH -DurationMs 500
+Set-PsGadgetGpio -Index 0 -Pins @(0) -State HIGH -DurationMs 500
 ```
 
 ---
@@ -474,9 +474,9 @@ Use one of those Index values.
 First confirm the pin is actually toggling (no motor connected):
 
 ```powershell
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State HIGH
+Set-PsGadgetGpio -Index 0 -Pins @(0) -State HIGH
 # Probe CBUS0 to GND with a multimeter - should read ~5V
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State LOW
+Set-PsGadgetGpio -Index 0 -Pins @(0) -State LOW
 # Should read 0V
 ```
 
@@ -510,9 +510,9 @@ Set-PsGadgetFt232rCbusMode -Index 0 -Pins @(0)   # CBUS0 only
 Set-PsGadgetFt232rCbusMode -Index 0               # all CBUS0-3
 
 # Runtime GPIO
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State HIGH
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State LOW
-Set-PsGadgetGpio -DeviceIndex 0 -Pins @(0) -State HIGH -DurationMs 500
+Set-PsGadgetGpio -Index 0 -Pins @(0) -State HIGH
+Set-PsGadgetGpio -Index 0 -Pins @(0) -State LOW
+Set-PsGadgetGpio -Index 0 -Pins @(0) -State HIGH -DurationMs 500
 
 # OOP
 $dev = New-PsGadgetFtdi -Index 0   # connected immediately

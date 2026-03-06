@@ -136,7 +136,7 @@ Get-PsGadgetFtdiEeprom -PsGadget <PsGadgetFtdi>
 Sets GPIO pin state on a connected FTDI device.
 
 ```powershell
-Set-PsGadgetGpio -DeviceIndex <int> -Pins <int[]> -State <string> [-DurationMs <int>]
+Set-PsGadgetGpio -Index <int> -Pins <int[]> -State <string> [-DurationMs <int>]
 Set-PsGadgetGpio -SerialNumber <string> -Pins <int[]> -State <string> [-DurationMs <int>]
 Set-PsGadgetGpio -Connection <object> -Pins <int[]> -State <string> [-DurationMs <int>]
 Set-PsGadgetGpio -PsGadget <PsGadgetFtdi> -Pins <int[]> -State <string> [-DurationMs <int>]
@@ -146,7 +146,7 @@ Set-PsGadgetGpio -PsGadget <PsGadgetFtdi> -Pins <int[]> -State <string> [-Durati
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| DeviceIndex | int | Zero-based device index |
+| Index | int | Zero-based device index |
 | SerialNumber | string | Device serial number |
 | Connection | object | Open connection from `Connect-PsGadgetFtdi` |
 | PsGadget | PsGadgetFtdi | Object from `New-PsGadgetFtdi` |
