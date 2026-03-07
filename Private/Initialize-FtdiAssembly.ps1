@@ -29,6 +29,7 @@ function Initialize-FtdiAssembly {
         $psVersion  = $PSVersionTable.PSVersion.Major
         $dotnetMajor = [System.Environment]::Version.Major                     # 4 on net48, 6/8/9 on modern
         $isWindows  = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+        $isMacOS    = (-not $isWindows) -and (try { (& uname -s 2>$null).Trim() -eq 'Darwin' } catch { $false })
 
         # ------------------------------------------------------------------
         # Path A: PS 7.4+ on .NET 8+ -> load IoT DLLs from lib/net8/
@@ -76,17 +77,26 @@ function Initialize-FtdiAssembly {
                 # user gets a clear message at module import rather than a wall of P/Invoke
                 # errors when they first call Connect-PsGadgetFtdi.
                 if (-not $isWindows) {
-                    $net8Dir = Join-Path (Join-Path $ModuleRoot 'lib') 'net8'
-                    $nativeLibLocations = @(
-                        # Check the local lib/net8/ copy first - this survives snap confinement
-                        # because it is inside the module directory (always readable by pwsh).
-                        (Join-Path $net8Dir 'libftd2xx.so'),
-                        '/usr/local/lib/libftd2xx.so',
-                        '/usr/lib/libftd2xx.so',
-                        '/usr/lib/x86_64-linux-gnu/libftd2xx.so',
-                        '/usr/lib/aarch64-linux-gnu/libftd2xx.so',
-                        '/usr/lib/arm-linux-gnueabihf/libftd2xx.so'
-                    )
+                    $net8Dir    = Join-Path (Join-Path $ModuleRoot 'lib') 'net8'
+                    $nativeLibName = if ($isMacOS) { 'libftd2xx.dylib' } else { 'libftd2xx.so' }
+                    if ($isMacOS) {
+                        $nativeLibLocations = @(
+                            (Join-Path $net8Dir 'libftd2xx.dylib'),
+                            '/usr/local/lib/libftd2xx.dylib',
+                            '/usr/lib/libftd2xx.dylib'
+                        )
+                    } else {
+                        $nativeLibLocations = @(
+                            # Check the local lib/net8/ copy first - this survives snap confinement
+                            # because it is inside the module directory (always readable by pwsh).
+                            (Join-Path $net8Dir 'libftd2xx.so'),
+                            '/usr/local/lib/libftd2xx.so',
+                            '/usr/lib/libftd2xx.so',
+                            '/usr/lib/x86_64-linux-gnu/libftd2xx.so',
+                            '/usr/lib/aarch64-linux-gnu/libftd2xx.so',
+                            '/usr/lib/arm-linux-gnueabihf/libftd2xx.so'
+                        )
+                    }
                     # Use [System.IO.FileInfo]::Exists instead of Test-Path.
                     # Snap-confined pwsh overrides Test-Path with a provider that can
                     # return $true for paths outside the snap tree even when the file
@@ -96,16 +106,19 @@ function Initialize-FtdiAssembly {
                         try { ([System.IO.FileInfo]::new($_)).Exists } catch { $false }
                     } | Select-Object -First 1
                     if ($nativeFound) {
-                        Write-Verbose "  Native libftd2xx.so found at: $nativeFound"
+                        Write-Verbose "  Native $nativeLibName found at: $nativeFound"
 
                         # .NET P/Invoke on Linux searches LD_LIBRARY_PATH and the assembly directory.
-                        # Snap-confined PowerShell processes cannot see /usr/local/lib via ldconfig.
-                        # Fix 1: add the native lib's directory to LD_LIBRARY_PATH for this session.
-                        $nativeLibDir = [System.IO.Path]::GetDirectoryName($nativeFound)
-                        $existing = $env:LD_LIBRARY_PATH
-                        if (-not ($existing -split ':' | Where-Object { $_ -eq $nativeLibDir })) {
-                            $env:LD_LIBRARY_PATH = if ($existing) { "${nativeLibDir}:${existing}" } else { $nativeLibDir }
-                            Write-Verbose "  Set LD_LIBRARY_PATH += $nativeLibDir"
+                        # On macOS, SIP strips DYLD_LIBRARY_PATH for system processes; use NativeLibrary.Load()
+                        # with an absolute path instead (done below in Fix 3).
+                        if (-not $isMacOS) {
+                            # Fix 1: add the native lib's directory to LD_LIBRARY_PATH for this session.
+                            $nativeLibDir = [System.IO.Path]::GetDirectoryName($nativeFound)
+                            $existing = $env:LD_LIBRARY_PATH
+                            if (-not ($existing -split ':' | Where-Object { $_ -eq $nativeLibDir })) {
+                                $env:LD_LIBRARY_PATH = if ($existing) { "${nativeLibDir}:${existing}" } else { $nativeLibDir }
+                                Write-Verbose "  Set LD_LIBRARY_PATH += $nativeLibDir"
+                            }
                         }
 
                         # Fix 2: copy libftd2xx.so into lib/net8/ so that .NET assembly-directory
@@ -127,12 +140,12 @@ function Initialize-FtdiAssembly {
                         #   3. If Copy-Item fails (snap AppArmor, permissions, etc.) warn the user
                         #      to run the copy from a normal bash terminal, not from snap pwsh.
                         $net8Dir   = Join-Path (Join-Path $ModuleRoot 'lib') 'net8'
-                        $localCopy = Join-Path $net8Dir 'libftd2xx.so'
+                        $localCopy = Join-Path $net8Dir $nativeLibName
                         $needCopy  = $true
                         try {
                             $fi = [System.IO.FileInfo]::new($localCopy)
                             if ($fi.Exists -and $fi.Length -gt 0) {
-                                Write-Verbose "  libftd2xx.so already in lib/net8/ ($($fi.Length) bytes) - skipping copy"
+                                Write-Verbose "  $nativeLibName already in lib/net8/ ($($fi.Length) bytes) - skipping copy"
                                 $needCopy = $false
                             } else {
                                 # Broken symlink or zero-byte file - remove before copying
@@ -231,46 +244,66 @@ function Initialize-FtdiAssembly {
                         # crash at GC finalization time. FT232R EEPROM/CBUS operations via FTD2XX_NET
                         # are therefore not available on Linux; stub mode is the correct fallback.
                     } else {
-                        # Detect arch to guide the user to the right tarball
                         $arch = ''
-                        try { $arch = (uname -m 2>$null).Trim() } catch {}
-                        $archTgz  = switch ($arch) {
-                            'x86_64'  { 'libftd2xx-linux-x86_64-1.4.34.tgz' }
-                            'aarch64' { 'libftd2xx-linux-arm-v8-1.4.34.tgz' }
-                            'armv7l'  { 'libftd2xx-linux-arm-v7-hf-1.4.34.tgz' }
-                            default   { 'libftd2xx-linux-<arch>-1.4.34.tgz' }
+                        try { $arch = (& uname -m 2>$null).Trim() } catch {}
+                        if ($isMacOS) {
+                            $net8CopyDest = Join-Path $net8Dir 'libftd2xx.dylib'
+                            Write-Warning (
+                                "IoT FTDI DLLs loaded but native 'libftd2xx.dylib' was not found. " +
+                                "Hardware access will fall back to stub mode until it is installed.`n`n" +
+                                "Run the following in Terminal (not pwsh) to install (arch: $arch):`n" +
+                                "----------------------------------------------------------------------`n" +
+                                "# Download the D2XX macOS package from FTDI:`n" +
+                                "# https://ftdichip.com/drivers/d2xx-drivers/`n" +
+                                "# Open the .dmg or .pkg and run the installer, OR manually:`n" +
+                                "sudo cp /path/to/libftd2xx.dylib /usr/local/lib/`n" +
+                                "# Copy into lib/net8/ so the module can load it directly:`n" +
+                                "cp /usr/local/lib/libftd2xx.dylib '$net8CopyDest'`n" +
+                                "# NOTE: AppleUSBFTDI kext may claim the device before D2XX. To unload:`n" +
+                                "# sudo kextunload -b com.apple.driver.AppleUSBFTDI`n" +
+                                "----------------------------------------------------------------------`n" +
+                                "Then in pwsh: Import-Module PSGadget -Force"
+                            )
+                        } else {
+                            # Linux: detect arch to guide the user to the right tarball
+                            $archTgz  = switch ($arch) {
+                                'x86_64'  { 'libftd2xx-linux-x86_64-1.4.34.tgz' }
+                                'aarch64' { 'libftd2xx-linux-arm-v8-1.4.34.tgz' }
+                                'armv7l'  { 'libftd2xx-linux-arm-v7-hf-1.4.34.tgz' }
+                                default   { 'libftd2xx-linux-<arch>-1.4.34.tgz' }
+                            }
+                            $archUrl  = switch ($arch) {
+                                'x86_64'  { 'https://ftdichip.com/wp-content/uploads/2025/11/libftd2xx-linux-x86_64-1.4.34.tgz' }
+                                'aarch64' { 'https://ftdichip.com/drivers/d2xx-drivers/ (select ARM64 v8)' }
+                                'armv7l'  { 'https://ftdichip.com/drivers/d2xx-drivers/ (select ARM v7 HF)' }
+                                default   { 'https://ftdichip.com/drivers/d2xx-drivers/' }
+                            }
+                            $net8CopyDest = Join-Path $net8Dir 'libftd2xx.so'
+                            Write-Warning (
+                                "IoT FTDI DLLs loaded but native 'libftd2xx.so' was not found. " +
+                                "Hardware access will fall back to stub mode until it is installed.`n`n" +
+                                "Run the following in bash (not pwsh) to install (arch: $arch):`n" +
+                                "----------------------------------------------------------------------`n" +
+                                "# Step 1: download and extract`n" +
+                                "cd /tmp`n" +
+                                "wget '$archUrl' -O '$archTgz'`n" +
+                                "tar xzf '$archTgz'`n" +
+                                "# Step 2: find the versioned .so and install it`n" +
+                                "#   (the extracted subdirectory name varies by arch/version)`n" +
+                                "versioned=`$(find /tmp -maxdepth 3 -name 'libftd2xx.so.*' -not -path '*/usr/*' | head -1)`n" +
+                                "sudo cp `"`$versioned`" /usr/local/lib/`n" +
+                                "sudo rm -f /usr/local/lib/libftd2xx.so`n" +
+                                "sudo ln -sf `"`$versioned`" /usr/local/lib/libftd2xx.so`n" +
+                                "sudo ldconfig`n" +
+                                "# Step 3: copy versioned .so into lib/net8/ for snap-confined pwsh`n" +
+                                "cp `"`$versioned`" '$net8CopyDest'`n" +
+                                "# NOTE: D2XX and ftdi_sio (VCP) cannot share the device.`n" +
+                                "# If device shows as /dev/ttyUSBx: sudo rmmod ftdi_sio`n" +
+                                "# To make permanent: echo 'blacklist ftdi_sio' | sudo tee /etc/modprobe.d/ftdi-d2xx.conf`n" +
+                                "----------------------------------------------------------------------`n" +
+                                "Then in pwsh: Import-Module PSGadget -Force"
+                            )
                         }
-                        $archUrl  = switch ($arch) {
-                            'x86_64'  { 'https://ftdichip.com/wp-content/uploads/2025/11/libftd2xx-linux-x86_64-1.4.34.tgz' }
-                            'aarch64' { 'https://ftdichip.com/drivers/d2xx-drivers/ (select ARM64 v8)' }
-                            'armv7l'  { 'https://ftdichip.com/drivers/d2xx-drivers/ (select ARM v7 HF)' }
-                            default   { 'https://ftdichip.com/drivers/d2xx-drivers/' }
-                        }
-                        $net8CopyDest = Join-Path $net8Dir 'libftd2xx.so'
-                        Write-Warning (
-                            "IoT FTDI DLLs loaded but native 'libftd2xx.so' was not found. " +
-                            "Hardware access will fall back to stub mode until it is installed.`n`n" +
-                            "Run the following in bash (not pwsh) to install (arch: $arch):`n" +
-                            "----------------------------------------------------------------------`n" +
-                            "# Step 1: download and extract`n" +
-                            "cd /tmp`n" +
-                            "wget '$archUrl' -O '$archTgz'`n" +
-                            "tar xzf '$archTgz'`n" +
-                            "# Step 2: find the versioned .so and install it`n" +
-                            "#   (the extracted subdirectory name varies by arch/version)`n" +
-                            "versioned=`$(find /tmp -maxdepth 3 -name 'libftd2xx.so.*' -not -path '*/usr/*' | head -1)`n" +
-                            "sudo cp `"`$versioned`" /usr/local/lib/`n" +
-                            "sudo rm -f /usr/local/lib/libftd2xx.so`n" +
-                            "sudo ln -sf `"`$versioned`" /usr/local/lib/libftd2xx.so`n" +
-                            "sudo ldconfig`n" +
-                            "# Step 3: copy versioned .so into lib/net8/ for snap-confined pwsh`n" +
-                            "cp `"`$versioned`" '$net8CopyDest'`n" +
-                            "# NOTE: D2XX and ftdi_sio (VCP) cannot share the device.`n" +
-                            "# If device shows as /dev/ttyUSBx: sudo rmmod ftdi_sio`n" +
-                            "# To make permanent: echo 'blacklist ftdi_sio' | sudo tee /etc/modprobe.d/ftdi-d2xx.conf`n" +
-                            "----------------------------------------------------------------------`n" +
-                            "Then in pwsh: Import-Module PSGadget -Force"
-                        )
                     }
                 } else {
                     # Windows: IoT managed DLLs loaded; native ftd2xx.dll is in system PATH via CDM driver.

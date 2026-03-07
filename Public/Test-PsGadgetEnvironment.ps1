@@ -29,9 +29,10 @@ function Test-PsGadgetEnvironment {
     param()
 
     $runningOnWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+    $runningOnMacOS   = (-not $runningOnWindows) -and (try { (& uname -s 2>$null).Trim() -eq 'Darwin' } catch { $false })
     $psVersion = $PSVersionTable.PSVersion
     $dotnet    = [System.Environment]::Version
-    $platform  = if ($runningOnWindows) { 'Windows' } else { 'Linux/Unix' }
+    $platform  = if ($runningOnWindows) { 'Windows' } elseif ($runningOnMacOS) { 'macOS' } else { 'Linux' }
 
     # ------------------------------------------------------------------
     # Determine active backend from module-scope flags set at import time
@@ -78,15 +79,23 @@ function Test-PsGadgetEnvironment {
     if (-not $runningOnWindows) {
         $moduleNet8Dir = Join-Path (Join-Path $PSScriptRoot '..') 'lib/net8'
         $moduleNet8Dir = [System.IO.Path]::GetFullPath($moduleNet8Dir)
-        $nativeLibLocations = @(
-            # Local copy inside lib/net8/ - always readable by pwsh regardless of snap confinement
-            (Join-Path $moduleNet8Dir 'libftd2xx.so'),
-            '/usr/local/lib/libftd2xx.so',
-            '/usr/lib/libftd2xx.so',
-            '/usr/lib/x86_64-linux-gnu/libftd2xx.so',
-            '/usr/lib/aarch64-linux-gnu/libftd2xx.so',
-            '/usr/lib/arm-linux-gnueabihf/libftd2xx.so'
-        )
+        if ($runningOnMacOS) {
+            $nativeLibLocations = @(
+                (Join-Path $moduleNet8Dir 'libftd2xx.dylib'),
+                '/usr/local/lib/libftd2xx.dylib',
+                '/usr/lib/libftd2xx.dylib'
+            )
+        } else {
+            $nativeLibLocations = @(
+                # Local copy inside lib/net8/ - always readable by pwsh regardless of snap confinement
+                (Join-Path $moduleNet8Dir 'libftd2xx.so'),
+                '/usr/local/lib/libftd2xx.so',
+                '/usr/lib/libftd2xx.so',
+                '/usr/lib/x86_64-linux-gnu/libftd2xx.so',
+                '/usr/lib/aarch64-linux-gnu/libftd2xx.so',
+                '/usr/lib/arm-linux-gnueabihf/libftd2xx.so'
+            )
+        }
         # Use [System.IO.FileInfo]::Exists instead of Test-Path.
         # Snap-confined pwsh overrides Test-Path with a provider that returns $true
         # for paths outside the snap tree even when those files are not accessible
@@ -100,25 +109,44 @@ function Test-PsGadgetEnvironment {
             $nativeStatus = "[OK] $nativePath"
             $nativeOk     = $true
         } else {
-            $nativeStatus = '[MISSING] libftd2xx.so not found'
-            $nativeOk     = $false
+            $nativeLibName = if ($runningOnMacOS) { 'libftd2xx.dylib' } else { 'libftd2xx.so' }
+            $nativeStatus  = "[MISSING] $nativeLibName not found"
+            $nativeOk      = $false
         }
 
-        # Check if ftdi_sio is blocking D2XX access
-        try {
-            $lsmodOut = & lsmod 2>/dev/null
-            if ($lsmodOut -match 'ftdi_sio') {
-                $nativeStatus += ' [ftdi_sio loaded]'
-                Write-Verbose 'ftdi_sio kernel module is loaded - it claims VCP devices before D2XX can open them.'
-                Write-Verbose 'If hardware does not respond: sudo rmmod ftdi_sio'
-                Write-Verbose 'To make the change permanent: echo "blacklist ftdi_sio" | sudo tee /etc/modprobe.d/ftdi-psgadget.conf'
-            }
-        } catch {}
+        if ($runningOnMacOS) {
+            # Check if AppleUSBFTDI kext is claiming the device
+            try {
+                $kextOut = & kextstat 2>$null
+                if ($kextOut -match 'AppleUSBFTDI') {
+                    $nativeStatus += ' [AppleUSBFTDI loaded]'
+                    Write-Verbose 'AppleUSBFTDI kext is loaded - it may claim VCP devices before D2XX can open them.'
+                    Write-Verbose 'To unload: sudo kextunload -b com.apple.driver.AppleUSBFTDI'
+                }
+            } catch {}
 
-        if (-not $nativeOk) {
-            Write-Verbose 'libftd2xx.so is required for FTDI hardware access on Linux.'
-            Write-Verbose 'Download from: https://ftdichip.com/drivers/d2xx-drivers/'
-            Write-Verbose 'Install: sudo cp libftd2xx.so /usr/local/lib && sudo ldconfig'
+            if (-not $nativeOk) {
+                Write-Verbose 'libftd2xx.dylib is required for FTDI hardware access on macOS.'
+                Write-Verbose 'Download the D2XX macOS package from: https://ftdichip.com/drivers/d2xx-drivers/'
+                Write-Verbose 'Open the DMG and run the installer, or: sudo cp libftd2xx.dylib /usr/local/lib/'
+            }
+        } else {
+            # Check if ftdi_sio is blocking D2XX access (Linux only)
+            try {
+                $lsmodOut = & lsmod 2>/dev/null
+                if ($lsmodOut -match 'ftdi_sio') {
+                    $nativeStatus += ' [ftdi_sio loaded]'
+                    Write-Verbose 'ftdi_sio kernel module is loaded - it claims VCP devices before D2XX can open them.'
+                    Write-Verbose 'If hardware does not respond: sudo rmmod ftdi_sio'
+                    Write-Verbose 'To make the change permanent: echo "blacklist ftdi_sio" | sudo tee /etc/modprobe.d/ftdi-psgadget.conf'
+                }
+            } catch {}
+
+            if (-not $nativeOk) {
+                Write-Verbose 'libftd2xx.so is required for FTDI hardware access on Linux.'
+                Write-Verbose 'Download from: https://ftdichip.com/drivers/d2xx-drivers/'
+                Write-Verbose 'Install: sudo cp libftd2xx.so /usr/local/lib && sudo ldconfig'
+            }
         }
     }
 
@@ -241,9 +269,14 @@ function Test-PsGadgetEnvironment {
         $resultReason   = 'No FTDI backend loaded'
         $resultNextStep = 'Remove-Module PSGadget; Import-Module PSGadget -Verbose'
     } elseif (-not $nativeOk) {
-        $resultStatus   = 'Fail'
-        $resultReason   = 'Native FTDI library not found (libftd2xx.so)'
-        $resultNextStep = 'Download from https://ftdichip.com/drivers/d2xx-drivers/ then: sudo cp libftd2xx.so /usr/local/lib && sudo ldconfig'
+        $resultStatus = 'Fail'
+        if ($runningOnMacOS) {
+            $resultReason   = 'Native FTDI library not found (libftd2xx.dylib)'
+            $resultNextStep = 'Download D2XX macOS package from https://ftdichip.com/drivers/d2xx-drivers/ then: sudo cp libftd2xx.dylib /usr/local/lib/'
+        } else {
+            $resultReason   = 'Native FTDI library not found (libftd2xx.so)'
+            $resultNextStep = 'Download from https://ftdichip.com/drivers/d2xx-drivers/ then: sudo cp libftd2xx.so /usr/local/lib && sudo ldconfig'
+        }
     } else {
         $resultStatus   = 'Fail'
         $resultReason   = 'No FTDI devices detected'
