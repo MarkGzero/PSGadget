@@ -29,7 +29,7 @@ function Initialize-FtdiAssembly {
         $psVersion  = $PSVersionTable.PSVersion.Major
         $dotnetMajor = [System.Environment]::Version.Major                     # 4 on net48, 6/8/9 on modern
         $runningOnWindows  = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
-        $runningOnMacOS    = (-not $runningOnWindows) -and (try { (& uname -s 2>$null).Trim() -eq 'Darwin' } catch { $false })
+        $runningOnMacOS    = (-not $runningOnWindows) -and (& { try { (& uname -s 2>$null).Trim() -eq 'Darwin' } catch { $false } })
 
         # ------------------------------------------------------------------
         # Path A: PS 7.4+ on .NET 8+ -> load IoT DLLs from lib/net8/

@@ -29,7 +29,7 @@ function Test-PsGadgetEnvironment {
     param()
 
     $runningOnWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
-    $runningOnMacOS   = (-not $runningOnWindows) -and (try { (& uname -s 2>$null).Trim() -eq 'Darwin' } catch { $false })
+    $runningOnMacOS   = (-not $runningOnWindows) -and (& { try { (& uname -s 2>$null).Trim() -eq 'Darwin' } catch { $false } })
     $psVersion = $PSVersionTable.PSVersion
     $dotnet    = [System.Environment]::Version
     $platform  = if ($runningOnWindows) { 'Windows' } elseif ($runningOnMacOS) { 'macOS' } else { 'Linux' }
