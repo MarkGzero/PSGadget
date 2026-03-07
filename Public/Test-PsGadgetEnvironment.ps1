@@ -129,6 +129,8 @@ function Test-PsGadgetEnvironment {
                 Write-Verbose 'libftd2xx.dylib is required for FTDI hardware access on macOS.'
                 Write-Verbose 'Download the D2XX macOS package from: https://ftdichip.com/drivers/d2xx-drivers/'
                 Write-Verbose 'Open the DMG and run the installer, or: sudo cp libftd2xx.dylib /usr/local/lib/'
+                Write-Verbose 'NOTE: macOS ships AppleUSBFTDI which claims FTDI devices before D2XX can open them.'
+                Write-Verbose 'After installing libftd2xx.dylib, unload it with: sudo kextunload -b com.apple.driver.AppleUSBFTDI'
             }
         } else {
             # Check if ftdi_sio is blocking D2XX access (Linux only)

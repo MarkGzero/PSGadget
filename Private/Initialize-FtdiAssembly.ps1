@@ -175,7 +175,7 @@ function Initialize-FtdiAssembly {
                         # bypassing LD_LIBRARY_PATH and snap namespace restrictions entirely.
                         # If the library is already loaded, Load() is a no-op (returns the handle).
                         try {
-                            $nativeHandle = [System.Runtime.InteropServices.NativeLibrary]::Load($nativeFound)
+                            $null = [System.Runtime.InteropServices.NativeLibrary]::Load($nativeFound)
                             Write-Verbose "  NativeLibrary.Load: OK ($nativeFound)"
 
                             # Register P/Invoke declarations so module code can call
