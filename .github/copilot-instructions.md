@@ -28,8 +28,8 @@
 
 ## Architecture
 
-**Module Load Order**: [PsGadget.psm1](PsGadget.psm1) loads in this strict order - never change it:
-1. Classes (dependency order): `PsGadgetLogger.ps1`, `PsGadgetFtdi.ps1`, `PsGadgetMpy.ps1`
+**Module Load Order**: [PSGadget.psm1](PSGadget.psm1) loads in this strict order - never change it:
+1. Classes (dependency order): `PsGadgetLogger.ps1`, `PsGadgetSsd1306.ps1`, `PsGadgetFtdi.ps1`, `PsGadgetMpy.ps1`
 2. All Private functions (glob)
 3. All Public functions (glob)
 4. FTDI assembly initialization via `Initialize-FtdiAssembly` (sets `$script:FtdiInitialized`)
@@ -39,12 +39,23 @@
 - `lib/native/FTD2XX.dll` - native Windows D2XX driver
 - `lib/net48/FTD2XX_NET.dll` - managed wrapper for PowerShell 5.1 (net48)
 - `lib/netstandard20/FTD2XX_NET.dll` - managed wrapper for PowerShell 7+ (netstandard2.0)
+- `lib/net8/FTD2XX_NET.dll` - managed wrapper for .NET 8+ (used on Linux PS7.4+)
+- `lib/ftdisharp/` - FtdiSharp binaries for I2C/SPI on Windows
 
-[Initialize-FtdiAssembly.ps1](Private/Initialize-FtdiAssembly.ps1) selects the correct DLL based on `$PSVersionTable.PSVersion.Major` (5 -> net48, 7+ -> netstandard20) and loads it via `[Reflection.Assembly]::LoadFrom()`. On Unix it returns `$false` and the module operates in stub mode.
+[Initialize-FtdiAssembly.ps1](Private/Initialize-FtdiAssembly.ps1) selects the correct managed DLL based on PS version (5 -> net48, 7+ -> netstandard20/net8) and loads it via `[Reflection.Assembly]::LoadFrom()`. On Linux/macOS it also attempts to load `libftd2xx.so` via `[System.Runtime.InteropServices.NativeLibrary]::Load()` and calls `Initialize-FtdiNative` to set up the P/Invoke layer (sets `$script:FtdiNativeAvailable`). Returns `$false` and operates in stub mode only when no backend is available.
 
-**Platform Abstraction**: Hardware backends in [Private/](Private/) follow the pattern: `Technology.Backend.ps1` (common interface), `Technology.Windows.ps1` / `Technology.Unix.ps1` (platform-specific). Use [Ftdi.Backend.ps1](Private/Ftdi.Backend.ps1) as the template.
+**Platform Abstraction**: Three hardware backends are implemented:
+- **D2XX / FTD2XX_NET** (Windows): managed wrapper via `Ftdi.Windows.ps1`; full CBUS, EEPROM, MPSSE
+- **IoT** (Linux/macOS, PS7.4+/.NET8+): `Iot.Device.Bindings` via `Ftdi.IoT.ps1`; FT232H MPSSE, I2C scan
+- **Native P/Invoke** (Linux/macOS): direct `libftd2xx.so` calls via `Ftdi.PInvoke.ps1`; FT232R CBUS GPIO and EEPROM write
+
+Backend files in [Private/](Private/) follow the pattern: `Technology.Backend.ps1` (common interface), `Technology.Windows.ps1` / `Technology.Unix.ps1` / `Technology.IoT.ps1` (platform-specific). Use [Ftdi.Backend.ps1](Private/Ftdi.Backend.ps1) as the template.
 
 **MPSSE Support**: [Ftdi.Mpsse.ps1](Private/Ftdi.Mpsse.ps1) provides FTDI MPSSE (Multi-Protocol Synchronous Serial Engine) helpers for SPI/I2C/JTAG bit-bang operations on top of the D2XX layer.
+
+**CBUS GPIO**: [Ftdi.Cbus.ps1](Private/Ftdi.Cbus.ps1) provides platform-aware CBUS bit-bang helpers. On Windows it calls through FTD2XX_NET; on Linux/macOS it calls `Invoke-FtdiNativeSetBitMode` from the P/Invoke layer.
+
+**Native P/Invoke Layer**: [Ftdi.PInvoke.ps1](Private/Ftdi.PInvoke.ps1) defines a `[FtdiNative]` C# type via `Add-Type` with `DllImport` bindings for `FT_Open`, `FT_Close`, `FT_SetBitMode`, `FT_ReadEE`, and `FT_WriteEE`. PowerShell wrappers: `Invoke-FtdiNativeOpen/Close/SetBitMode/ReadEE/WriteEE`, `Get-FtdiNativeCbusEepromInfo`, `Set-FtdiNativeCbusEeprom`. Loaded only when `libftd2xx.so` is present.
 
 **Stub-First Development**: Use this exact pattern for unimplemented hardware logic:
 ```powershell
@@ -70,8 +81,9 @@ pwsh -c "Import-Module Pester; Invoke-Pester ./Tests/PsGadget.Tests.ps1 -Output 
 pwsh -c ". ./Tests/Test-PsGadgetWindows.ps1"
 
 # Smoke-test cross-platform functions
+Test-PsGadgetEnvironment
 List-PsGadgetFtdi | Format-Table
-Connect-PsGadgetFtdi -Index 0
+$dev = New-PsGadgetFtdi -Index 0
 ```
 
 **Test Files**:
@@ -88,22 +100,41 @@ Connect-PsGadgetFtdi -Index 0
 
 **Cross-Platform Paths**: Always use `Join-Path`. Use .NET methods like `[System.IO.Ports.SerialPort]::GetPortNames()` for cross-platform compatibility.
 
-**Module Version**: Current version is `0.1.0` (see [PSGadget.psd1](PSGadget.psd1)). Bump `ModuleVersion` when adding or changing exported functions.
+**Module Version**: Current version is `0.3.4` (see [PSGadget.psd1](PSGadget.psd1)). Bump `ModuleVersion` when adding or changing exported functions.
+
+**User Config**: Module maintains `~/.psgadget/config.json` (initialized by `Initialize-PsGadgetConfig`). Read/write via `Get-PsGadgetConfig` / `Set-PsGadgetConfig`. Use `[Environment]::GetFolderPath("UserProfile")` not `~` when constructing this path in code.
 
 ## Integration Points
 
-**FTDI Hardware**: Assembly loaded by [Initialize-FtdiAssembly.ps1](Private/Initialize-FtdiAssembly.ps1). Real D2XX device logic goes in [Ftdi.Windows.ps1](Private/Ftdi.Windows.ps1) and [Ftdi.Unix.ps1](Private/Ftdi.Unix.ps1). MPSSE helpers in [Ftdi.Mpsse.ps1](Private/Ftdi.Mpsse.ps1). Device class in [Classes/PsGadgetFtdi.ps1](Classes/PsGadgetFtdi.ps1).
+**FTDI Hardware**: Assembly loaded by [Initialize-FtdiAssembly.ps1](Private/Initialize-FtdiAssembly.ps1). Windows D2XX logic in [Ftdi.Windows.ps1](Private/Ftdi.Windows.ps1); Linux/macOS sysfs enumeration and stub fallback in [Ftdi.Unix.ps1](Private/Ftdi.Unix.ps1); .NET IoT backend in [Ftdi.IoT.ps1](Private/Ftdi.IoT.ps1); native P/Invoke for Linux CBUS in [Ftdi.PInvoke.ps1](Private/Ftdi.PInvoke.ps1). MPSSE helpers in [Ftdi.Mpsse.ps1](Private/Ftdi.Mpsse.ps1). CBUS helpers in [Ftdi.Cbus.ps1](Private/Ftdi.Cbus.ps1). Device class in [Classes/PsGadgetFtdi.ps1](Classes/PsGadgetFtdi.ps1).
 
-**MicroPython**: `mpremote` integration via [Mpy.Backend.ps1](Private/Mpy.Backend.ps1) using [Invoke-NativeProcess.ps1](Private/Invoke-NativeProcess.ps1) helper. Pattern: `mpremote connect {port} exec {code}`.
+**SSD1306 OLED Display**: I2C display support via [Classes/PsGadgetSsd1306.ps1](Classes/PsGadgetSsd1306.ps1). Connected through FT232H MPSSE I2C. Public functions: `Connect-PsGadgetSsd1306`, `Write-PsGadgetSsd1306`, `Clear-PsGadgetSsd1306`, `Set-PsGadgetSsd1306Cursor`. The `PsGadgetFtdi` class exposes a `.Display()` shorthand method.
+
+**MicroPython**: `mpremote` integration via [Mpy.Backend.ps1](Private/Mpy.Backend.ps1) using [Invoke-NativeProcess.ps1](Private/Invoke-NativeProcess.ps1) helper. Pattern: `mpremote connect {port} exec {code}`. The `Install-PsGadgetMpyScript` function pushes a named script (and optional `config.json`) to a device via `mpremote cp` and resets the device.
+
+**ESP-NOW Telemetry**: Wireless telemetry from untethered ESP32 nodes via an FT232H UART bridge (no WiFi AP required). Deploy roles with `Install-PsGadgetMpyScript -Role receiver|transmitter`. Retrieve paired node list with `Get-PsGadgetEspNowDevices` (pulls `known_devices.txt` from receiver flash). Script sources in `mpy/scripts/`; see `mpy/README.md` for architecture, pin maps, and config reference.
 
 **Process Execution**: Use [Invoke-NativeProcess.ps1](Private/Invoke-NativeProcess.ps1) for all external commands. Includes timeout control, UTF-8 encoding, and proper stream handling.
 
 **Exported Public Functions** (defined in [PSGadget.psd1](PSGadget.psd1)):
-- `List-PsGadgetFtdi` - enumerate connected FTDI devices
-- `Connect-PsGadgetFtdi` - open a connection to an FTDI device by index
+- `New-PsGadgetFtdi` - construct and auto-connect an FTDI device object
+- `Test-PsGadgetEnvironment` - validate module environment, drivers, and dependencies
+- `List-PsGadgetFtdi` - enumerate connected FTDI devices (hides VCP by default; use `-ShowVCP`)
+- `Connect-PsGadgetFtdi` - open a connection to an FTDI device by `-Index`
 - `List-PsGadgetMpy` - enumerate MicroPython serial ports
 - `Connect-PsGadgetMpy` - open a MicroPython REPL connection
-- `Set-PsGadgetGpio` - set GPIO pin state on a connected device
+- `Set-PsGadgetGpio` - set GPIO pin state; use `-Index` (not `-DeviceIndex`, which was removed)
+- `Get-PsGadgetFtdiEeprom` - read FTDI device EEPROM
+- `Set-PsGadgetFt232rCbusMode` - write FT232R CBUS pin mode to EEPROM (non-volatile; prompts USB cycle)
+- `Set-PsGadgetFtdiMode` - set FTDI device operating mode (async bit-bang, MPSSE, etc.)
+- `Get-PsGadgetConfig` - read a value from `~/.psgadget/config.json`
+- `Set-PsGadgetConfig` - write a value to `~/.psgadget/config.json`
+- `Connect-PsGadgetSsd1306` - initialize SSD1306 OLED over FT232H I2C
+- `Clear-PsGadgetSsd1306` - clear SSD1306 display
+- `Write-PsGadgetSsd1306` - write text to SSD1306 at current cursor
+- `Set-PsGadgetSsd1306Cursor` - set SSD1306 text cursor position
+- `Install-PsGadgetMpyScript` - push MicroPython script and config to an ESP32 via mpremote
+- `Get-PsGadgetEspNowDevices` - retrieve known ESP-NOW device list from receiver flash
 
 Never modify exports in [PSGadget.psd1](PSGadget.psd1) without updating the corresponding Public function file. All hardware logic should be stubbed first, then incrementally implemented.
 

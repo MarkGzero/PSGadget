@@ -220,50 +220,64 @@ on the FTDI breakout board or create a short adapter harness.
 1001  # 9
 ```
 
-Here is an example using the PSGadget API to enable async bit‑bang and stream
+Here is an example using the PSGadget API to enable async bit-bang and stream
 bytes:
 
 ```powershell
-# NOTE: Set-PsGadgetFtdiMode is not yet exported in the current PSGadget
-# release. The example below shows the intended API for async bit-bang mode.
+# connect and switch to async bit-bang mode (ADBUS0-3 as outputs, mask 0x0F)
+$dev = New-PsGadgetFtdi -Index 0
+Set-PsGadgetFtdiMode -PsGadget $dev -Mode AsyncBitBang -Mask 0x0F
+# baud rate controls step rate: 9600 baud = 9600 half-steps/sec
+$dev.SetBaudRate(9600)
 
-# connect and switch mode
-$conn = Connect-PsGadgetFtdi -Index 0
-Set-PsGadgetFtdiMode -Connection $conn -Mode AsyncBitBang -Mask 0x0F
-# pick a baud rate - this controls step timing
-# 9600 bytes/sec -> 9600 half-steps/sec
-$conn.SetBaudRate(9600)
+# half-step byte sequence (bits 0-3 map to IN1-IN4 on the ULN2003)
+$seq = [byte[]](0x01, 0x03, 0x02, 0x06, 0x04, 0x0C, 0x08, 0x09)
 
-# build sequence buffer (repeat pattern as needed)
-$seq = [byte[]](1,3,2,6,4,12,8,9)
+# build 2048-step buffer (1 full output revolution)
 $buf = [System.Collections.Generic.List[byte]]::new()
-for ($i=0; $i -lt 2048; $i++) { $buf.Add($seq[$i % 8]) }
+for ($i = 0; $i -lt 2048; $i++) { $buf.Add($seq[$i % 8]) }
 
-# send in one bulk write
+# stream the entire sequence in one bulk write;
+# the FTDI chip clocks each byte out at the programmed baud rate
 $written = 0
-$conn.Write($buf.ToArray(), $buf.Count, [ref]$written)
+$dev._connection.Write($buf.ToArray(), $buf.Count, [ref]$written)
 
-# stop asynchronous output when done
-Set-PsGadgetFtdiMode -Connection $conn -Mode UART
-$conn.Close()
+# de-energize and return to UART mode
+$dev._connection.Write([byte[]](0x00), 1, [ref]$written)
+Set-PsGadgetFtdiMode -PsGadget $dev -Mode UART
+$dev.Close()
 ```
 
-You can also control individual bytes via the public `Set-PsGadgetGpio`
-cmdlet once async mode is active. The cmdlet now supports writing raw byte
-values, making it convenient for simple sequences without manual buffer
-management:
+For step-by-step control at slower rates, `Set-PsGadgetGpio` works once async
+mode is active. After `Set-PsGadgetFtdiMode` the cmdlet dispatches to the
+async bit-bang handler automatically. Specify only the HIGH pins each step;
+unspecified pins are implicitly driven LOW:
 
 ```powershell
-# after switching to AsyncBitBang above
-foreach ($val in $seq) {
-    Set-PsGadgetGpio -Connection $conn -Pins @(0,1,2,3) -State $val
+# half-step sequence expressed as the set of HIGH pins per step
+$seqPins = @(
+    @(0),    # 0x01 - IN1
+    @(0,1),  # 0x03 - IN1+IN2
+    @(1),    # 0x02 - IN2
+    @(1,2),  # 0x06 - IN2+IN3
+    @(2),    # 0x04 - IN3
+    @(2,3),  # 0x0C - IN3+IN4
+    @(3),    # 0x08 - IN4
+    @(0,3)   # 0x09 - IN1+IN4
+)
+for ($i = 0; $i -lt 512; $i++) {
+    Set-PsGadgetGpio -PsGadget $dev -Pins $seqPins[$i % 8] -State HIGH
+    Start-Sleep -Milliseconds 2
 }
+# de-energize
+Set-PsGadgetGpio -PsGadget $dev -Pins @(0,1,2,3) -State LOW
 ```
 
-> **Performance tip:** you can write hundreds or thousands of bytes in a
-> single call (`$conn.Write`) and the FTDI chip will clock them out at the
-> programmed baud rate, producing a perfectly timed step stream. This allows
-> smooth acceleration ramps and high constant speeds without host CPU jitter.
+> **Performance tip:** the bulk-write path (`$dev._connection.Write`) sends the
+> entire sequence in a single USB transfer and the FTDI chip clocks bytes out
+> at the programmed baud rate. This produces a perfectly timed step stream
+> with smooth acceleration ramps and thousands of steps/sec — without host CPU
+> jitter or per-step USB round trips.
 
 The rest of the precise-motion script (half-step/rotate functions) can be
 used with either CBUS or async bit‑bang mode; async bit‑bang simply gives you
@@ -364,17 +378,28 @@ wires if necessary. The ULN2003 board outputs are labeled IN1–IN4.
 ## Quick Reference (Pro)
 
 ```powershell
-# one‑time setup
-Set-PsGadgetFt232rCbusMode -Index 1
+# CBUS path (FT232R) - one-time EEPROM setup, then runtime GPIO
+Set-PsGadgetFt232rCbusMode -Index 0   # run once per device; replug USB after
 
-# half‑step pattern
 $seq=@(@(1,0,0,0),@(1,1,0,0),@(0,1,0,0),@(0,1,1,0),@(0,0,1,0),@(0,0,1,1),@(0,0,0,1),@(1,0,0,1))
-
-# move N half‑steps
-$conn=Connect-PsGadgetFtdi -Index 1
+$conn=Connect-PsGadgetFtdi -Index 0
 for($i=0;$i -lt 512;$i++){ $p=$seq[$i%8];for($pin=0;$pin -lt 4;$pin++){$st=if($p[$pin]){'HIGH'}else{'LOW'};Set-PsGadgetGpio -Connection $conn -Pins @($pin) -State $st};Start-Sleep -Milliseconds 3}
 Set-PsGadgetGpio -Connection $conn -Pins @(0..3) -State LOW
 $conn.Close()
+```
+
+```powershell
+# Async bit-bang path (FT232R, no EEPROM change) - highest throughput
+# Wire ADBUS0-3 (TX/RX/RTS/CTS pins) to ULN2003 IN1-IN4 instead of CBUS pins
+$dev = New-PsGadgetFtdi -Index 0
+Set-PsGadgetFtdiMode -PsGadget $dev -Mode AsyncBitBang -Mask 0x0F
+$dev.SetBaudRate(9600)   # 9600 half-steps/sec
+$seq=[byte[]](0x01,0x03,0x02,0x06,0x04,0x0C,0x08,0x09)
+$buf=[System.Collections.Generic.List[byte]]::new(); for($i=0;$i -lt 512;$i++){$buf.Add($seq[$i%8])}
+$w=0; $dev._connection.Write($buf.ToArray(),$buf.Count,[ref]$w)
+$dev._connection.Write([byte[]](0x00),1,[ref]$w)   # de-energize
+Set-PsGadgetFtdiMode -PsGadget $dev -Mode UART
+$dev.Close()
 ```
 
 ---

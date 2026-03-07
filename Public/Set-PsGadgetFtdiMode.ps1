@@ -177,7 +177,22 @@ function Set-PsGadgetFtdiMode {
             } else {
                 $conn | Add-Member -MemberType NoteProperty -Name ActiveMode -Value $Mode -Force
             }
-            $log.WriteInfo("SetBitMode OK: $($PsGadget.SerialNumber) is now in $Mode mode")
+            # Save original GpioMethod on first mode switch so UART can restore it
+            if (-not $conn.PSObject.Properties['OriginalGpioMethod']) {
+                $conn | Add-Member -MemberType NoteProperty -Name OriginalGpioMethod -Value $conn.GpioMethod -Force
+            }
+            # Sync GpioMethod so Set-PsGadgetGpio dispatches to the correct handler
+            switch ($Mode) {
+                'AsyncBitBang' { $conn.GpioMethod = 'AsyncBitBang' }
+                'SyncBitBang'  { $conn.GpioMethod = 'SyncBitBang'  }
+                'MPSSE'        { $conn.GpioMethod = 'MPSSE' }
+                'UART'         {
+                    if ($conn.PSObject.Properties['OriginalGpioMethod']) {
+                        $conn.GpioMethod = $conn.OriginalGpioMethod
+                    }
+                }
+            }
+            $log.WriteInfo("SetBitMode OK: $($PsGadget.SerialNumber) is now in $Mode mode (GpioMethod=$($conn.GpioMethod))")
             return [PSCustomObject]@{
                 Success    = $true
                 Mode       = $Mode

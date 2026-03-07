@@ -48,7 +48,8 @@ function Test-PsGadgetEnvironment {
     }
 
     $sharpNote    = if ($script:FtdiSharpAvailable) { ' + FtdiSharp I2C/SPI' } else { '' }
-    $backendLabel = "$backendName$sharpNote"
+    $readySuffix  = if ($backendOk) { ' - Ready' } else { ' - hardware commands unavailable' }
+    $backendLabel = "$backendName$sharpNote$readySuffix"
 
     Write-Verbose "PS version  : $psVersion"
     Write-Verbose ".NET version: $dotnet"
@@ -58,11 +59,21 @@ function Test-PsGadgetEnvironment {
     Write-Verbose "FtdiSharp   : $($script:FtdiSharpAvailable)"
 
     # ------------------------------------------------------------------
-    # Native library check (Linux/macOS only)
+    # Native library check
     # ------------------------------------------------------------------
     $nativeStatus = 'N/A (Windows)'
     $nativeOk     = $true
     $nativePath   = $null
+
+    if ($isWindows) {
+        # On Windows the bundled lib/native/FTD2XX.dll is the native D2XX driver.
+        # Locate it so NativeLibPath is populated in the return object.
+        $moduleRoot    = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+        $windowsDll    = Join-Path $moduleRoot 'lib\native\FTD2XX.dll'
+        if (([System.IO.FileInfo]::new($windowsDll)).Exists) {
+            $nativePath = $windowsDll
+        }
+    }
 
     if (-not $isWindows) {
         $moduleNet8Dir = Join-Path (Join-Path $PSScriptRoot '..') 'lib/net8'
@@ -143,7 +154,7 @@ function Test-PsGadgetEnvironment {
     Write-Host 'PsGadget Setup Check'
     Write-Host $line
     Write-Host ("Platform  : {0} / PS {1} / .NET {2}" -f $platform, $psVersion, $dotnet)
-    Write-Host ("Backend   : {0}" -f $backendLabel)
+    Write-Host ("Driver    : {0}" -f $backendLabel)
 
     if (-not $isWindows) {
         Write-Host ("Native lib: {0}" -f $nativeStatus)
@@ -212,6 +223,9 @@ function Test-PsGadgetEnvironment {
 
     $statusLabel = if ($isReady) { 'READY' } else { 'NOT READY - run with -Verbose for details' }
     Write-Host ("Status    : {0}" -f $statusLabel)
+    if (-not $isReady) {
+        Write-Host ("Next step : {0}" -f $resultNextStep)
+    }
     Write-Host ''
 
     if ($isReady) {
