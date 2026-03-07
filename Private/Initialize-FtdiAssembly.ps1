@@ -28,8 +28,8 @@ function Initialize-FtdiAssembly {
     try {
         $psVersion  = $PSVersionTable.PSVersion.Major
         $dotnetMajor = [System.Environment]::Version.Major                     # 4 on net48, 6/8/9 on modern
-        $isWindows  = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
-        $isMacOS    = (-not $isWindows) -and (try { (& uname -s 2>$null).Trim() -eq 'Darwin' } catch { $false })
+        $runningOnWindows  = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+        $runningOnMacOS    = (-not $runningOnWindows) -and (try { (& uname -s 2>$null).Trim() -eq 'Darwin' } catch { $false })
 
         # ------------------------------------------------------------------
         # Path A: PS 7.4+ on .NET 8+ -> load IoT DLLs from lib/net8/
@@ -76,10 +76,10 @@ function Initialize-FtdiAssembly {
                 # required at runtime.  Probe common install locations and warn early so the
                 # user gets a clear message at module import rather than a wall of P/Invoke
                 # errors when they first call Connect-PsGadgetFtdi.
-                if (-not $isWindows) {
+                if (-not $runningOnWindows) {
                     $net8Dir    = Join-Path (Join-Path $ModuleRoot 'lib') 'net8'
-                    $nativeLibName = if ($isMacOS) { 'libftd2xx.dylib' } else { 'libftd2xx.so' }
-                    if ($isMacOS) {
+                    $nativeLibName = if ($runningOnMacOS) { 'libftd2xx.dylib' } else { 'libftd2xx.so' }
+                    if ($runningOnMacOS) {
                         $nativeLibLocations = @(
                             (Join-Path $net8Dir 'libftd2xx.dylib'),
                             '/usr/local/lib/libftd2xx.dylib',
@@ -111,7 +111,7 @@ function Initialize-FtdiAssembly {
                         # .NET P/Invoke on Linux searches LD_LIBRARY_PATH and the assembly directory.
                         # On macOS, SIP strips DYLD_LIBRARY_PATH for system processes; use NativeLibrary.Load()
                         # with an absolute path instead (done below in Fix 3).
-                        if (-not $isMacOS) {
+                        if (-not $runningOnMacOS) {
                             # Fix 1: add the native lib's directory to LD_LIBRARY_PATH for this session.
                             $nativeLibDir = [System.IO.Path]::GetDirectoryName($nativeFound)
                             $existing = $env:LD_LIBRARY_PATH
@@ -246,7 +246,7 @@ function Initialize-FtdiAssembly {
                     } else {
                         $arch = ''
                         try { $arch = (& uname -m 2>$null).Trim() } catch {}
-                        if ($isMacOS) {
+                        if ($runningOnMacOS) {
                             $net8CopyDest = Join-Path $net8Dir 'libftd2xx.dylib'
                             Write-Warning (
                                 "IoT FTDI DLLs loaded but native 'libftd2xx.dylib' was not found. " +
@@ -322,7 +322,7 @@ function Initialize-FtdiAssembly {
 
             # On Windows: also load FTD2XX_NET (netstandard20) for FT232R CBUS fallback.
             # On Unix:    FTD2XX_NET is not available; FT232R stays in stub mode.
-            if ($isWindows) {
+            if ($runningOnWindows) {
                 $d2xxPath = Join-Path (Join-Path (Join-Path $ModuleRoot 'lib') 'netstandard20') 'FTD2XX_NET.dll'
                 if (Test-Path $d2xxPath) {
                     try {
@@ -362,7 +362,7 @@ function Initialize-FtdiAssembly {
         # ------------------------------------------------------------------
         # Path B: Windows PS 5.1 / PS 7 on .NET < 8 -> FTD2XX_NET only
         # ------------------------------------------------------------------
-        if ($isWindows) {
+        if ($runningOnWindows) {
             Write-Verbose "Windows PS $psVersion / .NET $dotnetMajor detected - loading FTD2XX_NET.dll"
 
             if ($psVersion -eq 5) {
