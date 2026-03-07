@@ -199,6 +199,22 @@ function Test-PsGadgetEnvironment {
         Write-Verbose 'Verbose import output shows exactly which DLL paths were tried.'
     }
 
+    # ------------------------------------------------------------------
+    # Detect snap-confined PowerShell (causes GLIBC mismatch on import)
+    # ------------------------------------------------------------------
+    $isSnapPwsh = $false
+    if (-not $isWindows) {
+        $snapEnv = [System.Environment]::GetEnvironmentVariable('SNAP')
+        if ($snapEnv) {
+            $isSnapPwsh = $true
+        } else {
+            try {
+                $pwshPath = (Get-Process -Id $PID -ErrorAction SilentlyContinue).MainModule.FileName
+                if ($pwshPath -and $pwshPath -like '*/snap/*') { $isSnapPwsh = $true }
+            } catch {}
+        }
+    }
+
     # Overall status
     $isReady = $backendOk -and $nativeOk -and ($devices.Count -gt 0)
 
@@ -207,6 +223,19 @@ function Test-PsGadgetEnvironment {
         $resultStatus   = 'OK'
         $resultReason   = 'All checks passed'
         $resultNextStep = 'Run: List-PsGadgetFtdi | Format-Table'
+    } elseif (-not $backendOk -and $isSnapPwsh) {
+        $resultStatus   = 'Fail'
+        $resultReason   = 'snap-confined pwsh: GLIBC mismatch prevents libftd2xx.so from loading (snap bundled glibc is older than library requirement)'
+        $resultNextStep = 'Use non-snap PowerShell: /usr/bin/pwsh   Install: sudo apt-get install -y powershell'
+        Write-Verbose 'snap-confined pwsh detected. The snap sandbox bundles an older glibc that is'
+        Write-Verbose 'incompatible with the libftd2xx.so in lib/net8/. Two options:'
+        Write-Verbose '  A) Switch to non-snap PowerShell:'
+        Write-Verbose '       sudo apt-get install -y powershell'
+        Write-Verbose '       /usr/bin/pwsh  (not the snap alias)'
+        Write-Verbose '  B) Replace lib/net8/libftd2xx.so with an older build (compiled for glibc <= 2.35):'
+        Write-Verbose '       cd /tmp && wget https://ftdichip.com/wp-content/uploads/2024/04/libftd2xx-linux-x86_64-1.4.30.tgz'
+        Write-Verbose '       tar xzf libftd2xx-linux-x86_64-1.4.30.tgz'
+        Write-Verbose '       cp linux-x86_64/libftd2xx.so.1.4.30 <module-root>/lib/net8/libftd2xx.so'
     } elseif (-not $backendOk) {
         $resultStatus   = 'Fail'
         $resultReason   = 'No FTDI backend loaded'
@@ -238,6 +267,7 @@ function Test-PsGadgetEnvironment {
         Status        = $resultStatus
         Reason        = $resultReason
         NextStep      = $resultNextStep
+        IsSnapPwsh    = $isSnapPwsh
         Platform      = $platform
         PsVersion     = $psVersion.ToString()
         DotNetVersion = $dotnet.ToString()
