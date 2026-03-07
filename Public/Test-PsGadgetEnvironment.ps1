@@ -226,7 +226,7 @@ function Test-PsGadgetEnvironment {
     } elseif (-not $backendOk -and $isSnapPwsh) {
         $resultStatus   = 'Fail'
         $resultReason   = 'snap-confined pwsh: GLIBC mismatch prevents libftd2xx.so from loading (snap bundled glibc is older than library requirement)'
-        $resultNextStep = 'exit from this session then use non-snap PowerShell (Install: sudo apt-get install -y powershell): $ /usr/bin/pwsh '
+        $resultNextStep = 'exit from this session then use non-snap PowerShell (apt-get install -y powershell)then run `$ /usr/bin/pwsh` instead of `$ powershell` (snap alias)'
         Write-Verbose 'snap-confined pwsh detected. The snap sandbox bundles an older glibc that is'
         Write-Verbose 'incompatible with the libftd2xx.so in lib/net8/. Two options:'
         Write-Verbose '  A) Switch to non-snap PowerShell:'
