@@ -28,10 +28,10 @@ function Test-PsGadgetEnvironment {
     [OutputType([PSCustomObject])]
     param()
 
-    $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+    $runningOnWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
     $psVersion = $PSVersionTable.PSVersion
     $dotnet    = [System.Environment]::Version
-    $platform  = if ($isWindows) { 'Windows' } else { 'Linux/Unix' }
+    $platform  = if ($runningOnWindows) { 'Windows' } else { 'Linux/Unix' }
 
     # ------------------------------------------------------------------
     # Determine active backend from module-scope flags set at import time
@@ -65,7 +65,7 @@ function Test-PsGadgetEnvironment {
     $nativeOk     = $true
     $nativePath   = $null
 
-    if ($isWindows) {
+    if ($runningOnWindows) {
         # On Windows the bundled lib/native/FTD2XX.dll is the native D2XX driver.
         # Locate it so NativeLibPath is populated in the return object.
         $moduleRoot    = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -75,7 +75,7 @@ function Test-PsGadgetEnvironment {
         }
     }
 
-    if (-not $isWindows) {
+    if (-not $runningOnWindows) {
         $moduleNet8Dir = Join-Path (Join-Path $PSScriptRoot '..') 'lib/net8'
         $moduleNet8Dir = [System.IO.Path]::GetFullPath($moduleNet8Dir)
         $nativeLibLocations = @(
@@ -156,7 +156,7 @@ function Test-PsGadgetEnvironment {
     Write-Host ("Platform  : {0} / PS {1} / .NET {2}" -f $platform, $psVersion, $dotnet)
     Write-Host ("Driver    : {0}" -f $backendLabel)
 
-    if (-not $isWindows) {
+    if (-not $runningOnWindows) {
         Write-Host ("Native lib: {0}" -f $nativeStatus)
     }
 
@@ -203,7 +203,7 @@ function Test-PsGadgetEnvironment {
     # Detect snap-confined PowerShell (causes GLIBC mismatch on import)
     # ------------------------------------------------------------------
     $isSnapPwsh = $false
-    if (-not $isWindows) {
+    if (-not $runningOnWindows) {
         $snapEnv = [System.Environment]::GetEnvironmentVariable('SNAP')
         if ($snapEnv) {
             $isSnapPwsh = $true
@@ -226,7 +226,7 @@ function Test-PsGadgetEnvironment {
     } elseif (-not $backendOk -and $isSnapPwsh) {
         $resultStatus   = 'Fail'
         $resultReason   = 'snap-confined pwsh: GLIBC mismatch prevents libftd2xx.so from loading (snap bundled glibc is older than library requirement)'
-        $resultNextStep = 'Use non-snap PowerShell: /usr/bin/pwsh   Install: sudo apt-get install -y powershell'
+        $resultNextStep = 'exit from this session then use non-snap PowerShell (Install: sudo apt-get install -y powershell): $ /usr/bin/pwsh '
         Write-Verbose 'snap-confined pwsh detected. The snap sandbox bundles an older glibc that is'
         Write-Verbose 'incompatible with the libftd2xx.so in lib/net8/. Two options:'
         Write-Verbose '  A) Switch to non-snap PowerShell:'
