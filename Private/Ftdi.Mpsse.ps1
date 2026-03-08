@@ -152,12 +152,18 @@ function Send-MpsseAcbusCommand {
         
         Write-Verbose ("MPSSE command: 0x{0:X2} 0x{1:X2} 0x{2:X2}" -f $command[0], $command[1], $command[2])
         
-        # Check if we have real FTDI capabilities or are in stub mode
-        if ($script:FtdiInitialized -and $DeviceHandle.GetType().Name -eq 'FTDI') {
-            # Real FTDI device - send actual command
+        # --- FTD2XX_NET path - unwrap PSCustomObject wrapper to get raw FTDI handle ---
+        $rawFtdi = $null
+        if ($DeviceHandle.GetType().Name -eq 'FTDI') {
+            $rawFtdi = $DeviceHandle
+        } elseif ($DeviceHandle.PSObject.Properties['Device'] -and $DeviceHandle.Device) {
+            $rawFtdi = $DeviceHandle.Device
+        }
+
+        if ($script:FtdiInitialized -and $null -ne $rawFtdi) {
             [uint32]$bytesWritten = 0
-            $status = $DeviceHandle.Write($command, $command.Length, [ref]$bytesWritten)
-            
+            $status = $rawFtdi.Write($command, $command.Length, [ref]$bytesWritten)
+
             if ($status -eq $script:FTDI_OK -and $bytesWritten -eq $command.Length) {
                 Write-Verbose "MPSSE command sent successfully ($bytesWritten bytes)"
                 return $true
@@ -204,23 +210,31 @@ function Get-FtdiGpioPins {
             throw "Device handle is invalid or device is not open"
         }
         
+        # --- FTD2XX_NET path ---
+        $rawFtdi = $null
+        if ($DeviceHandle.GetType().Name -eq 'FTDI') {
+            $rawFtdi = $DeviceHandle
+        } elseif ($DeviceHandle.PSObject.Properties['Device'] -and $DeviceHandle.Device) {
+            $rawFtdi = $DeviceHandle.Device
+        }
+
         # MPSSE command 0x83: Read ACBUS pins
         [byte[]]$command = @(0x83)
-        
-        if ($script:FtdiInitialized -and $DeviceHandle.GetType().Name -eq 'FTDI') {
+
+        if ($script:FtdiInitialized -and $null -ne $rawFtdi) {
             # Real FTDI device
             [uint32]$bytesWritten = 0
-            $status = $DeviceHandle.Write($command, $command.Length, [ref]$bytesWritten)
-            
+            $status = $rawFtdi.Write($command, $command.Length, [ref]$bytesWritten)
+
             if ($status -ne $script:FTDI_OK) {
                 throw "Failed to send read command: $status"
             }
-            
+
             # Read response
             [byte[]]$buffer = New-Object byte[] 1
             [uint32]$bytesRead = 0
-            $status = $DeviceHandle.Read($buffer, 1, [ref]$bytesRead)
-            
+            $status = $rawFtdi.Read($buffer, 1, [ref]$bytesRead)
+
             if ($status -eq $script:FTDI_OK -and $bytesRead -eq 1) {
                 Write-Verbose ("ACBUS pin states: 0x{0:X2}" -f $buffer[0])
                 return $buffer[0]

@@ -101,16 +101,11 @@ function Connect-PsGadgetFtdi {
         
         # Call platform/backend-specific opening function.
         # Priority order on Windows:
-        #   1. FtdiSharp  - preferred for MPSSE devices; handles I2C/SPI natively
+        #   1. FTD2XX_NET  - always used for GPIO / MPSSE (ACBUS raw commands)
         #   2. IoT backend - PS 7.4+ / .NET 8+
-        #   3. FTD2XX_NET  - PS 5.1 / PS 7 on .NET < 8
+        # FtdiSharp is NOT used here. It is opened separately by Connect-PsGadgetSsd1306
+        # for I2C only, on demand, using the device serial number directly.
         $connection = $null
-
-        if ($script:FtdiSharpAvailable -and $targetDevice.HasMpsse -and
-            ([System.Environment]::OSVersion.Platform -eq 'Win32NT')) {
-            Write-Verbose "Using FtdiSharp backend for connection"
-            $connection = Invoke-FtdiWindowsOpenSharp -DeviceInfo $targetDevice
-        }
 
         if (-not $connection -and $script:IotBackendAvailable) {
             Write-Verbose "Using IoT .NET backend for connection"

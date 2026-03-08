@@ -65,13 +65,23 @@ function Connect-PsGadgetSsd1306 {
         # Create SSD1306 instance
         $ssd1306 = [PsGadgetSsd1306]::new($FtdiDevice, $Address)
 
-        # If the connection was opened via FtdiSharp, create a FtdiSharp I2C handle
-        # and inject it. The class will use this for all writes instead of raw MPSSE.
-        if ($FtdiDevice.IsSharp -and $script:FtdiSharpAvailable) {
+        # Open a FtdiSharp I2C handle directly using the device serial number.
+        # FtdiSharp is only used here (I2C) - Connect-PsGadgetFtdi always uses FTD2XX_NET
+        # so we open a separate FtdiSharp handle on demand rather than sharing one.
+        if ($script:FtdiSharpAvailable -and
+            ([System.Environment]::OSVersion.Platform -eq 'Win32NT') -and
+            $FtdiDevice.SerialNumber) {
             try {
-                $i2c = [FtdiSharp.Protocols.I2C]::new($FtdiDevice.SharpDevice)
-                $ssd1306.I2cDevice = $i2c
-                Write-Verbose "Using FtdiSharp I2C for SSD1306 writes"
+                $sharpDevices = [FtdiSharp.FtdiDevices]::Scan()
+                $sharpDev = $sharpDevices | Where-Object { $_.SerialNumber -eq $FtdiDevice.SerialNumber } | Select-Object -First 1
+                if (-not $sharpDev -and $sharpDevices.Count -gt $FtdiDevice.Index -and $FtdiDevice.Index -ge 0) {
+                    $sharpDev = $sharpDevices[$FtdiDevice.Index]
+                }
+                if ($sharpDev) {
+                    $i2c = [FtdiSharp.Protocols.I2C]::new($sharpDev)
+                    $ssd1306.I2cDevice = $i2c
+                    Write-Verbose "Using FtdiSharp I2C for SSD1306 writes"
+                }
             } catch {
                 Write-Warning "FtdiSharp I2C creation failed, falling back to raw MPSSE: $_"
             }

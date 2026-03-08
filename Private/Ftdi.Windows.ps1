@@ -308,9 +308,21 @@ function Invoke-FtdiWindowsOpen {
             } else {
                 Write-Verbose "MPSSE mode enabled successfully"
             }
-            
+
             # Set timeouts
             $ftdi.SetTimeouts(5000, 5000) | Out-Null  # 5 second read/write timeouts
+
+            # Flush buffers then send mandatory MPSSE initialisation sequence:
+            #   0x8A - Disable divide-by-5 clock (60 MHz base clock)
+            #   0x97 - Disable adaptive clocking
+            #   0x8D - Disable 3-phase data clocking
+            # Without these the MPSSE engine can misinterpret the first 0x82 command.
+            $ftdi.Purge(3) | Out-Null
+            Start-Sleep -Milliseconds 5
+            [uint32]$initBytesWritten = 0
+            $ftdi.Write([byte[]](0x8A, 0x97, 0x8D), 3, [ref]$initBytesWritten) | Out-Null
+            Start-Sleep -Milliseconds 5
+            Write-Verbose "MPSSE init sequence sent ($initBytesWritten bytes)"
         } else {
             Write-Verbose "Device uses $($DeviceInfo.GpioMethod) GPIO (no MPSSE setup needed on open)"
             $ftdi.SetTimeouts(5000, 5000) | Out-Null
@@ -479,10 +491,14 @@ function Invoke-FtdiWindowsOpenSharp {
             HasMpsse     = $DeviceInfo.HasMpsse
             MpsseEnabled = $DeviceInfo.HasMpsse
             Platform     = "Windows (FtdiSharp)"
+            _gpioHandle  = $null   # lazily initialized by Send-MpsseAcbusCommand / Get-FtdiGpioPins
         }
 
         $connection | Add-Member -MemberType ScriptMethod -Name 'Close' -Value {
-            # FtdiSharp devices are closed when they go out of scope / GC collected
+            if ($this._gpioHandle) {
+                try { $this._gpioHandle.Close() } catch {}
+                $this._gpioHandle = $null
+            }
             $this.IsOpen = $false
         }
 
