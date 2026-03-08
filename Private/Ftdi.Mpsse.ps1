@@ -1,6 +1,85 @@
 # Ftdi.Mpsse.ps1
 # MPSSE (Multi-Protocol Synchronous Serial Engine) GPIO control functions
 
+function Get-FtdiD2xxHandle {
+    # Extract or acquire a real FTD2XX_NET.FTDI handle from a device handle wrapper.
+    #
+    # Handles three cases:
+    #   1. $DeviceHandle is itself a FTD2XX_NET.FTDI object (rare - direct pass-through)
+    #   2. $DeviceHandle is a PSCustomObject with Device = FTD2XX_NET.FTDI (normal D2XX path)
+    #   3. $DeviceHandle is a PSCustomObject with Device = FtdiSharp/IoT (stale session scenario)
+    #      -> opens a fresh FTD2XX_NET handle via SerialNumber and caches it on the connection
+    #
+    # Returns $null when stub mode is appropriate (no D2XX available).
+    [CmdletBinding()]
+    [OutputType([System.Object])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Object]$DeviceHandle
+    )
+
+    if ($null -eq $DeviceHandle) { return $null }
+
+    # Case 1: DeviceHandle IS already the raw FTDI object
+    if ($DeviceHandle.GetType().FullName -eq 'FTD2XX_NET.FTDI') {
+        return $DeviceHandle
+    }
+
+    # Case 2: PSCustomObject wrapper - check Device property type
+    if ($DeviceHandle.PSObject.Properties['Device'] -and $null -ne $DeviceHandle.Device) {
+        $candidate = $DeviceHandle.Device
+        if ($candidate.GetType().FullName -eq 'FTD2XX_NET.FTDI') {
+            return $candidate
+        }
+        # Device is something else (FtdiSharp, IoT, etc.) - fall through to Case 3
+        Write-Verbose ("Device handle has non-D2XX backend ({0}); acquiring FTD2XX_NET handle..." -f $candidate.GetType().FullName)
+    }
+
+    # Case 3: No usable D2XX handle yet - re-acquire using the device serial number.
+    # This covers the stale-FtdiSharp-session scenario: a previous session opened the device
+    # via FtdiSharp (old Connect-PsGadgetFtdi), but the new code needs raw D2XX MPSSE access.
+    # FTD2XX_NET can open the device even while FtdiSharp holds a handle (ftd2xx.dll allows it).
+    if (-not $script:FtdiInitialized) { return $null }
+
+    $serial = $null
+    if ($DeviceHandle.PSObject.Properties['SerialNumber'] -and $DeviceHandle.SerialNumber) {
+        $serial = $DeviceHandle.SerialNumber
+    }
+    if (-not $serial) { return $null }
+
+    try {
+        $newFtdi = [FTD2XX_NET.FTDI]::new()
+        $openStatus = $newFtdi.OpenBySerialNumber($serial)
+        if ($openStatus -ne $script:FTDI_OK) {
+            $newFtdi.Close() | Out-Null
+            Write-Warning "Get-FtdiD2xxHandle: could not open D2XX handle for '$serial' (status=$openStatus). Restart your PS session if this persists."
+            return $null
+        }
+
+        # Configure MPSSE so ACBUS 0x82 commands work immediately
+        $newFtdi.ResetDevice() | Out-Null
+        $newFtdi.SetBitMode(0x00, 0x02) | Out-Null   # MPSSE mode
+        $newFtdi.SetTimeouts(5000, 5000) | Out-Null
+        $newFtdi.Purge(3) | Out-Null
+        Start-Sleep -Milliseconds 5
+        [uint32]$initW = 0
+        $newFtdi.Write([byte[]](0x8A, 0x97, 0x8D), 3, [ref]$initW) | Out-Null
+        Start-Sleep -Milliseconds 5
+
+        # Cache the real D2XX handle so subsequent calls in this session reuse it
+        if ($DeviceHandle.PSObject.Properties['Device']) {
+            $DeviceHandle.Device = $newFtdi
+        } else {
+            $DeviceHandle | Add-Member -MemberType NoteProperty -Name 'Device' -Value $newFtdi -Force
+        }
+        Write-Verbose "Get-FtdiD2xxHandle: acquired FTD2XX_NET handle for '$serial' (was using non-D2XX backend)"
+        return $newFtdi
+    } catch {
+        Write-Verbose "Get-FtdiD2xxHandle: failed to acquire D2XX handle: $_"
+        return $null
+    }
+}
+
 function Set-FtdiGpioPins {
     <#
     .SYNOPSIS
@@ -152,13 +231,8 @@ function Send-MpsseAcbusCommand {
         
         Write-Verbose ("MPSSE command: 0x{0:X2} 0x{1:X2} 0x{2:X2}" -f $command[0], $command[1], $command[2])
         
-        # --- FTD2XX_NET path - unwrap PSCustomObject wrapper to get raw FTDI handle ---
-        $rawFtdi = $null
-        if ($DeviceHandle.GetType().Name -eq 'FTDI') {
-            $rawFtdi = $DeviceHandle
-        } elseif ($DeviceHandle.PSObject.Properties['Device'] -and $DeviceHandle.Device) {
-            $rawFtdi = $DeviceHandle.Device
-        }
+        # --- FTD2XX_NET path - get (or re-acquire) the raw FTD2XX_NET.FTDI handle ---
+        $rawFtdi = Get-FtdiD2xxHandle -DeviceHandle $DeviceHandle
 
         if ($script:FtdiInitialized -and $null -ne $rawFtdi) {
             [uint32]$bytesWritten = 0
@@ -210,13 +284,8 @@ function Get-FtdiGpioPins {
             throw "Device handle is invalid or device is not open"
         }
         
-        # --- FTD2XX_NET path ---
-        $rawFtdi = $null
-        if ($DeviceHandle.GetType().Name -eq 'FTDI') {
-            $rawFtdi = $DeviceHandle
-        } elseif ($DeviceHandle.PSObject.Properties['Device'] -and $DeviceHandle.Device) {
-            $rawFtdi = $DeviceHandle.Device
-        }
+        # --- FTD2XX_NET path - get (or re-acquire) the raw FTD2XX_NET.FTDI handle ---
+        $rawFtdi = Get-FtdiD2xxHandle -DeviceHandle $DeviceHandle
 
         # MPSSE command 0x83: Read ACBUS pins
         [byte[]]$command = @(0x83)
@@ -289,15 +358,8 @@ function Initialize-MpsseI2C {
             throw "Device handle is invalid or device is not open"
         }
 
-        # Resolve the raw FTD2XX_NET.FTDI object from either a wrapper or a direct handle.
-        # Always call .Device.Write() directly to avoid [ref] propagation issues in ScriptMethods.
-        $rawDevice = $null
-        if ($DeviceHandle.GetType().Name -eq 'FTDI') {
-            $rawDevice = $DeviceHandle
-        } elseif ($DeviceHandle.PSObject.Properties['Device'] -and $DeviceHandle.Device) {
-            $rawDevice = $DeviceHandle.Device
-        }
-
+        # Resolve the raw FTD2XX_NET.FTDI object from the device handle wrapper.
+        $rawDevice    = Get-FtdiD2xxHandle -DeviceHandle $DeviceHandle
         $isRealDevice = $script:FtdiInitialized -and ($null -ne $rawDevice)
 
         if ($isRealDevice) {
@@ -385,20 +447,11 @@ function Send-MpsseI2CWrite {
             throw "Device handle is invalid or device is not open"
         }
 
-        # Resolve real device handle - may be PSCustomObject wrapper or raw FTDI type
-        $isRealDevice = $script:FtdiInitialized -and (
-            $DeviceHandle.GetType().Name -eq 'FTDI' -or
-            ($null -ne $DeviceHandle.PSObject -and $null -ne $DeviceHandle.Device)
-        )
+        # Resolve real device handle via the shared helper
+        $rawDevice = Get-FtdiD2xxHandle -DeviceHandle $DeviceHandle
+        $isRealDevice = $script:FtdiInitialized -and ($null -ne $rawDevice)
 
         if ($isRealDevice) {
-            # Resolve raw FTD2XX_NET.FTDI handle (same pattern as Invoke-FtdiI2CScan)
-            $rawDevice = $null
-            if ($DeviceHandle.GetType().Name -eq 'FTDI') {
-                $rawDevice = $DeviceHandle
-            } elseif ($DeviceHandle.PSObject.Properties['Device'] -and $DeviceHandle.Device) {
-                $rawDevice = $DeviceHandle.Device
-            }
             if (-not $rawDevice) { throw 'Cannot resolve raw FTDI device handle for I2C write' }
 
             # Assemble the ordered list of bytes to clock: address (write) then data
@@ -584,13 +637,7 @@ function Invoke-FtdiI2CScan {
 
     } elseif ($gpioMethod -eq 'MPSSE' -and $script:FtdiInitialized) {
         # D2XX path - MPSSE bit-bang I2C scan.
-        # Resolve raw FTD2XX_NET.FTDI object to bypass ScriptMethod [ref] limitations.
-        $rawDevice = $null
-        if ($Connection.GetType().Name -eq 'FTDI') {
-            $rawDevice = $Connection
-        } elseif ($Connection.PSObject.Properties['Device'] -and $Connection.Device) {
-            $rawDevice = $Connection.Device
-        }
+        $rawDevice = Get-FtdiD2xxHandle -DeviceHandle $Connection
         if (-not $rawDevice) { throw 'Cannot resolve raw FTDI device handle for MPSSE scan' }
 
         Write-Verbose "I2C scan via MPSSE bit-bang D2XX (0x08-0x77) at $ClockFrequency Hz..."
