@@ -72,6 +72,8 @@ function Get-FtdiD2xxHandle {
         } else {
             $DeviceHandle | Add-Member -MemberType NoteProperty -Name 'Device' -Value $newFtdi -Force
         }
+        # Initialize ACBUS state cache to 0 so Get-FtdiGpioPins never needs a USB read
+        $DeviceHandle | Add-Member -MemberType NoteProperty -Name 'AcbusCachedState' -Value ([byte]0) -Force
         Write-Verbose "Get-FtdiD2xxHandle: acquired FTD2XX_NET handle for '$serial' (was using non-D2XX backend)"
         return $newFtdi
     } catch {
@@ -240,6 +242,8 @@ function Send-MpsseAcbusCommand {
 
             if ($status -eq $script:FTDI_OK -and $bytesWritten -eq $command.Length) {
                 Write-Verbose "MPSSE command sent successfully ($bytesWritten bytes)"
+                # Update cached ACBUS state - eliminates USB reads from Get-FtdiGpioPins in hot loops
+                $DeviceHandle | Add-Member -MemberType NoteProperty -Name 'AcbusCachedState' -Value ([byte]$Value) -Force
                 return $true
             } else {
                 Write-Warning "MPSSE command failed: Status=$status, BytesWritten=$bytesWritten"
@@ -282,6 +286,12 @@ function Get-FtdiGpioPins {
         # Validate device handle
         if (-not $DeviceHandle -or -not $DeviceHandle.IsOpen) {
             throw "Device handle is invalid or device is not open"
+        }
+
+        # Return cached state if available - avoids USB round-trip in GPIO hot loops
+        if ($DeviceHandle.PSObject.Properties['AcbusCachedState']) {
+            Write-Verbose ("ACBUS pin states (cached): 0x{0:X2}" -f [byte]$DeviceHandle.AcbusCachedState)
+            return [byte]$DeviceHandle.AcbusCachedState
         }
         
         # --- FTD2XX_NET path - get (or re-acquire) the raw FTD2XX_NET.FTDI handle ---

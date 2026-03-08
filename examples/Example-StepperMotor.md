@@ -1,9 +1,13 @@
-# Example: Stepper Motor Control with FT232RNL and ULN2003
+# Example: Stepper Motor Control with FT232H (ACBUS/MPSSE) or FT232RNL (CBUS)
 
-Drive a 5V geared stepper (28BYJ-48 or similar) via the KS0327/ULN2003 driver
-board using the CBUS GPIO pins on an FT232RNL USB serial adapter. This
-walkthrough covers hardware wiring, EEPROM setup, basic testing, and full
-revolution / precise-angle motion scripts.
+Drive a 5V geared stepper (28BYJ-48 or similar) via a KS0327/ULN2003 driver
+board using an FTDI USB adapter. Two hardware paths are covered:
+
+- **FT232H / MPSSE** — ACBUS0-3 output; no EEPROM programming required.
+  This is the recommended path and is what most PSGadget kit builds use.
+- **FT232RNL / CBUS** — CBUS0-3 output; requires a one-time EEPROM write.
+
+Both paths use the same `Set-PsGadgetGpio` cmdlet at runtime.
 
 ---
 
@@ -12,16 +16,20 @@ revolution / precise-angle motion scripts.
 - [Who This Is For](#who-this-is-for)
 - [What You Need](#what-you-need)
 - [Hardware Background](#hardware-background)
-  - [Wiring](#wiring)
+  - [Wiring - FT232H ACBUS (recommended)](#wiring---ft232h-acbus-recommended)
+  - [Wiring - FT232RNL CBUS](#wiring---ft232rnl-cbus)
   - [Coil sequencing](#coil-sequencing)
   - [Power considerations](#power-considerations)
 - [Step 1 - Install Drivers and Verify Detection](#step-1---install-drivers-and-verify-detection)
-- [Step 2 - Program CBUS EEPROM (one-time)](#step-2---program-cbus-eeprom-one-time)
+- [Step 2 - Program CBUS EEPROM (one-time, FT232R only)](#step-2---program-cbus-eeprom-one-time-ft232r-only)
 - [Step 3 - Verify GPIO Availability](#step-3---verify-gpio-availability)
-- [Step 4 - Rapid Smoke Test](#step-4---rapid-smoke-test)
+- [Step 4 - Smoke Test](#step-4---smoke-test)
+  - [FT232H / MPSSE path](#ft232h--mpsse-path)
+  - [FT232R / CBUS path](#ft232r--cbus-path)
 - [Step 5 - Precise Motion Script](#step-5---precise-motion-script)
   - [Half-step function](#half-step-function)
   - [Rotate by degrees](#rotate-by-degrees)
+- [Timing and Debugging](#timing-and-debugging)
 - [Troubleshooting](#troubleshooting)
   - [Motor does not move](#motor-does-not-move)
   - [Only one coil energizes](#only-one-coil-energizes)
@@ -69,20 +77,37 @@ This example is written for:
 
 ## Hardware Background
 
-### Wiring
+### Wiring - FT232H ACBUS (recommended)
 
-| FT232RNL pin | CBUS signal | ULN2003 input | Significance |
-|-------------|-------------|---------------|--------------|
-| CBUS0        | `CBUS0`     | `IN1`         | Coil A        |
-| CBUS1        | `CBUS1`     | `IN2`         | Coil A'       |
-| CBUS2        | `CBUS2`     | `IN3`         | Coil B        |
-| CBUS3        | `CBUS3`     | `IN4`         | Coil B'       |
-| 5 V USB      |             | `5 V`         | Motor supply  |
+Connect ACBUS0-3 directly to ULN2003 IN1-IN4. No EEPROM programming needed.
+
+| FT232H pin | ACBUS signal | ULN2003 input | Coil      |
+|-----------|--------------|---------------|-----------|
+| ACBUS0    | `ACBUS0`     | `IN1`         | Coil A    |
+| ACBUS1    | `ACBUS1`     | `IN2`         | Coil A'   |
+| ACBUS2    | `ACBUS2`     | `IN3`         | Coil B    |
+| ACBUS3    | `ACBUS3`     | `IN4`         | Coil B'   |
+| 5 V USB   |              | `5 V`         | Motor supply |
+| GND       |              | `GND`         | Common ground |
+
+> **Engineer**: ACBUS0-3 are driven by the MPSSE engine's high-byte port
+> (`0x82` command). All four bits are set atomically in a single 3-byte USB
+> transfer, which is what gives the FT232H path its clean step timing.
+
+### Wiring - FT232RNL CBUS
+
+| FT232RNL pin | CBUS signal | ULN2003 input | Coil      |
+|-------------|-------------|---------------|-----------|
+| CBUS0        | `CBUS0`     | `IN1`         | Coil A    |
+| CBUS1        | `CBUS1`     | `IN2`         | Coil A'   |
+| CBUS2        | `CBUS2`     | `IN3`         | Coil B    |
+| CBUS3        | `CBUS3`     | `IN4`         | Coil B'   |
+| 5 V USB      |             | `5 V`         | Motor supply |
 | GND          |             | `GND`         | Common ground |
 
 > **Beginner**: do **not** connect the motor wires directly to the FTDI
 > board. The ULN2003 board handles the high current and provides built-in
-> flyback diodes. Just connect the four control pins to CBUS0–CBUS3 as above.
+> flyback diodes. Just connect the four control pins as shown above.
 
 ### Coil sequencing
 
@@ -120,7 +145,7 @@ The `GpioMethod` should show `CBUS`.
 
 ---
 
-## Step 2 - Program CBUS EEPROM (one-time for FT232R only)
+## Step 2 - Program CBUS EEPROM (one-time, FT232R only)
 
 *Skip this step if you are using an FT232H/MPSSE device; the ACBUS pins are
 immediately available and no EEPROM programming is required.*
@@ -158,11 +183,58 @@ ULN2003 board LEDs will light accordingly (they are tied to each IN pin).
 
 ---
 
-## Step 4 - Rapid Smoke Test
+## Step 4 - Smoke Test
 
-Run a simple script to step the motor one revolution (2048 half-steps) at a
-moderate pace. Leave the motor disconnected if you just want to watch the
-LEDs blink.
+### FT232H / MPSSE path
+
+The recommended approach. `New-PsGadgetFtdi` opens the device and acquires the
+D2XX MPSSE handle automatically. The half-step HIGH/LOW pairs are precomputed
+so no array math runs inside the 2048-step loop.
+
+```powershell
+Import-Module G:\PSSummit2026\psgadget\PSGadget.psm1
+
+$dev = New-PsGadgetFtdi -Index 0
+
+# Pre-computed half-step table: each entry is @(highPins, lowPins)
+# Avoids Where-Object filtering in the hot loop
+$steps = @(
+    @(@(0),   @(1,2,3)),
+    @(@(0,1), @(2,3)),
+    @(@(1),   @(0,2,3)),
+    @(@(1,2), @(0,3)),
+    @(@(2),   @(0,1,3)),
+    @(@(2,3), @(0,1)),
+    @(@(3),   @(0,1,2)),
+    @(@(0,3), @(1,2))
+)
+
+try {
+    for ($i = 0; $i -lt 2048; $i++) {
+        $step = $steps[$i % 8]
+        Set-PsGadgetGpio -PsGadget $dev -Pins $step[0] -State HIGH
+        Set-PsGadgetGpio -PsGadget $dev -Pins $step[1] -State LOW
+        Start-Sleep -Milliseconds 3
+    }
+} finally {
+    Set-PsGadgetGpio -PsGadget $dev -Pins @(0,1,2,3) -State LOW
+    $dev.Close()
+}
+```
+
+> **Engineer**: `Set-PsGadgetGpio` uses a cached ACBUS state value — the HIGH
+> call sets the active bits, the LOW call clears the rest, both using the cache
+> for read-modify-write without USB round-trips. Each step generates two
+> 3-byte MPSSE writes (6 bytes total) over USB.
+
+> **Scripter**: if you see the driver board LEDs blinking but the shaft just
+> pulsing without rotation, the most common causes are console output overhead
+> adding timing jitter (already eliminated in this version) and a seized
+> gearbox. See Troubleshooting below.
+
+### FT232R / CBUS path
+
+Requires the EEPROM step from Step 2 first.
 
 ```powershell
 $seq = @( @(1,0,0,0), @(1,1,0,0), @(0,1,0,0), @(0,1,1,0),
@@ -174,14 +246,11 @@ for ($i=0; $i -lt 2048; $i++) {
         $state = if ($pattern[$pin] -eq 1) { 'HIGH' } else { 'LOW' }
         Set-PsGadgetGpio -Connection $conn -Pins @($pin) -State $state
     }
-    Start-Sleep -Milliseconds 3    # adjust for speed
+    Start-Sleep -Milliseconds 3
 }
-# de-energize
 Set-PsGadgetGpio -Connection $conn -Pins @(0..3) -State LOW
 $conn.Close()
 ```
-
-If the motor rotates smoothly the basics are operational.
 
 ---
 
@@ -335,6 +404,57 @@ stalling.
 
 ---
 
+## Timing and Debugging
+
+**Measure actual step rate with a Stopwatch:**
+
+```powershell
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
+for ($i = 0; $i -lt 2048; $i++) {
+    $step = $steps[$i % 8]
+    Set-PsGadgetGpio -PsGadget $dev -Pins $step[0] -State HIGH
+    Set-PsGadgetGpio -PsGadget $dev -Pins $step[1] -State LOW
+    Start-Sleep -Milliseconds 3
+}
+$sw.Stop()
+Write-Host ("2048 steps in {0:F1}s ({1:F2}ms/step avg)" -f $sw.Elapsed.TotalSeconds, ($sw.ElapsedMilliseconds / 2048.0))
+```
+
+Expected: ~6-7 s total, ~3.1 ms/step. If you see 10+ ms/step the module is
+adding overhead; see the notes below.
+
+**Sample every N steps (lightweight progress without jitter):**
+
+```powershell
+for ($i = 0; $i -lt 2048; $i++) {
+    if ($i % 256 -eq 0) { Write-Host "Step $i / 2048" }
+    $step = $steps[$i % 8]
+    Set-PsGadgetGpio -PsGadget $dev -Pins $step[0] -State HIGH
+    Set-PsGadgetGpio -PsGadget $dev -Pins $step[1] -State LOW
+    Start-Sleep -Milliseconds 3
+}
+```
+
+**Single-call inspection with `-Verbose`:**
+
+```powershell
+# -Verbose on a single call is fine; avoid it inside the 2048-step loop
+Set-PsGadgetGpio -PsGadget $dev -Pins @(0,1) -State HIGH -Verbose
+```
+
+> **Scripter**: `Write-Host` (or any console output) inside a tight loop adds
+> several milliseconds of jitter per call because PowerShell must format and
+> flush the host buffer synchronously. The PSGadget module suppresses all
+> per-call success messages in the GPIO path for this reason.
+
+> **Engineer**: The D2XX ACBUS state is cached on the connection object after
+> every write, so the read-modify-write inside `Set-FtdiGpioPins` never issues
+> a USB `0x83` read command during normal operation. Removing the USB read
+> round-trip was the main fix that allowed the 28BYJ-48 to build rotational
+> momentum at 3 ms/step.
+
+---
+
 ## Troubleshooting
 
 ### Motor does not move
@@ -369,21 +489,57 @@ wires if necessary. The ULN2003 board outputs are labeled IN1–IN4.
 
 ### Stepper shudders or stalls
 
-- Increase the delay in `Invoke-StepperHalfStep` (try 5 ms or 10 ms).
+- **LEDs flash but shaft only pulses** — the most common cause is timing jitter
+  from overhead between steps, not a wiring problem. Verify the module is not
+  printing per-step output (`Write-Host` inside the loop) and that the step
+  table is precomputed (no `Where-Object` filter inside the loop).
+- **USB read round-trips** — if you're on an older version of the module, `Get-FtdiGpioPins`
+  may issue an `0x83` read command before every write (adds ~2 ms of USB latency
+  per step). The current module caches ACBUS state and skips the read. Confirm
+  you are on dev1 with the latest `Ftdi.Mpsse.ps1`.
+- Increase `Start-Sleep -Milliseconds` (try 5 ms or 10 ms) if the motor stalls under load.
 - Reduce supply voltage if the motor overheats; the gearbox is fragile.
-- Use full-step sequence (`@(1,0,1,0), @(0,1,0,1)` etc.) for more torque.
+- Use full-step sequence (`@(1,0,1,0), @(0,1,0,1)` etc.) for more starting torque.
 
 ---
 
 ## Quick Reference (Pro)
 
 ```powershell
-# CBUS path (FT232R) - one-time EEPROM setup, then runtime GPIO
+# FT232H / MPSSE path - ACBUS0-3 to ULN2003 IN1-IN4 - no EEPROM step required
+Import-Module G:\PSSummit2026\psgadget\PSGadget.psm1
+$dev   = New-PsGadgetFtdi -Index 0
+$steps = @(
+    @(@(0),@(1,2,3)), @(@(0,1),@(2,3)), @(@(1),@(0,2,3)), @(@(1,2),@(0,3)),
+    @(@(2),@(0,1,3)), @(@(2,3),@(0,1)), @(@(3),@(0,1,2)), @(@(0,3),@(1,2))
+)
+try {
+    for ($i=0;$i -lt 2048;$i++) {
+        $s=$steps[$i%8]
+        Set-PsGadgetGpio -PsGadget $dev -Pins $s[0] -State HIGH
+        Set-PsGadgetGpio -PsGadget $dev -Pins $s[1] -State LOW
+        Start-Sleep -Milliseconds 3
+    }
+} finally {
+    Set-PsGadgetGpio -PsGadget $dev -Pins @(0,1,2,3) -State LOW
+    $dev.Close()
+}
+```
+
+```powershell
+# FT232H - measure timing
+$sw=[System.Diagnostics.Stopwatch]::StartNew()
+# ... loop ...
+$sw.Stop(); Write-Host ("{0:F2}ms/step avg" -f ($sw.ElapsedMilliseconds/2048.0))
+```
+
+```powershell
+# FT232R / CBUS path - one-time EEPROM setup
 Set-PsGadgetFt232rCbusMode -Index 0   # run once per device; replug USB after
 
 $seq=@(@(1,0,0,0),@(1,1,0,0),@(0,1,0,0),@(0,1,1,0),@(0,0,1,0),@(0,0,1,1),@(0,0,0,1),@(1,0,0,1))
 $conn=Connect-PsGadgetFtdi -Index 0
-for($i=0;$i -lt 512;$i++){ $p=$seq[$i%8];for($pin=0;$pin -lt 4;$pin++){$st=if($p[$pin]){'HIGH'}else{'LOW'};Set-PsGadgetGpio -Connection $conn -Pins @($pin) -State $st};Start-Sleep -Milliseconds 3}
+for($i=0;$i -lt 2048;$i++){ $p=$seq[$i%8];for($pin=0;$pin -lt 4;$pin++){$st=if($p[$pin]){'HIGH'}else{'LOW'};Set-PsGadgetGpio -Connection $conn -Pins @($pin) -State $st};Start-Sleep -Milliseconds 3}
 Set-PsGadgetGpio -Connection $conn -Pins @(0..3) -State LOW
 $conn.Close()
 ```
@@ -395,7 +551,7 @@ $dev = New-PsGadgetFtdi -Index 0
 Set-PsGadgetFtdiMode -PsGadget $dev -Mode AsyncBitBang -Mask 0x0F
 $dev.SetBaudRate(9600)   # 9600 half-steps/sec
 $seq=[byte[]](0x01,0x03,0x02,0x06,0x04,0x0C,0x08,0x09)
-$buf=[System.Collections.Generic.List[byte]]::new(); for($i=0;$i -lt 512;$i++){$buf.Add($seq[$i%8])}
+$buf=[System.Collections.Generic.List[byte]]::new(); for($i=0;$i -lt 2048;$i++){$buf.Add($seq[$i%8])}
 $w=0; $dev._connection.Write($buf.ToArray(),$buf.Count,[ref]$w)
 $dev._connection.Write([byte[]](0x00),1,[ref]$w)   # de-energize
 Set-PsGadgetFtdiMode -PsGadget $dev -Mode UART

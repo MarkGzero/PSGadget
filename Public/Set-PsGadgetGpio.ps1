@@ -272,11 +272,7 @@ function Set-PsGadgetGpio {
                 }
             }
 
-            if ($success) {
-                $message = "Successfully set $pinLabel to $State"
-                if ($DurationMs) { $message += " for $DurationMs ms" }
-                Write-Host $message -ForegroundColor Green
-            } else {
+            if (-not $success) {
                 throw "GPIO operation failed"
             }
             
