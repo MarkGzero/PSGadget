@@ -36,6 +36,7 @@ Both paths use the same `Set-PsGadgetGpio` cmdlet at runtime.
   - [Stepper shudders or stalls](#stepper-shudders-or-stalls)
 - [Quick Reference (Pro)](#quick-reference-pro)
 - [Speeding Up](#speeding-up)
+- [Exploring PSGadget Objects](#exploring-psgadget-objects)
 - [Practical Example: Laser Aiming Rig](#practical-example-laser-aiming-rig)
 
 ---
@@ -537,6 +538,108 @@ Expected: ~4096 x 2 ms = **~8 s per revolution**, with no cmdlet overhead.
 > skipping under load, increase to 3 ms. Do NOT send all 4096 MPSSE commands
 > in a single bulk `Write()` without inter-step delays -- the MPSSE engine
 > will execute all phases in microseconds, which will stall the motor.
+
+---
+
+## Exploring PSGadget Objects
+
+The speed section accesses `$dev._connection.Device` directly. This section
+explains how to find that path yourself on any PSGadget or PowerShell object.
+
+### Why this works
+
+Every value in PowerShell is a .NET object. `PSCustomObject` is a property bag
+that can hold any .NET object as a `NoteProperty`. The dot operator `.` just
+accesses a property or field — it doesn't care whether the object is a
+PowerShell class, a `PSCustomObject`, or a .NET class from an assembly.
+
+```
+$dev                          PsGadgetFtdi class
+  ._connection                PSCustomObject (connection bag)
+    .Device                   FTD2XX_NET.FTDI (.NET object from DLL)
+      .Write(bytes, len, ref) actual USB write to FTDI chip
+```
+
+Each `.` dereferences the object returned by the previous step.
+
+### How to interrogate any object
+
+**Standard members (what you normally see):**
+```powershell
+$dev | Get-Member
+```
+
+**Include hidden properties** (`hidden` in a PowerShell class suppresses
+tab-completion and `Format-*` output but does NOT prevent access):
+```powershell
+$dev | Get-Member -Force
+```
+
+**All members including inherited .NET base class members:**
+```powershell
+$dev | Get-Member -Force -View All
+```
+
+**Inspect a PSCustomObject's NoteProperties** (including type of each value):
+```powershell
+$dev._connection.PSObject.Properties | Select-Object Name, MemberType, TypeNameOfValue, Value
+```
+
+**Full .NET reflection** -- lists every method and property the underlying
+.NET type exposes, including non-public and inherited members:
+```powershell
+# All public methods
+$dev.GetType().GetMethods() | Select-Object Name, IsStatic | Sort-Object Name
+
+# All public properties
+$dev.GetType().GetProperties() | Select-Object Name, PropertyType
+
+# Everything: public + non-public + static + instance
+$dev.GetType().GetMembers(
+    [System.Reflection.BindingFlags]'Public,NonPublic,Instance,Static'
+) | Select-Object Name, MemberType | Sort-Object MemberType, Name
+```
+
+**What type is this object? Where does it come from?**
+```powershell
+$dev.GetType().FullName      # PsGadgetFtdi
+$dev._connection.Device.GetType().FullName   # FTD2XX_NET.FTDI
+$dev._connection.Device.GetType().Assembly   # shows which DLL loaded it
+```
+
+**Quick reference table:**
+
+| Goal | Command |
+|------|---------|
+| Normal members | `$obj \| gm` |
+| Include hidden | `$obj \| gm -Force` |
+| All views | `$obj \| gm -Force -View All` |
+| PSCustomObject props | `$obj.PSObject.Properties` |
+| .NET reflection | `$obj.GetType().GetMembers(...)` |
+| What type is it? | `$obj.GetType().FullName` |
+| What assembly? | `$obj.GetType().Assembly` |
+| Dump as JSON | `$obj \| ConvertTo-Json -Depth 5` |
+
+> **Beginner**: `Get-Member` (alias `gm`) is the first tool to reach for any
+> time you have an object and don't know what you can do with it. Run
+> `$dev | gm` immediately after connecting to see all available methods.
+
+> **Scripter**: `hidden` in a PowerShell class definition is cosmetic. It
+> removes the property from tab-completion and default display, but
+> `$obj.HiddenProperty` still works. Use `Get-Member -Force` to see hidden
+> members.
+
+> **Engineer**: The entire .NET Base Class Library is available in every
+> PowerShell session without any imports. `[System.IO.File]`,
+> `[System.Diagnostics.Stopwatch]`, `[System.Net.Sockets.TcpClient]` — all
+> accessible directly. Cmdlets are wrappers on top of .NET; once you know
+> how to reach past them you can call any .NET API directly.
+
+> **Pro**: Use `BindingFlags` in `.GetMembers()` to expose private fields if
+> you need to inspect or interact with internal state of a third-party .NET
+> class (e.g. `FTD2XX_NET.FTDI`). Combine with `.GetValue()` /
+> `.SetValue()` on `FieldInfo` objects to read/write private fields at
+> runtime — useful for diagnostics, not production code.
 
 ---
 
