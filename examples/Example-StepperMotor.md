@@ -35,6 +35,7 @@ Both paths use the same `Set-PsGadgetGpio` cmdlet at runtime.
   - [Only one coil energizes](#only-one-coil-energizes)
   - [Stepper shudders or stalls](#stepper-shudders-or-stalls)
 - [Quick Reference (Pro)](#quick-reference-pro)
+- [Speeding Up](#speeding-up)
 - [Practical Example: Laser Aiming Rig](#practical-example-laser-aiming-rig)
 
 ---
@@ -456,6 +457,89 @@ Set-PsGadgetGpio -PsGadget $dev -Pins @(0,1) -State HIGH -Verbose
 
 ---
 
+## Speeding Up
+
+With the default `Set-PsGadgetGpio` loop and `Start-Sleep -Milliseconds 3`,
+a full revolution takes roughly **60 seconds** on Windows. Two independent
+causes account for nearly all of that gap.
+
+### Cause 1: Windows timer resolution (biggest impact)
+
+On Windows, `Start-Sleep -Milliseconds 3` actually sleeps **~15 ms** by
+default. The Windows multimedia timer runs at 15.625 ms resolution unless a
+process explicitly requests finer granularity. At 4096 steps the result is
+~61 s per revolution instead of ~12 s.
+
+Fix it once per script with a two-line P/Invoke call:
+
+```powershell
+Add-Type -MemberDefinition '
+    [DllImport("winmm.dll")] public static extern int timeBeginPeriod(int t);
+    [DllImport("winmm.dll")] public static extern int timeEndPeriod(int t);
+' -Name 'WinTimer' -Namespace 'Win32'
+
+[Win32.WinTimer]::timeBeginPeriod(1)   # 1 ms resolution for this process
+try {
+    for ($i = 0; $i -lt 4096; $i++) {
+        $step = $steps[$i % 8]
+        Set-PsGadgetGpio -PsGadget $dev -Pins $step[0] -State HIGH
+        Set-PsGadgetGpio -PsGadget $dev -Pins $step[1] -State LOW
+        Start-Sleep -Milliseconds 2
+    }
+} finally {
+    [Win32.WinTimer]::timeEndPeriod(1)
+    Set-PsGadgetGpio -PsGadget $dev -Pins @(0,1,2,3) -State LOW
+}
+```
+
+Expected after fix: ~4096 x 2 ms = **~8-9 s per revolution**.
+
+> **Scripter**: call `timeBeginPeriod(1)` once at the top of your script and
+> `timeEndPeriod(1)` in the `finally` block. The effect applies to the entire
+> process for the duration; there is no per-loop overhead.
+
+### Cause 2: PowerShell cmdlet overhead per step
+
+Each `Set-PsGadgetGpio` call involves PowerShell parameter binding and a
+three-level function dispatch (public wrapper -> private backend -> MPSSE
+helper). Two calls per step adds ~3-6 ms of interpreter overhead before the
+`Start-Sleep` even runs.
+
+Bypass this entirely by writing the 3-byte MPSSE `0x82` command directly to
+the raw FTD2XX_NET device handle:
+
+```powershell
+# ACBUS byte for each half-step phase - bits 0-3 map to ACBUS0-3 / ULN2003 IN1-IN4
+$acbusSeq = [byte[]](0x01, 0x03, 0x02, 0x06, 0x04, 0x0C, 0x08, 0x09)
+$written  = 0
+$rawFtdi  = $dev._connection.Device   # FTD2XX_NET.FTDI handle
+
+[Win32.WinTimer]::timeBeginPeriod(1)
+try {
+    for ($i = 0; $i -lt 4096; $i++) {
+        $rawFtdi.Write([byte[]](0x82, $acbusSeq[$i % 8], 0xFF), 3, [ref]$written) | Out-Null
+        Start-Sleep -Milliseconds 2
+    }
+} finally {
+    [Win32.WinTimer]::timeEndPeriod(1)
+    $rawFtdi.Write([byte[]](0x82, 0x00, 0xFF), 3, [ref]$written) | Out-Null
+}
+```
+
+Expected: ~4096 x 2 ms = **~8 s per revolution**, with no cmdlet overhead.
+
+> **Engineer**: `0x82` is the MPSSE "Set Data Bits High Byte" (ACBUS)
+> command. Byte 1 is the 8-bit output value; byte 2 is the direction mask
+> (0xFF = all ACBUS pins as outputs). One 3-byte USB write per step, no
+> read round-trip.
+
+> **Pro**: At 2 ms/step the motor is near its pull-in limit. If steps are
+> skipping under load, increase to 3 ms. Do NOT send all 4096 MPSSE commands
+> in a single bulk `Write()` without inter-step delays -- the MPSSE engine
+> will execute all phases in microseconds, which will stall the motor.
+
+---
+
 ## Troubleshooting
 
 ### Motor does not move
@@ -585,20 +669,19 @@ Import-Module G:\PSSummit2026\psgadget\PSGadget.psm1
 
 $dev = New-PsGadgetFtdi -Index 0
 
-# Pre-computed half-step table (ACBUS0-3 -> ULN2003 IN1-IN4)
-$stepTable = @(
-    @(@(0),   @(1,2,3)),
-    @(@(0,1), @(2,3)),
-    @(@(1),   @(0,2,3)),
-    @(@(1,2), @(0,3)),
-    @(@(2),   @(0,1,3)),
-    @(@(2,3), @(0,1)),
-    @(@(3),   @(0,1,2)),
-    @(@(0,3), @(1,2))
-)
-
 # Tracks current step position so relative moves accumulate correctly
 $script:StepPos = 0
+
+# ACBUS byte for each half-step phase - bits 0-3 = ACBUS0-3
+$acbusSeq = [byte[]](0x01, 0x03, 0x02, 0x06, 0x04, 0x0C, 0x08, 0x09)
+$rawFtdi  = $dev._connection.Device   # FTD2XX_NET.FTDI handle - bypass cmdlet overhead
+
+# Set 1 ms Windows timer resolution once (fixes Start-Sleep granularity 15ms->1ms)
+Add-Type -MemberDefinition '
+    [DllImport("winmm.dll")] public static extern int timeBeginPeriod(int t);
+    [DllImport("winmm.dll")] public static extern int timeEndPeriod(int t);
+' -Name 'WinTimer' -Namespace 'Win32' -ErrorAction SilentlyContinue
+[Win32.WinTimer]::timeBeginPeriod(1)
 
 function Move-Stepper {
     param(
@@ -609,23 +692,23 @@ function Move-Stepper {
         [ValidateSet('left', 'right')]
         [string]$Direction,
 
-        [int]$DelayMs = 3
+        [int]$DelayMs = 2
     )
     $nSteps = [math]::Abs([math]::Round(4096 * ($Degrees / 360)))
     $dir    = if ($Direction -eq 'right') { 1 } else { -1 }
+    $w      = 0
 
     for ($i = 0; $i -lt $nSteps; $i++) {
         $script:StepPos = (($script:StepPos + $dir) % 8 + 8) % 8
-        $s = $stepTable[$script:StepPos]
-        Set-PsGadgetGpio -PsGadget $dev -Pins $s[0] -State HIGH
-        Set-PsGadgetGpio -PsGadget $dev -Pins $s[1] -State LOW
+        $rawFtdi.Write([byte[]](0x82, $acbusSeq[$script:StepPos], 0xFF), 3, [ref]$w) | Out-Null
         Start-Sleep -Milliseconds $DelayMs
     }
     Write-Host ("Moved $Degrees deg $Direction ($nSteps steps)")
 }
 
 function Stop-Stepper {
-    Set-PsGadgetGpio -PsGadget $dev -Pins @(0,1,2,3) -State LOW
+    $w = 0
+    $rawFtdi.Write([byte[]](0x82, 0x00, 0xFF), 3, [ref]$w) | Out-Null
 }
 
 function Invoke-Fire {
@@ -649,6 +732,7 @@ try {
     Invoke-Fire
 
 } finally {
+    [Win32.WinTimer]::timeEndPeriod(1)
     Stop-Stepper
     $dev.Close()
 }
@@ -672,9 +756,9 @@ try {
 > where the rig is currently pointing. To return to home, pass the negated sum
 > of all previous moves, or add a limit switch and a homing routine.
 
-> **Pro**: Swap `Start-Sleep -Milliseconds $DelayMs` for a tighter timer if you
-> need sub-5ms step intervals. The minimum reliable delay at 3 ms keeps the
-> 28BYJ-48 well within its torque band; going below 2 ms risks stalls under load.
+> **Pro**: The default `DelayMs = 2` is near the 28BYJ-48 pull-in rate limit
+> (~500 steps/sec). If steps skip under load, increase to 3 ms. Going below
+> 2 ms risks stalls; add a ramp-up loop if sub-2ms top speed is needed.
 
 ---
 
