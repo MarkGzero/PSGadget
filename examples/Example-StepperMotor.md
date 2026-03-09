@@ -687,7 +687,8 @@ wires if necessary. The ULN2003 board outputs are labeled IN1–IN4.
   you are on dev1 with the latest `Ftdi.Mpsse.ps1`.
 - Increase `Start-Sleep -Milliseconds` (try 5 ms or 10 ms) if the motor stalls under load.
 - Reduce supply voltage if the motor overheats; the gearbox is fragile.
-- Use full-step sequence (`@(1,0,1,0), @(0,1,0,1)` etc.) for more starting torque.
+- Use full-step sequence (`-FullStep` switch) for more consistent torque and smoother
+  motion -- on the 28BYJ-48 full-step is smoother than half-step in practice.
 
 ---
 
@@ -755,22 +756,32 @@ horizontal axis. Use `Move-Stepper` with a degree count, direction, and
 optional step mode:
 
 ```powershell
-Move-Stepper -HalfStep -Degrees 45 -Direction left   # smooth, fine resolution
-Move-Stepper -FullStep -Degrees 90 -Direction right  # faster, more torque
+Move-Stepper -HalfStep -Degrees 45 -Direction left   # finer resolution, slight hesitation
+Move-Stepper -FullStep -Degrees 90 -Direction right  # faster, smoother feel, consistent torque
 Move-Stepper 45 left                                 # positional shorthand (default: half-step)
 ```
 
 **Choosing a mode:**
 
-| | Half-step (default) | Full-step |
+| | Half-step | Full-step |
 |--|---------------------|-----------|
 | Steps/rev | 4096 | 2048 |
-| Speed | Slower | Faster |
-| Torque | Lower | Higher |
-| Best for | smooth motion, precision | heavy load, startup |
+| Speed at 2ms/step | ~8s/rev | ~4s/rev |
+| Torque per phase | Varies (1-coil / 2-coil alternating) | Consistent (always 2 coils) |
+| Feel on 28BYJ-48 | Slight hesitation on 1-coil phases | Smooth, consistent pull |
+| Best for | fine angular resolution | smooth motion, heavy load |
 
-Use `-FullStep` if the motor stalls or struggles under load. Use `-HalfStep`
-(or omit the switch) for smooth, precise positioning.
+> **Note**: textbooks say half-step is smoother, but on the 28BYJ-48 at
+> USB-controlled speeds, **full-step feels smoother** in practice. Half-step
+> alternates between 1-coil and 2-coil phases; the rotor hesitates slightly
+> on every 1-coil phase because torque is lower. Full-step always energizes
+> 2 coils, giving consistent torque on every step. You can also see this on
+> the ULN2003 driver board: in half-step mode the LEDs flash visibly as coils
+> alternate; in full-step mode the LEDs appear almost steady because 2 coils
+> are always on and steps happen twice as fast.
+
+Use `-HalfStep` when you need finer angular resolution (4096 steps vs 2048).
+Use `-FullStep` for smoother feel or when the motor stalls under load.
 
 A common technique is to start with full-step to overcome static friction,
 then switch to half-step for the fine-positioning move:
@@ -794,7 +805,7 @@ $dev = New-PsGadgetFtdi -Index 0
 $script:HalfStepPos = 0
 $script:FullStepPos = 0
 
-# Half-step sequence: 8 phases, alternates 1-coil / 2-coil (smooth, 4096 steps/rev)
+# Half-step sequence: 8 phases, alternates 1-coil / 2-coil (finer resolution, 4096 steps/rev)
 $halfSeq = [byte[]](0x01, 0x03, 0x02, 0x06, 0x04, 0x0C, 0x08, 0x09)
 # Full-step sequence: 4 phases, always 2 coils (more torque, 2048 steps/rev)
 $fullSeq = [byte[]](0x03, 0x06, 0x0C, 0x09)
