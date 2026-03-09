@@ -35,6 +35,7 @@ Both paths use the same `Set-PsGadgetGpio` cmdlet at runtime.
   - [Only one coil energizes](#only-one-coil-energizes)
   - [Stepper shudders or stalls](#stepper-shudders-or-stalls)
 - [Quick Reference (Pro)](#quick-reference-pro)
+- [Practical Example: Laser Aiming Rig](#practical-example-laser-aiming-rig)
 
 ---
 
@@ -392,7 +393,7 @@ function Invoke-StepperRotate {
 }
 
 # Usage example:
-$conn = Connect-PsGadgetFtdi -Index 1
+$conn = Connect-PsGadgetFtdi -Index 0
 Invoke-StepperRotate -Connection $conn -Degrees 90   # quarter turn
 Invoke-StepperRotate -Connection $conn -Degrees 45  -Direction -1  # back
 Set-PsGadgetGpio -Connection $conn -Pins @(0..3) -State LOW
@@ -557,6 +558,123 @@ $dev._connection.Write([byte[]](0x00),1,[ref]$w)   # de-energize
 Set-PsGadgetFtdiMode -PsGadget $dev -Mode UART
 $dev.Close()
 ```
+
+---
+
+## Practical Example: Laser Aiming Rig
+
+The stepper positions a laser pointer (or camera, sensor, etc.) along a
+horizontal axis. Use `Move-Stepper` with a degree count and a direction word:
+
+```powershell
+Move-Stepper 45 left
+Move-Stepper 23 right
+```
+
+> **Beginner**: "degrees" here means real output-shaft degrees, not motor
+> internal degrees. The gearbox is already accounted for (2048 half-steps =
+> one full 360 degree output revolution).
+
+> **Engineer**: 2048 half-steps / 360 degrees = 5.689 steps/degree. The
+> `[math]::Round` keeps integer step counts. Accumulated rounding error over
+> many small moves is ~0.18 degrees worst-case per move; reset to a home
+> switch if absolute accuracy is required.
+
+```powershell
+Import-Module G:\PSSummit2026\psgadget\PSGadget.psm1
+
+$dev = New-PsGadgetFtdi -Index 0
+
+# Pre-computed half-step table (ACBUS0-3 -> ULN2003 IN1-IN4)
+$stepTable = @(
+    @(@(0),   @(1,2,3)),
+    @(@(0,1), @(2,3)),
+    @(@(1),   @(0,2,3)),
+    @(@(1,2), @(0,3)),
+    @(@(2),   @(0,1,3)),
+    @(@(2,3), @(0,1)),
+    @(@(3),   @(0,1,2)),
+    @(@(0,3), @(1,2))
+)
+
+# Tracks current step position so relative moves accumulate correctly
+$script:StepPos = 0
+
+function Move-Stepper {
+    param(
+        [Parameter(Mandatory, Position = 0)]
+        [double]$Degrees,
+
+        [Parameter(Mandatory, Position = 1)]
+        [ValidateSet('left', 'right')]
+        [string]$Direction,
+
+        [int]$DelayMs = 3
+    )
+    $nSteps = [math]::Abs([math]::Round(2048 * ($Degrees / 360)))
+    $dir    = if ($Direction -eq 'right') { 1 } else { -1 }
+
+    for ($i = 0; $i -lt $nSteps; $i++) {
+        $script:StepPos = (($script:StepPos + $dir) % 8 + 8) % 8
+        $s = $stepTable[$script:StepPos]
+        Set-PsGadgetGpio -PsGadget $dev -Pins $s[0] -State HIGH
+        Set-PsGadgetGpio -PsGadget $dev -Pins $s[1] -State LOW
+        Start-Sleep -Milliseconds $DelayMs
+    }
+    Write-Host ("Moved $Degrees deg $Direction ($nSteps steps)")
+}
+
+function Stop-Stepper {
+    Set-PsGadgetGpio -PsGadget $dev -Pins @(0,1,2,3) -State LOW
+}
+
+function Invoke-Fire {
+    # Replace this body with actual laser/camera trigger logic.
+    # Example: pulse ACBUS4 HIGH for 200 ms if your trigger is wired there.
+    Write-Host "  FIRE at current position"
+    # Set-PsGadgetGpio -PsGadget $dev -Pins @(4) -State HIGH -DurationMs 200
+}
+
+try {
+    Stop-Stepper
+    Start-Sleep -Milliseconds 100
+
+    Move-Stepper 10 left
+    Invoke-Fire
+
+    Move-Stepper 27 right
+    Invoke-Fire
+
+    Move-Stepper 5 left
+    Invoke-Fire
+
+} finally {
+    Stop-Stepper
+    $dev.Close()
+}
+```
+
+**Degree-to-step reference:**
+
+| Degrees | Half-steps (approx) |
+|---------|---------------------|
+| 1       | 6                   |
+| 5       | 28                  |
+| 10      | 57                  |
+| 27      | 154                 |
+| 45      | 256                 |
+| 90      | 512                 |
+| 180     | 1024                |
+| 360     | 2048                |
+
+> **Scripter**: `Move-Stepper` calls chain from the current shaft position —
+> you don't need to track absolute angles yourself. Each call is relative to
+> where the rig is currently pointing. To return to home, pass the negated sum
+> of all previous moves, or add a limit switch and a homing routine.
+
+> **Pro**: Swap `Start-Sleep -Milliseconds $DelayMs` for a tighter timer if you
+> need sub-5ms step intervals. The minimum reliable delay at 3 ms keeps the
+> 28BYJ-48 well within its torque band; going below 2 ms risks stalls under load.
 
 ---
 
