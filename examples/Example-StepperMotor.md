@@ -751,21 +751,39 @@ $dev.Close()
 ## Practical Example: Laser Aiming Rig
 
 The stepper positions a laser pointer (or camera, sensor, etc.) along a
-horizontal axis. Use `Move-Stepper` with a degree count and a direction word:
+horizontal axis. Use `Move-Stepper` with a degree count, direction, and
+optional step mode:
 
 ```powershell
-Move-Stepper 45 left
-Move-Stepper 23 right
+Move-Stepper -HalfStep -Degrees 45 -Direction left   # smooth, fine resolution
+Move-Stepper -FullStep -Degrees 90 -Direction right  # faster, more torque
+Move-Stepper 45 left                                 # positional shorthand (default: half-step)
 ```
+
+**Choosing a mode:**
+
+| | Half-step (default) | Full-step |
+|--|---------------------|-----------|
+| Steps/rev | 4096 | 2048 |
+| Speed | Slower | Faster |
+| Torque | Lower | Higher |
+| Best for | smooth motion, precision | heavy load, startup |
+
+Use `-FullStep` if the motor stalls or struggles under load. Use `-HalfStep`
+(or omit the switch) for smooth, precise positioning.
+
+A common technique is to start with full-step to overcome static friction,
+then switch to half-step for the fine-positioning move:
 
 > **Beginner**: "degrees" here means real output-shaft degrees, not motor
 > internal degrees. The gearbox is already accounted for (4096 half-steps =
 > one full 360 degree output revolution).
 
-> **Engineer**: 4096 half-steps / 360 degrees = 11.378 steps/degree. The
+> **Engineer**: 4096 half-steps / 360 degrees = 11.378 steps/degree (half-step),
+> 2048 / 360 = 5.689 steps/degree (full-step). The
 > `[math]::Round` keeps integer step counts. Accumulated rounding error over
-> many small moves is ~0.09 degrees worst-case per move; reset to a home
-> switch if absolute accuracy is required.
+> many small moves is ~0.09 degrees worst-case per move in half-step mode; reset
+> to a home switch if absolute accuracy is required.
 
 ```powershell
 Import-Module G:\PSSummit2026\psgadget\PSGadget.psm1
@@ -773,10 +791,14 @@ Import-Module G:\PSSummit2026\psgadget\PSGadget.psm1
 $dev = New-PsGadgetFtdi -Index 0
 
 # Tracks current step position so relative moves accumulate correctly
-$script:StepPos = 0
+$script:HalfStepPos = 0
+$script:FullStepPos = 0
 
-# ACBUS byte for each half-step phase - bits 0-3 = ACBUS0-3
-$acbusSeq = [byte[]](0x01, 0x03, 0x02, 0x06, 0x04, 0x0C, 0x08, 0x09)
+# Half-step sequence: 8 phases, alternates 1-coil / 2-coil (smooth, 4096 steps/rev)
+$halfSeq = [byte[]](0x01, 0x03, 0x02, 0x06, 0x04, 0x0C, 0x08, 0x09)
+# Full-step sequence: 4 phases, always 2 coils (more torque, 2048 steps/rev)
+$fullSeq = [byte[]](0x03, 0x06, 0x0C, 0x09)
+
 $rawFtdi  = $dev._connection.Device   # FTD2XX_NET.FTDI handle - bypass cmdlet overhead
 
 # Set 1 ms Windows timer resolution once (fixes Start-Sleep granularity 15ms->1ms)
@@ -795,18 +817,46 @@ function Move-Stepper {
         [ValidateSet('left', 'right')]
         [string]$Direction,
 
+        # Step mode switches - omit for default half-step
+        [switch]$HalfStep,
+        [switch]$FullStep,
+
         [int]$DelayMs = 2
     )
-    $nSteps = [math]::Abs([math]::Round(4096 * ($Degrees / 360)))
+
+    # Full-step if -FullStep specified OR if neither is specified default to half-step
+    $useFullStep = $FullStep.IsPresent -and -not $HalfStep.IsPresent
+
+    if ($useFullStep) {
+        $seq        = $fullSeq
+        $seqLen     = 4
+        $stepsPerRev = 2048
+    } else {
+        $seq        = $halfSeq
+        $seqLen     = 8
+        $stepsPerRev = 4096
+    }
+
+    $nSteps = [math]::Abs([math]::Round($stepsPerRev * ($Degrees / 360)))
     $dir    = if ($Direction -eq 'right') { 1 } else { -1 }
     $w      = 0
 
-    for ($i = 0; $i -lt $nSteps; $i++) {
-        $script:StepPos = (($script:StepPos + $dir) % 8 + 8) % 8
-        $rawFtdi.Write([byte[]](0x82, $acbusSeq[$script:StepPos], 0xFF), 3, [ref]$w) | Out-Null
-        Start-Sleep -Milliseconds $DelayMs
+    if ($useFullStep) {
+        for ($i = 0; $i -lt $nSteps; $i++) {
+            $script:FullStepPos = (($script:FullStepPos + $dir) % $seqLen + $seqLen) % $seqLen
+            $rawFtdi.Write([byte[]](0x82, $seq[$script:FullStepPos], 0xFF), 3, [ref]$w) | Out-Null
+            Start-Sleep -Milliseconds $DelayMs
+        }
+    } else {
+        for ($i = 0; $i -lt $nSteps; $i++) {
+            $script:HalfStepPos = (($script:HalfStepPos + $dir) % $seqLen + $seqLen) % $seqLen
+            $rawFtdi.Write([byte[]](0x82, $seq[$script:HalfStepPos], 0xFF), 3, [ref]$w) | Out-Null
+            Start-Sleep -Milliseconds $DelayMs
+        }
     }
-    Write-Host ("Moved $Degrees deg $Direction ($nSteps steps)")
+
+    $mode = if ($useFullStep) { 'full-step' } else { 'half-step' }
+    Write-Host ("Moved $Degrees deg $Direction ($nSteps steps, $mode)")
 }
 
 function Stop-Stepper {
@@ -825,13 +875,15 @@ try {
     Stop-Stepper
     Start-Sleep -Milliseconds 100
 
-    Move-Stepper 10 left
+    # Full-step to overcome static friction, then half-step for precision
+    Move-Stepper -FullStep  -Degrees 5  -Direction left    # quick start
+    Move-Stepper -HalfStep  -Degrees 5  -Direction right   # fine-tune back
     Invoke-Fire
 
-    Move-Stepper 27 right
+    Move-Stepper -HalfStep  -Degrees 27 -Direction right
     Invoke-Fire
 
-    Move-Stepper 5 left
+    Move-Stepper -FullStep  -Degrees 10 -Direction left
     Invoke-Fire
 
 } finally {
@@ -843,25 +895,27 @@ try {
 
 **Degree-to-step reference:**
 
-| Degrees | Half-steps (approx) |
-|---------|---------------------|
-| 1       | 11                  |
-| 5       | 57                  |
-| 10      | 114                 |
-| 27      | 307                 |
-| 45      | 512                 |
-| 90      | 1024                |
-| 180     | 2048                |
-| 360     | 4096                |
+| Degrees | Half-steps (4096/rev) | Full-steps (2048/rev) |
+|---------|-----------------------|-----------------------|
+| 1       | 11                    | 6                     |
+| 5       | 57                    | 28                    |
+| 10      | 114                   | 57                    |
+| 27      | 307                   | 154                   |
+| 45      | 512                   | 256                   |
+| 90      | 1024                  | 512                   |
+| 180     | 2048                  | 1024                  |
+| 360     | 4096                  | 2048                  |
 
-> **Scripter**: `Move-Stepper` calls chain from the current shaft position —
-> you don't need to track absolute angles yourself. Each call is relative to
-> where the rig is currently pointing. To return to home, pass the negated sum
-> of all previous moves, or add a limit switch and a homing routine.
+> **Scripter**: `Move-Stepper` calls chain from the current shaft position.
+> `-HalfStep` and `-FullStep` each maintain their own position counter
+> internally, so you can mix modes freely without losing track of where the
+> shaft is.
 
-> **Pro**: The default `DelayMs = 2` is near the 28BYJ-48 pull-in rate limit
-> (~500 steps/sec). If steps skip under load, increase to 3 ms. Going below
-> 2 ms risks stalls; add a ramp-up loop if sub-2ms top speed is needed.
+> **Pro**: The default `DelayMs = 2` works for light loads in half-step mode.
+> Full-step at 2 ms/step is near the pull-in limit (~1000 steps/sec at 2 ms);
+> increase to 3 ms if steps skip under load. For a ramp-up pattern, call
+> `Move-Stepper -FullStep` first to overcome static friction, then
+> `Move-Stepper -HalfStep` for the precision portion of the move.
 
 ---
 
