@@ -113,7 +113,7 @@ Connect ACBUS0-3 directly to ULN2003 IN1-IN4. No EEPROM programming needed.
 ### Coil sequencing
 
 The 28BYJ‑48 is a unipolar stepper with a 64‑step internal cycle and a 64:1
-gearbox (2048 half-steps per output revolution). We will use the standard
+gearbox (4096 half-steps per output revolution in half-step mode). We will use the standard
 half‑step sequence:
 
 ```powershell
@@ -190,7 +190,7 @@ ULN2003 board LEDs will light accordingly (they are tied to each IN pin).
 
 The recommended approach. `New-PsGadgetFtdi` opens the device and acquires the
 D2XX MPSSE handle automatically. The half-step HIGH/LOW pairs are precomputed
-so no array math runs inside the 2048-step loop.
+so no array math runs inside the 4096-step loop.
 
 ```powershell
 Import-Module G:\PSSummit2026\psgadget\PSGadget.psm1
@@ -211,7 +211,7 @@ $steps = @(
 )
 
 try {
-    for ($i = 0; $i -lt 2048; $i++) {
+    for ($i = 0; $i -lt 4096; $i++) {
         $step = $steps[$i % 8]
         Set-PsGadgetGpio -PsGadget $dev -Pins $step[0] -State HIGH
         Set-PsGadgetGpio -PsGadget $dev -Pins $step[1] -State LOW
@@ -240,8 +240,8 @@ Requires the EEPROM step from Step 2 first.
 ```powershell
 $seq = @( @(1,0,0,0), @(1,1,0,0), @(0,1,0,0), @(0,1,1,0),
           @(0,0,1,0), @(0,0,1,1), @(0,0,0,1), @(1,0,0,1) )
-$conn = Connect-PsGadgetFtdi -Index 1
-for ($i=0; $i -lt 2048; $i++) {
+$conn = Connect-PsGadgetFtdi -Index 0
+for ($i=0; $i -lt 4096; $i++) {
     $pattern = $seq[$i % 8]
     for ($pin=0; $pin -lt 4; $pin++) {
         $state = if ($pattern[$pin] -eq 1) { 'HIGH' } else { 'LOW' }
@@ -303,9 +303,9 @@ $dev.SetBaudRate(9600)
 # half-step byte sequence (bits 0-3 map to IN1-IN4 on the ULN2003)
 $seq = [byte[]](0x01, 0x03, 0x02, 0x06, 0x04, 0x0C, 0x08, 0x09)
 
-# build 2048-step buffer (1 full output revolution)
+# build 4096-step buffer (1 full output revolution)
 $buf = [System.Collections.Generic.List[byte]]::new()
-for ($i = 0; $i -lt 2048; $i++) { $buf.Add($seq[$i % 8]) }
+for ($i = 0; $i -lt 4096; $i++) { $buf.Add($seq[$i % 8]) }
 
 # stream the entire sequence in one bulk write;
 # the FTDI chip clocks each byte out at the programmed baud rate
@@ -385,8 +385,8 @@ function Invoke-StepperRotate {
         [double]$Degrees,
         [int]$Direction = 1
     )
-    # 2048 half-steps per 360°
-    $steps = [math]::Round(2048 * ($Degrees / 360))
+    # 4096 half-steps per 360° (half-step mode)
+    $steps = [math]::Round(4096 * ($Degrees / 360))
     for ($i=0; $i -lt $steps; $i++) {
         Invoke-StepperHalfStep -Connection $Connection -Direction $Direction
     }
@@ -411,24 +411,24 @@ stalling.
 
 ```powershell
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
-for ($i = 0; $i -lt 2048; $i++) {
+for ($i = 0; $i -lt 4096; $i++) {
     $step = $steps[$i % 8]
     Set-PsGadgetGpio -PsGadget $dev -Pins $step[0] -State HIGH
     Set-PsGadgetGpio -PsGadget $dev -Pins $step[1] -State LOW
     Start-Sleep -Milliseconds 3
 }
 $sw.Stop()
-Write-Host ("2048 steps in {0:F1}s ({1:F2}ms/step avg)" -f $sw.Elapsed.TotalSeconds, ($sw.ElapsedMilliseconds / 2048.0))
+Write-Host ("4096 steps in {0:F1}s ({1:F2}ms/step avg)" -f $sw.Elapsed.TotalSeconds, ($sw.ElapsedMilliseconds / 4096.0))
 ```
 
-Expected: ~6-7 s total, ~3.1 ms/step. If you see 10+ ms/step the module is
+Expected: ~12-13 s total, ~3.1 ms/step. If you see 10+ ms/step the module is
 adding overhead; see the notes below.
 
 **Sample every N steps (lightweight progress without jitter):**
 
 ```powershell
-for ($i = 0; $i -lt 2048; $i++) {
-    if ($i % 256 -eq 0) { Write-Host "Step $i / 2048" }
+for ($i = 0; $i -lt 4096; $i++) {
+    if ($i % 512 -eq 0) { Write-Host "Step $i / 4096" }
     $step = $steps[$i % 8]
     Set-PsGadgetGpio -PsGadget $dev -Pins $step[0] -State HIGH
     Set-PsGadgetGpio -PsGadget $dev -Pins $step[1] -State LOW
@@ -439,7 +439,7 @@ for ($i = 0; $i -lt 2048; $i++) {
 **Single-call inspection with `-Verbose`:**
 
 ```powershell
-# -Verbose on a single call is fine; avoid it inside the 2048-step loop
+# -Verbose on a single call is fine; avoid it inside the 4096-step loop
 Set-PsGadgetGpio -PsGadget $dev -Pins @(0,1) -State HIGH -Verbose
 ```
 
@@ -515,7 +515,7 @@ $steps = @(
     @(@(2),@(0,1,3)), @(@(2,3),@(0,1)), @(@(3),@(0,1,2)), @(@(0,3),@(1,2))
 )
 try {
-    for ($i=0;$i -lt 2048;$i++) {
+    for ($i=0;$i -lt 4096;$i++) {
         $s=$steps[$i%8]
         Set-PsGadgetGpio -PsGadget $dev -Pins $s[0] -State HIGH
         Set-PsGadgetGpio -PsGadget $dev -Pins $s[1] -State LOW
@@ -531,7 +531,7 @@ try {
 # FT232H - measure timing
 $sw=[System.Diagnostics.Stopwatch]::StartNew()
 # ... loop ...
-$sw.Stop(); Write-Host ("{0:F2}ms/step avg" -f ($sw.ElapsedMilliseconds/2048.0))
+$sw.Stop(); Write-Host ("{0:F2}ms/step avg" -f ($sw.ElapsedMilliseconds/4096.0))
 ```
 
 ```powershell
@@ -540,7 +540,7 @@ Set-PsGadgetFt232rCbusMode -Index 0   # run once per device; replug USB after
 
 $seq=@(@(1,0,0,0),@(1,1,0,0),@(0,1,0,0),@(0,1,1,0),@(0,0,1,0),@(0,0,1,1),@(0,0,0,1),@(1,0,0,1))
 $conn=Connect-PsGadgetFtdi -Index 0
-for($i=0;$i -lt 2048;$i++){ $p=$seq[$i%8];for($pin=0;$pin -lt 4;$pin++){$st=if($p[$pin]){'HIGH'}else{'LOW'};Set-PsGadgetGpio -Connection $conn -Pins @($pin) -State $st};Start-Sleep -Milliseconds 3}
+for($i=0;$i -lt 4096;$i++){ $p=$seq[$i%8];for($pin=0;$pin -lt 4;$pin++){$st=if($p[$pin]){'HIGH'}else{'LOW'};Set-PsGadgetGpio -Connection $conn -Pins @($pin) -State $st};Start-Sleep -Milliseconds 3}
 Set-PsGadgetGpio -Connection $conn -Pins @(0..3) -State LOW
 $conn.Close()
 ```
@@ -552,7 +552,7 @@ $dev = New-PsGadgetFtdi -Index 0
 Set-PsGadgetFtdiMode -PsGadget $dev -Mode AsyncBitBang -Mask 0x0F
 $dev.SetBaudRate(9600)   # 9600 half-steps/sec
 $seq=[byte[]](0x01,0x03,0x02,0x06,0x04,0x0C,0x08,0x09)
-$buf=[System.Collections.Generic.List[byte]]::new(); for($i=0;$i -lt 2048;$i++){$buf.Add($seq[$i%8])}
+$buf=[System.Collections.Generic.List[byte]]::new(); for($i=0;$i -lt 4096;$i++){$buf.Add($seq[$i%8])}
 $w=0; $dev._connection.Write($buf.ToArray(),$buf.Count,[ref]$w)
 $dev._connection.Write([byte[]](0x00),1,[ref]$w)   # de-energize
 Set-PsGadgetFtdiMode -PsGadget $dev -Mode UART
@@ -572,12 +572,12 @@ Move-Stepper 23 right
 ```
 
 > **Beginner**: "degrees" here means real output-shaft degrees, not motor
-> internal degrees. The gearbox is already accounted for (2048 half-steps =
+> internal degrees. The gearbox is already accounted for (4096 half-steps =
 > one full 360 degree output revolution).
 
-> **Engineer**: 2048 half-steps / 360 degrees = 5.689 steps/degree. The
+> **Engineer**: 4096 half-steps / 360 degrees = 11.378 steps/degree. The
 > `[math]::Round` keeps integer step counts. Accumulated rounding error over
-> many small moves is ~0.18 degrees worst-case per move; reset to a home
+> many small moves is ~0.09 degrees worst-case per move; reset to a home
 > switch if absolute accuracy is required.
 
 ```powershell
@@ -611,7 +611,7 @@ function Move-Stepper {
 
         [int]$DelayMs = 3
     )
-    $nSteps = [math]::Abs([math]::Round(2048 * ($Degrees / 360)))
+    $nSteps = [math]::Abs([math]::Round(4096 * ($Degrees / 360)))
     $dir    = if ($Direction -eq 'right') { 1 } else { -1 }
 
     for ($i = 0; $i -lt $nSteps; $i++) {
@@ -658,14 +658,14 @@ try {
 
 | Degrees | Half-steps (approx) |
 |---------|---------------------|
-| 1       | 6                   |
-| 5       | 28                  |
-| 10      | 57                  |
-| 27      | 154                 |
-| 45      | 256                 |
-| 90      | 512                 |
-| 180     | 1024                |
-| 360     | 2048                |
+| 1       | 11                  |
+| 5       | 57                  |
+| 10      | 114                 |
+| 27      | 307                 |
+| 45      | 512                 |
+| 90      | 1024                |
+| 180     | 2048                |
+| 360     | 4096                |
 
 > **Scripter**: `Move-Stepper` calls chain from the current shaft position —
 > you don't need to track absolute angles yourself. Each call is relative to
