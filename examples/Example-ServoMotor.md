@@ -5,8 +5,8 @@ software-generated PWM — no dedicated PWM driver board required.
 
 Two hardware approaches are covered:
 
-- **FT232H / MPSSE + timeBeginPeriod(1)** — ACBUS0 drives a single servo
-  with 1 ms timer resolution. Recommended for one or two servos.
+- **FT232H / MPSSE + Stopwatch spin-wait** — D4-D7 (ADBUS GPIO) drives one
+  servo with ~1 us pulse accuracy. Recommended for one or two servos.
 - **Async bit-bang streaming** — FT232R or FT232H ADBUS, streams a
   pre-built byte buffer at a hardware-clocked baud rate. Up to 8 simultaneous
   servos; best resolution; requires rewiring to ADBUS pins.
@@ -347,8 +347,10 @@ try {
 You should see the servo arm swing to each position. If it does not move,
 see the Troubleshooting section.
 
-> **Beginner**: `$Cycles = 25` sends 25 pulses at 50 Hz = 0.5 seconds of
-> hold time at each position. Increase this number to hold longer.
+> **Beginner**: `$Cycles = 25` sends 25 pulses = ~500 ms hold at each position.
+> Increase this number to hold longer. The servo moves immediately on each
+> `Write()` call — the `while` spin-wait just keeps the pin HIGH long enough
+> for the servo to recognize the pulse width.
 
 > **Scripter**: `PulseMs` only accepts 1.0, 1.5, or 2.0 here because
 > `Start-Sleep` in 1 ms increments is the resolution limit. Non-integer
@@ -359,85 +361,79 @@ see the Troubleshooting section.
 
 ## Step 3 - Precise Position Script (Single Servo)
 
-### Fix Windows Timer Resolution and USB Latency
+### FTDI Setup and Pulse Timing
 
-Two setup calls are required before any servo loop:
-- `timeBeginPeriod(1)` — improves Windows OS sleep granularity from ~15 ms to ~1 ms
-- `SetLatency(1)` — reduces FTDI USB latency timer from 16 ms to 1 ms
+Two setup steps before any servo loop:
+- `SetLatency(1)` — reduces the FTDI USB latency timer from 16 ms to 1 ms. Without this, each `Write()` stalls for a USB IN token, inflating write time and distorting period.
+- **Stopwatch spin-wait** — uses the CPU performance counter (~10 MHz) for accurate 1-2 ms pulse widths. Unlike `timeBeginPeriod(1)` + `Start-Sleep`, a spin-wait requires no `Add-Type` and is immune to OS scheduler granularity (scope-confirmed: `Start-Sleep` still snaps to 15.625 ms ticks even with `timeBeginPeriod(1)` in PowerShell).
 
-Without both calls, each `Write()` to the FTDI chip stalls up to 16 ms on the
-default USB latency timer, producing ~20 Hz output instead of the target 50 Hz
-and stretching the pulse from 1.5 ms to ~20 ms (scope-measured result).
-
-```powershell
-Add-Type -MemberDefinition '
-    [DllImport("winmm.dll")] public static extern int timeBeginPeriod(int t);
-    [DllImport("winmm.dll")] public static extern int timeEndPeriod(int t);
-' -Name 'WinTimer' -Namespace 'Win32' -ErrorAction SilentlyContinue
-[Win32.WinTimer]::timeBeginPeriod(1)
-```
+`Start-Sleep` is still used for the ~18 ms LOW period. Imprecision there only shifts the overall frequency (from 50 Hz toward 40-60 Hz), which all RC servos tolerate.
 
 ### Set-Servo function
 
 Maps degrees (0-180) to a pulse width (1.0-2.0 ms) and sends the requested
-number of 50 Hz cycles. Uses the raw MPSSE write path for lower overhead.
+number of cycles. Uses raw `0x80` MPSSE writes and a Stopwatch spin-wait for
+accurate pulse timing on D4-D7 (ADBUS GPIO).
 
 ```powershell
 $rawFtdi = $dev._connection.Device   # FTD2XX_NET.FTDI handle
 $rawFtdi.SetLatency(1) | Out-Null    # reduce USB latency timer from 16 ms to 1 ms
 
+$sw     = [System.Diagnostics.Stopwatch]::new()
+$swFreq = [System.Diagnostics.Stopwatch]::Frequency   # ~10 MHz HPET on Windows
+
 function Set-Servo {
     param(
-        [double]$Degrees,        # 0 to 180
-        [int]$AcbusPin  = 0,     # ACBUS pin number (0 = ACBUS0)
-        [int]$Cycles    = 50,    # number of 20 ms pulses to send (50 = 1 second)
-        [double]$MinMs  = 1.0,   # pulse width at 0 deg (adjust for your servo)
-        [double]$MaxMs  = 2.0    # pulse width at 180 deg (adjust for your servo)
+        [double]$Degrees,          # 0 to 180
+        [int]$AdBusPin  = 7,       # D-bus GPIO pin (D4-D7; default D7 = ADBUS7)
+        [int]$Cycles    = 50,      # number of ~20 ms pulses to send (50 = ~1 second)
+        [double]$MinMs  = 1.0,     # pulse width at 0 deg (adjust for your servo)
+        [double]$MaxMs  = 2.0      # pulse width at 180 deg (adjust for your servo)
     )
 
-    # Clamp to valid range
     if ($Degrees -lt 0)   { $Degrees = 0 }
     if ($Degrees -gt 180) { $Degrees = 180 }
 
-    $pulseMs = $MinMs + ($Degrees / 180.0) * ($MaxMs - $MinMs)
-    $lowMs   = 20.0 - $pulseMs
+    $pulseMs    = $MinMs + ($Degrees / 180.0) * ($MaxMs - $MinMs)
+    $pulseTicks = [long]($pulseMs * $swFreq / 1000.0)   # convert ms to SW ticks
+    $lowMs      = 20.0 - $pulseMs
 
-    # Pre-build MPSSE command bytes: 0x82 = Set ACBUS high byte
-    # bit mask for this ACBUS pin
-    $pinMask = [byte](1 -shl $AcbusPin)
-    $highCmd = [byte[]](0x82, $pinMask, 0xFF)   # pin HIGH
-    $lowCmd  = [byte[]](0x82, 0x00,     0xFF)   # all ACBUS LOW
+    # MPSSE 0x80 = Set Data Bits Low Byte (ADBUS / D-bus)
+    $pinMask = [byte](1 -shl $AdBusPin)
+    $highCmd = [byte[]](0x80, $pinMask, 0xFF)   # pin HIGH, all D-bus as outputs
+    $lowCmd  = [byte[]](0x80, 0x00,    0xFF)    # all D-bus LOW
 
     $w = 0
     for ($i = 0; $i -lt $Cycles; $i++) {
         $rawFtdi.Write($highCmd, 3, [ref]$w) | Out-Null
-        Start-Sleep -Milliseconds $pulseMs
-        $rawFtdi.Write($lowCmd,  3, [ref]$w) | Out-Null
-        Start-Sleep -Milliseconds $lowMs
+        $sw.Restart()
+        while ($sw.ElapsedTicks -lt $pulseTicks) {}   # spin-wait: ~1 us accuracy
+        $rawFtdi.Write($lowCmd, 3, [ref]$w) | Out-Null
+        Start-Sleep -Milliseconds $lowMs              # low period; OS granularity OK
     }
 }
 ```
 
-> **Engineer**: `0x82` is the MPSSE "Set Data Bits High Byte" (ACBUS)
-> command. Byte 1 is the output value; byte 2 is the direction mask (0xFF =
-> all 8 ACBUS bits as outputs). One 3-byte USB write per edge — two writes
-> per period. The MPSSE engine drives the pin level immediately on receipt.
+> **Engineer**: `0x80` is the MPSSE "Set Data Bits Low Byte" (ADBUS / D-bus)
+> command. Byte 1 = output value; byte 2 = direction mask (0xFF = all 8 ADBUS
+> bits as outputs; use `0x80` to set D7 output only and leave D4-D6 as inputs).
+> One 3-byte USB write per edge — two writes per period. The MPSSE engine drives
+> the pin level immediately on receipt. Use `0x82` instead to control ACBUS
+> (C0-C7) pins.
 
-> **Scripter**: `$rawFtdi = $dev._connection.Device` accesses the underlying
-> FTD2XX_NET .NET object directly, bypassing PSGadget cmdlet overhead. The
-> larger factor is the FTDI USB latency timer: at its default of 16 ms, each
-> `Write()` can stall up to 16 ms waiting for a USB ACK. With two writes per
-> servo period (HIGH then LOW) this adds up to 32 ms extra per cycle —
-> measured result without `SetLatency(1)`: ~20 Hz, 40% duty (pulse stuck at
-> ~20 ms instead of 1.5 ms). Calling `SetLatency(1)` first drops this to
-> ~1 ms per write and brings the output close to 50 Hz spec.
+> **Scripter**: `$rawFtdi = $dev._connection.Device` accesses the FTD2XX_NET
+> .NET object directly. Two separate issues affect timing: (1) USB latency
+> timer — `SetLatency(1)` drops write stall from 16 ms to ~1 ms, essential;
+> (2) `Start-Sleep` OS timer granularity — snaps to 15.625 ms ticks even with
+> `timeBeginPeriod(1)` in PowerShell (scope-confirmed: 20.83 Hz / 33% duty).
+> Solution: Stopwatch spin-wait for the 1-2 ms pulse (accurate to ~1 us,
+> no `Add-Type` needed), `Start-Sleep` for the ~18 ms low period (imprecision
+> there only shifts frequency slightly, which servos tolerate).
 
 ### Sweep demo
 
 ```powershell
-$rawFtdi = $dev._connection.Device
-
-[Win32.WinTimer]::timeBeginPeriod(1)
+# $rawFtdi, $sw, $swFreq are initialised in the Set-Servo block above.
 
 try {
     # Sweep from 0 to 180 degrees in 10 degree increments
@@ -456,22 +452,19 @@ try {
     Set-Servo -Degrees 90 -Cycles 25
 
 } finally {
-    [Win32.WinTimer]::timeEndPeriod(1)
-    $w = 0
-    $rawFtdi.Write([byte[]](0x82, 0x00, 0xFF), 3, [ref]$w) | Out-Null
+    $rawFtdi.Write([byte[]](0x80, 0x00, 0xFF), 3, [ref]0) | Out-Null
     $dev.Close()
 }
 ```
 
 > **Beginner**: the servo moves to each position and holds for about 0.6 seconds
-> (30 cycles x 20 ms). If you increase `-Cycles` it holds longer. Decrease it
-> to speed up the sweep.
+> (30 cycles x ~20 ms). Increase `-Cycles` to hold longer.
 
-> **Pro**: at 1 ms timer resolution, `pulseMs` values of 1.0, 1.5, and 2.0
-> map to 0, 90, and 180 degrees reliably. Values in between (e.g. 1.3 ms for
-> ~54 deg) rely on the OS scheduler honoring sub-millisecond sleep increments —
-> results vary by system load. For continuous precise positioning use the async
-> bit-bang approach in the next section.
+> **Pro**: the Stopwatch spin-wait resolves pulse width to ~1 us — 1000x
+> better than `timeBeginPeriod(1)` + `Start-Sleep`. All 180 degree positions
+> are achievable. For multi-servo or zero-CPU-overhead positioning, use the
+> async bit-bang approach in the next section; for single-servo use the
+> Stopwatch approach here.
 
 ---
 
@@ -479,34 +472,32 @@ try {
 
 ### Raw MPSSE write path
 
-The `Set-Servo` function above already uses the raw write path. With both
-`timeBeginPeriod(1)` and `SetLatency(1)` applied:
+The `Set-Servo` function above uses a Stopwatch spin-wait for the pulse and
+`Start-Sleep` for the low period. Achieved characteristics:
 
-- Achieved frequency: ~40-45 Hz (vs 50 Hz target)
-- Minimum reliable sleep: ~1 ms
-- Pulse width resolution: 1 ms steps
-- Angular resolution: ~18 deg/step (10 discrete positions over 0-180 deg)
+- Pulse width accuracy: ~1 us (Stopwatch performance counter)
+- Overall frequency: ~45-55 Hz (depends on `Start-Sleep` OS tick)
+- Angular resolution: continuous (not discrete) across 0-180 deg
 
-This is sufficient for point-to-point positioning (e.g. 0, 45, 90, 135, 180
-degrees) but not for smooth analog sweeps.
+**Measured signal characteristics (FT232H ADBUS D7, scope, SG90 servo):**
 
-**Measured signal characteristics (FT232H ACBUS, scope, SG90 servo):**
-
-| Setup | Frequency | Duty+ | HIGH time | Result |
-|-------|-----------|-------|-----------|--------|
-| No SetLatency (default 16 ms) | 20 Hz | 40% | ~20 ms | Servo stuck at max position |
-| SetLatency(1) + timeBeginPeriod(1) | ~45 Hz | ~7.5% | ~1.5 ms | Servo responds correctly |
+| Setup | Freq | Duty+ | Pulse width | Result |
+|-------|------|-------|-------------|--------|
+| Default (no SetLatency, Start-Sleep) | 20 Hz | 40% | ~20 ms | Servo stuck at max |
+| SetLatency(1), Start-Sleep for pulse | 20.83 Hz | 33% | ~16 ms | Servo still stuck |
+| SetLatency(1), Stopwatch spin-wait | ~50 Hz | ~7.5% | 1.5 ms | Servo responds correctly |
 | Target (RC servo spec) | 50 Hz | 7.5% | 1.5 ms | Ideal |
 
-Signal amplitude: 3.59 V (FT232H ACBUS at 4 mA drive, 3.3 V nominal).
+Signal amplitude: 3.43 V (FT232H ADBUS at 4 mA drive, 3.3 V nominal).
 
-> **Engineer**: the root cause is the FTDI USB latency timer (`FT_SetLatencyTimer`).
-> It defaults to 16 ms, which is the minimum time the chip waits before flushing
-> a USB IN token back to the host. For GPIO output this means each `Write()` call
-> can stall up to 16 ms. With two writes per servo period and the host sleep on top,
-> the actual period balloons from 20 ms to ~50 ms. Setting the timer to 1 ms via
-> `$rawFtdi.SetLatency(1)` brings each write overhead down to ~1 ms and restores
-> near-correct servo timing. The method is `FTD2XX_NET.FTDI.SetLatency(byte)`.
+> **Engineer**: two independent timing issues exist. (1) USB latency timer:
+> `FT_SetLatencyTimer` default 16 ms causes each `Write()` to stall; fix with
+> `SetLatency(1)`. (2) OS timer granularity: `Start-Sleep` in PowerShell snaps
+> to the 15.625 ms Windows scheduler tick (20.83 Hz / 33% duty scope-confirmed)
+> even after `timeBeginPeriod(1)` — `Add-Type` type caching prevents reliable
+> re-registration. Fix: Stopwatch spin-wait for the 1-2 ms pulse only.
+> `[System.Diagnostics.Stopwatch]::Frequency` is typically 10,000,000 Hz
+> (HPET) on modern Windows, giving ~100 ns per tick — well within servo spec.
 
 ### Async bit-bang streaming (multi-servo)
 
@@ -659,23 +650,43 @@ Get-PsGadgetFtdiEeprom -Index 0   # IsVCP : False (FT232H) or RIsD2XX : True (FT
 
 ### FT232H signal is wrong frequency on scope (~20 Hz instead of 50 Hz)
 
-Symptom: oscilloscope on ACBUS shows ~20 Hz, ~40% duty cycle. The servo is
-stuck at maximum deflection or does not respond to angle changes.
+Two independent root causes produce similar ~20 Hz symptoms. Diagnose by
+the duty cycle:
 
-Cause: the FTDI USB latency timer defaults to 16 ms. Each `Write()` call stalls
-up to 16 ms for a USB ACK. Two writes per servo cycle (HIGH + LOW) add up to
-~32 ms of extra latency per period, expanding the 20 ms period to ~50 ms and
-the 1.5 ms pulse to ~20 ms.
+**Cause A: USB latency timer (20 Hz, ~40% duty)**
 
-Fix: call `SetLatency(1)` immediately after opening the device handle:
+Each `Write()` stalls up to 16 ms waiting for a USB IN token (default latency
+timer = 16 ms). Two stalls per cycle expand the period from 20 ms to ~50 ms
+and the 1.5 ms pulse inflates to ~20 ms.
 
+Fix:
 ```powershell
-$rawFtdi = $dev._connection.Device
-$rawFtdi.SetLatency(1) | Out-Null   # must be present before any servo loop
+$rawFtdi.SetLatency(1) | Out-Null   # call immediately after OpenByIndex
 ```
 
-After applying `SetLatency(1)`, re-measure: you should see ~45 Hz, ~7.5% duty,
-and the servo should respond correctly to angle commands.
+**Cause B: `Start-Sleep` OS timer granularity (20.83 Hz, ~33% duty)**
+
+`Start-Sleep -Milliseconds 1.5` snaps to the 15.625 ms Windows scheduler tick
+even after `timeBeginPeriod(1)`. Scope result: 1 tick HIGH (15.6 ms) + 2 ticks
+LOW (31.25 ms) = 46.9 ms period / 20.83 Hz / 33% duty. `timeBeginPeriod(1)`
+is unreliable in PowerShell because `Add-Type` caches the compiled type
+definition and silently skips re-registration in some sessions.
+
+Fix: use a Stopwatch spin-wait for the pulse:
+```powershell
+$sw     = [System.Diagnostics.Stopwatch]::new()
+$swFreq = [System.Diagnostics.Stopwatch]::Frequency
+
+# In the servo loop:
+$pulseTicks = [long]($pulseMs * $swFreq / 1000.0)
+$rawFtdi.Write($highCmd, 3, [ref]$w) | Out-Null
+$sw.Restart()
+while ($sw.ElapsedTicks -lt $pulseTicks) {}   # spin-wait: ~1 us accuracy
+$rawFtdi.Write($lowCmd,  3, [ref]$w) | Out-Null
+Start-Sleep -Milliseconds $lowMs              # low period; imprecision OK here
+```
+
+With both fixes applied, expected scope: ~50 Hz, ~7.5% duty, 1.5 ms pulse.
 
 ### Servo does not move at all
 
@@ -700,13 +711,14 @@ and the servo should respond correctly to angle commands.
 
 - The servo is receiving inconsistent pulse widths and its position loop is
   hunting. Two common causes:
-  - **Missing `timeBeginPeriod(1)`**: without it, `Start-Sleep -Milliseconds 1.5`
-    sleeps ~15 ms and the 20 ms period becomes wildly irregular. Confirm the
-    `Add-Type` block ran without errors and `[Win32.WinTimer]::timeBeginPeriod(1)`
-    returned 0 (TIMERR_NOERROR).
-  - **System load**: other processes adding jitter to the sleep calls. Close
-    unnecessary applications. Use the raw MPSSE write path (bypass
-    `Set-PsGadgetGpio`) to reduce per-cycle host CPU time.
+  - **Pulse using `Start-Sleep`**: OS timer snaps to 15.625 ms ticks, producing
+    a wildly inconsistent pulse. Replace with the Stopwatch spin-wait from the
+    Set-Servo function in Step 3 — accurate to ~1 us regardless of system load.
+  - **Spin-wait thread preempted**: the Stopwatch spin-wait occupies one CPU
+    core at 100% for 1-2 ms per cycle. On a heavily loaded system the thread
+    may occasionally be preempted, causing a single long pulse. For production
+    use, switch to the async bit-bang approach which removes the host CPU from
+    the timing path entirely.
 
 ### Position is wrong or inconsistent
 
@@ -714,18 +726,20 @@ and the servo should respond correctly to angle commands.
   Some servos use 0.5-2.5 ms for a wider travel range; others stop at 0.9 ms
   or 2.1 ms. Adjust `-MinMs` and `-MaxMs` in `Set-Servo` to match your servo.
   Start with the center (1.5 ms) and observe which direction is "true" neutral.
-- **Timer jitter at sub-ms values**: `pulseMs = 1.3 ms` requires the OS to
-  honor a 1.3 ms sleep. With `timeBeginPeriod(1)` this will actually sleep
-  1 ms (floor). Stick to integer ms values (1, 1.5, 2) for reliable results
-  without the async bit-bang approach.
+- **Timer jitter at sub-ms values**: with `Start-Sleep` for the pulse, all
+  values between 1.0 and 2.0 ms snap to the same 15.625 ms OS tick. Use the
+  Stopwatch spin-wait in Set-Servo — it handles fractional ms accurately.
 
 ### Servo only reaches two positions
 
-You may not have called `timeBeginPeriod(1)` before running the loop. Without
-it, `Start-Sleep -Milliseconds 1.5` and `Start-Sleep -Milliseconds 2.0` both
-round up to the 15 ms tick, so the pulse is always ~15 ms and the servo
-always sees the same effective command. Verify the P/Invoke `Add-Type` ran
-successfully and that `timeBeginPeriod(1)` returned `0`.
+`Start-Sleep` for the pulse is snapping to the 15.625 ms OS timer tick. At
+that granularity, `Start-Sleep -Milliseconds 1.0`, `1.5`, and `2.0` all
+round to the same value, so the servo receives the same effective pulse width
+regardless of the angle command.
+
+Replace the `Start-Sleep` for the pulse with a Stopwatch spin-wait (see the
+Set-Servo function in Step 3). The `Start-Sleep` for the low period (~18 ms)
+can remain — imprecision there only affects frequency, not servo position.
 
 ---
 
@@ -736,28 +750,28 @@ successfully and that `timeBeginPeriod(1)` returned `0`.
 Import-Module G:\PSSummit2026\psgadget\PSGadget.psm1
 $dev     = New-PsGadgetFtdi -Index 0
 $rawFtdi = $dev._connection.Device   # FTD2XX_NET.FTDI handle
-$rawFtdi.SetLatency(1) | Out-Null    # required: default 16 ms kills servo timing
+$rawFtdi.SetLatency(1) | Out-Null    # reduce USB latency timer from 16 ms to 1 ms
 
-# Fix Windows timer resolution
-Add-Type -MemberDefinition '
-    [DllImport("winmm.dll")] public static extern int timeBeginPeriod(int t);
-    [DllImport("winmm.dll")] public static extern int timeEndPeriod(int t);
-' -Name 'WinTimer' -Namespace 'Win32' -ErrorAction SilentlyContinue
-[Win32.WinTimer]::timeBeginPeriod(1)
+# Stopwatch for accurate pulse timing (no Add-Type/timeBeginPeriod needed)
+$sw     = [System.Diagnostics.Stopwatch]::new()
+$swFreq = [System.Diagnostics.Stopwatch]::Frequency   # ~10 MHz HPET
 
 function Set-Servo {
-    param([double]$Degrees, [int]$AcbusPin=0, [int]$Cycles=50,
+    param([double]$Degrees, [int]$AdBusPin=7, [int]$Cycles=50,
           [double]$MinMs=1.0, [double]$MaxMs=2.0)
     if ($Degrees -lt 0)   { $Degrees = 0 }
     if ($Degrees -gt 180) { $Degrees = 180 }
-    $pulseMs = $MinMs + ($Degrees/180.0)*($MaxMs-$MinMs)
-    $pin = [byte](1-shl $AcbusPin)
-    $hi  = [byte[]](0x82,$pin,0xFF)
-    $lo  = [byte[]](0x82,0x00,0xFF)
+    $pulseMs    = $MinMs + ($Degrees/180.0)*($MaxMs-$MinMs)
+    $pulseTicks = [long]($pulseMs * $swFreq / 1000.0)
+    $pin = [byte](1 -shl $AdBusPin)   # D7 = 0x80
+    $hi  = [byte[]](0x80,$pin,0xFF)   # MPSSE 0x80 = Set ADBUS low byte
+    $lo  = [byte[]](0x80,0x00,0xFF)
     $w   = 0
     for ($i=0;$i -lt $Cycles;$i++) {
-        $rawFtdi.Write($hi,3,[ref]$w) | Out-Null; Start-Sleep -Milliseconds $pulseMs
-        $rawFtdi.Write($lo,3,[ref]$w) | Out-Null; Start-Sleep -Milliseconds (20-$pulseMs)
+        $rawFtdi.Write($hi,3,[ref]$w) | Out-Null
+        $sw.Restart(); while ($sw.ElapsedTicks -lt $pulseTicks) {}   # spin-wait
+        $rawFtdi.Write($lo,3,[ref]$w) | Out-Null
+        Start-Sleep -Milliseconds (20 - $pulseMs)   # low period; OS granularity OK
     }
 }
 
@@ -767,8 +781,7 @@ try {
     Set-Servo -Degrees 180  # max
     Set-Servo -Degrees 90   # center
 } finally {
-    [Win32.WinTimer]::timeEndPeriod(1)
-    $w=0; $rawFtdi.Write([byte[]](0x82,0x00,0xFF),3,[ref]$w) | Out-Null
+    $rawFtdi.Write([byte[]](0x80,0x00,0xFF),3,[ref]0) | Out-Null
     $dev.Close()
 }
 ```
@@ -797,20 +810,16 @@ Set-PsGadgetFtdiMode -PsGadget $dev -Mode UART
 
 ## Practical Example: Pan-Tilt Laser Rig
 
-Two servos on ACBUS0 (pan) and ACBUS1 (tilt) position a laser pointer.
+Two servos on D7 (ADBUS7, pan) and D6 (ADBUS6, tilt) position a laser pointer.
 
 ```powershell
 Import-Module G:\PSSummit2026\psgadget\PSGadget.psm1
 
-Add-Type -MemberDefinition '
-    [DllImport("winmm.dll")] public static extern int timeBeginPeriod(int t);
-    [DllImport("winmm.dll")] public static extern int timeEndPeriod(int t);
-' -Name 'WinTimer' -Namespace 'Win32' -ErrorAction SilentlyContinue
-
 $dev     = New-PsGadgetFtdi -Index 0
 $rawFtdi = $dev._connection.Device
 $rawFtdi.SetLatency(1) | Out-Null    # required: default 16 ms kills servo timing
-[Win32.WinTimer]::timeBeginPeriod(1)
+$sw     = [System.Diagnostics.Stopwatch]::new()
+$swFreq = [System.Diagnostics.Stopwatch]::Frequency
 
 function Set-TwoServos {
     param(
@@ -825,39 +834,41 @@ function Set-TwoServos {
     if ($TiltDeg -lt 0)   { $TiltDeg = 0 }
     if ($TiltDeg -gt 180) { $TiltDeg = 180 }
 
-    # Both servos share the SAME 20 ms pulse period
-    # Use the larger of the two pulse widths to size the HIGH window per pin
-    $panPulseMs  = $MinMs + ($PanDeg  / 180.0) * ($MaxMs - $MinMs)
-    $tiltPulseMs = $MinMs + ($TiltDeg / 180.0) * ($MaxMs - $MinMs)
+    $panMs  = $MinMs + ($PanDeg  / 180.0) * ($MaxMs - $MinMs)
+    $tiltMs = $MinMs + ($TiltDeg / 180.0) * ($MaxMs - $MinMs)
 
-    # Round to nearest 1 ms increment (OS timer limit)
-    $panMs  = [math]::Round($panPulseMs)
-    $tiltMs = [math]::Round($tiltPulseMs)
+    $shortMs    = [math]::Min($panMs, $tiltMs)
+    $longMs     = [math]::Max($panMs, $tiltMs)
+    $shortTicks = [long]($shortMs * $swFreq / 1000.0)
+    $longTicks  = [long]($longMs  * $swFreq / 1000.0)
+
+    # Pan = D7 (bit 7 = 0x80), Tilt = D6 (bit 6 = 0x40)
+    $bothHi   = [byte](0xC0)   # D7 + D6 HIGH
+    $panOnly  = [byte](0x80)   # D7 only HIGH
+    $tiltOnly = [byte](0x40)   # D6 only HIGH
 
     $w = 0
     for ($i = 0; $i -lt $Cycles; $i++) {
-        # Both pins start HIGH simultaneously
-        $rawFtdi.Write([byte[]](0x82, 0x03, 0xFF), 3, [ref]$w) | Out-Null
-        # After shorter pulse ends, drop that pin
-        $shortMs = [math]::Min($panMs, $tiltMs)
-        $longMs  = [math]::Max($panMs, $tiltMs)
-        $dropBit = if ($panMs -le $tiltMs) { 0x01 } else { 0x02 }
-        $keepBit = if ($panMs -le $tiltMs) { 0x02 } else { 0x01 }
-
-        Start-Sleep -Milliseconds $shortMs
-        $rawFtdi.Write([byte[]](0x82, $keepBit, 0xFF), 3, [ref]$w) | Out-Null
-        Start-Sleep -Milliseconds ($longMs - $shortMs)
-        $rawFtdi.Write([byte[]](0x82, 0x00,     0xFF), 3, [ref]$w) | Out-Null
-        Start-Sleep -Milliseconds (20 - $longMs)
+        $rawFtdi.Write([byte[]](0x80, $bothHi, 0xFF), 3, [ref]$w) | Out-Null
+        $sw.Restart()
+        while ($sw.ElapsedTicks -lt $shortTicks) {}   # wait for shorter pulse
+        if ($panMs -le $tiltMs) {
+            $rawFtdi.Write([byte[]](0x80, $tiltOnly, 0xFF), 3, [ref]$w) | Out-Null
+        } else {
+            $rawFtdi.Write([byte[]](0x80, $panOnly,  0xFF), 3, [ref]$w) | Out-Null
+        }
+        while ($sw.ElapsedTicks -lt $longTicks) {}    # wait for longer pulse
+        $rawFtdi.Write([byte[]](0x80, 0x00, 0xFF), 3, [ref]$w) | Out-Null
+        Start-Sleep -Milliseconds (20.0 - $longMs)    # low period
     }
 }
 
 function Invoke-Fire {
     Write-Host "  FIRE"
-    # Pulse ACBUS2 HIGH for 200 ms if laser trigger is wired there:
-    # $rawFtdi.Write([byte[]](0x82, 0x04, 0xFF), 3, [ref]$w) | Out-Null
+    # Pulse D5 (ADBUS5, bit 5 = 0x20) HIGH for 200 ms if laser trigger is wired there:
+    # $rawFtdi.Write([byte[]](0x80, 0x20, 0xFF), 3, [ref]0) | Out-Null
     # Start-Sleep -Milliseconds 200
-    # $rawFtdi.Write([byte[]](0x82, 0x00, 0xFF), 3, [ref]$w) | Out-Null
+    # $rawFtdi.Write([byte[]](0x80, 0x00, 0xFF), 3, [ref]0) | Out-Null
 }
 
 try {
@@ -880,37 +891,33 @@ try {
     Set-TwoServos -PanDeg 90 -TiltDeg 90 -Cycles 50
 
 } finally {
-    [Win32.WinTimer]::timeEndPeriod(1)
-    $w = 0
-    $rawFtdi.Write([byte[]](0x82, 0x00, 0xFF), 3, [ref]$w) | Out-Null
+    $rawFtdi.Write([byte[]](0x80, 0x00, 0xFF), 3, [ref]0) | Out-Null
     $dev.Close()
 }
 ```
 
-> **Beginner**: pan is left-right rotation; tilt is up-down angle. ACBUS0
-> controls the pan servo; ACBUS1 controls the tilt servo. Each call to
-> `Set-TwoServos` moves both servos simultaneously to the requested position
-> and holds for `$Cycles` pulses (50 cycles = 1 second at 50 Hz).
+> **Beginner**: pan is left-right rotation; tilt is up-down angle. D7 controls
+> the pan servo; D6 controls the tilt servo. Each call to `Set-TwoServos` moves
+> both servos simultaneously to the requested position and holds for `$Cycles`
+> pulses (50 cycles = ~1 second).
 
-> **Scripter**: both pins share the same 20 ms frame, but different pulse
-> widths. The function sends them both HIGH at the start of each period,
-> then drops the shorter one after its pulse ends and keeps the longer one
-> HIGH until its own pulse ends. This gives each servo an accurate
-> independent pulse within the same period without needing two separate
-> hardware timers.
+> **Scripter**: both pins share the same 20 ms frame but have different pulse
+> widths. The function raises both HIGH simultaneously, uses Stopwatch ticks to
+> precisely time when the shorter pulse ends, drops that pin, then waits for the
+> longer pulse to end before going LOW. This gives each servo an accurate
+> independent pulse within the same period.
 
-> **Engineer**: at 1 ms timer resolution, pulse widths of 1, 1.5, and 2 ms
-> give 3 reliable positions per servo = 9 pan/tilt combinations. For more
-> positions, switch to async bit-bang with `Build-ServoPwmBuffer`
-> (from the Speeding Up section) using bits 0 and 1 for pan and tilt.
+> **Engineer**: Stopwatch ticks resolve to ~100 ns (10 MHz HPET), giving ~1 us
+> effective accuracy per pulse edge. Both servos are aligned to the same rising
+> edge (zero inter-servo skew). For >4 servos or sub-100 us resolution, switch
+> to async bit-bang (see Speeding Up section) using bits 4-7 of ADBUS.
 
-> **Pro**: `Set-TwoServos` is blocking — it occupies the PowerShell thread
-> for the duration of `$Cycles * 20 ms`. For a real aiming rig with real-time
-> position updates, move the streaming loop into a background `RunspacePool`
-> thread and use a `[System.Collections.Concurrent.ConcurrentQueue]` to
-> pass new degree targets to it. The async bit-bang buffer approach is cleaner
-> for that use case since you rebuild and re-stream from the worker thread on
-> each position change.
+> **Pro**: `Set-TwoServos` is blocking — occupies the PowerShell thread for
+> `$Cycles * ~20 ms`. For real-time position updates, move the loop into a
+> `RunspacePool` thread and pass new degree targets via a
+> `[System.Collections.Concurrent.ConcurrentQueue]`. The async bit-bang buffer
+> approach is cleaner for that use case since you rebuild and re-stream from
+> the worker thread on each position change.
 
 **Pan-tilt position reference:**
 
