@@ -59,6 +59,12 @@ for full setup including `libftd2xx.so` installation.
 The FT232H has a built-in MPSSE engine. GPIO is available immediately on
 ACBUS0-7 (physical pins 21-31). No EEPROM programming is required.
 
+> **VCP driver conflict**: If `List-PsGadgetFtdi -ShowVCP` shows your FT232H device
+> TWICE (once as D2XX and once as a COM port), the EEPROM `IsVCP` flag is set. This
+> prevents MPSSE from gaining exclusive control and GPIO/servo operations will silently
+> fail. Fix it with `Set-PsGadgetFtdiEeprom -Index 0 -DisableVcp` then replug the cable.
+> Verify with `Get-PsGadgetFtdiEeprom -Index 0` and confirm `IsVCP : False`.
+
 ### Pin Map
 
 | Param `Pins` value | ACBUS signal | Physical pin (FT232H) |
@@ -454,9 +460,9 @@ All fields are optional; omitted keys use built-in defaults.
 | GPIO pins            | ACBUS0-7        | CBUS0-3              |
 | GPIO pin count       | 8               | 4                    |
 | GPIO mechanism       | MPSSE (0x02)    | CBUS bit-bang (0x20) |
-| One-time EEPROM setup| Not required    | Required (once)      |
-| EEPROM inspection    | N/A             | Get-PsGadgetFtdiEeprom (Windows) / Get-FtdiNativeCbusEepromInfo (Linux) |
-| EEPROM programming   | N/A             | Set-PsGadgetFt232rCbusMode (all platforms) |
+| One-time EEPROM setup| Optional (DisableVcp if VCP conflict) | Required (once)      |
+| EEPROM inspection    | Get-PsGadgetFtdiEeprom (Windows)    | Get-PsGadgetFtdiEeprom (Windows) / Get-FtdiNativeCbusEepromInfo (Linux) |
+| EEPROM programming   | Set-PsGadgetFtdiEeprom (Windows)    | Set-PsGadgetFtdiEeprom (Windows) |
 | GpioMethod value     | MPSSE           | CBUS                 |
 | HasMpsse             | True            | False                |
 | SPI / I2C / JTAG     | Yes (MPSSE)     | No                   |
@@ -571,8 +577,9 @@ $conn.Close()
 | New-PsGadgetFtdi            | Create a PsGadgetFtdi device object (OOP entry point; -SerialNumber, -Index, or -LocationId) |
 | List-PsGadgetFtdi           | Enumerate PsGadget-compatible FTDI devices (D2XX only by default; use -ShowVCP to include VCP) |
 | Connect-PsGadgetFtdi        | Open a device connection by index, serial number, or LocationId |
-| Get-PsGadgetFtdiEeprom      | Read EEPROM contents (FT232R: inspect CBUS modes)             |
-| Set-PsGadgetFt232rCbusMode  | Program FT232R CBUS pins to GPIO mode (one-time)              |
+| Get-PsGadgetFtdiEeprom      | Read EEPROM contents (FT232H and FT232R: inspect IsVCP flag, CBUS/ACBUS modes, drive settings) |
+| Set-PsGadgetFtdiEeprom      | Write EEPROM settings for FT232H or FT232R (-DisableVcp to fix VCP/MPSSE conflict; -CbusPins to configure CBUS pins; -ACDriveCurrent/-ADDriveCurrent for FT232H) |
+| Set-PsGadgetFt232rCbusMode  | Program FT232R CBUS pins to GPIO mode (legacy one-chip command; Set-PsGadgetFtdiEeprom preferred) |
 | Set-PsGadgetGpio            | Set GPIO pin state (FT232H and FT232R; -Connection supported) |
 | Connect-PsGadgetSsd1306     | Init SSD1306 OLED over I2C; returns display object (-FtdiDevice, -Address) |
 | Clear-PsGadgetSsd1306       | Clear full display or a single page (-Display, optional -Page) |

@@ -709,3 +709,170 @@ function Set-FtdiCbusBits {
         return $false
     }
 }
+
+function Set-FtdiFt232hEepromMode {
+    <#
+    .SYNOPSIS
+    Writes FT232H EEPROM fields: VCP mode flag and optional ACBUS pin functions.
+
+    .DESCRIPTION
+    Reads the current FT232H EEPROM, applies the requested changes (IsVCP,
+    ACBUS/ADBUS drive settings, Cbus0-9 pin modes), and writes the result back.
+    Change takes effect after USB replug or CyclePort.
+
+    .PARAMETER Index
+    Zero-based device index (from List-PsGadgetFtdi).
+
+    .PARAMETER SerialNumber
+    Optional fallback when OpenByIndex fails.
+
+    .PARAMETER IsVCP
+    When $false (default intent), sets the EEPROM IsVCP flag to $false so the
+    device enumerates as D2XX-only (no COM port). When $true, re-enables VCP mode.
+
+    .PARAMETER CbusPins
+    Optional hashtable of ACBUS pin numbers -> FT_232H_CBUS_OPTIONS name to write.
+    E.g. @{ 5 = 'FT_CBUS_IOMODE' }
+
+    .PARAMETER ACDriveCurrent
+    Optional override for ACBUS drive current (4, 8, 12, or 16 mA).
+
+    .PARAMETER ADDriveCurrent
+    Optional override for ADBUS drive current (4, 8, 12, or 16 mA).
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Index,
+
+        [Parameter(Mandatory = $false)]
+        [string]$SerialNumber = '',
+
+        [Parameter(Mandatory = $false)]
+        [System.Nullable[bool]]$IsVCP = $null,
+
+        [Parameter(Mandatory = $false)]
+        [hashtable]$CbusPins = $null,
+
+        [Parameter(Mandatory = $false)]
+        [System.Nullable[int]]$ACDriveCurrent = $null,
+
+        [Parameter(Mandatory = $false)]
+        [System.Nullable[int]]$ADDriveCurrent = $null
+    )
+
+    try {
+        if (-not $script:FtdiInitialized) {
+            throw [System.NotImplementedException]::new("FTDI assembly not loaded")
+        }
+
+        $ftdi   = [FTD2XX_NET.FTDI]::new()
+        $status = $ftdi.OpenByIndex([uint32]$Index)
+
+        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK -and $SerialNumber -ne '') {
+            Write-Verbose "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
+            $ftdi.Close() | Out-Null
+            $ftdi   = [FTD2XX_NET.FTDI]::new()
+            $status = $ftdi.OpenBySerialNumber($SerialNumber)
+        }
+
+        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
+            $ftdi.Close() | Out-Null
+            if ($status -eq [FTD2XX_NET.FTDI+FT_STATUS]::FT_DEVICE_NOT_OPENED) {
+                throw ("Device is already open - close the existing connection first. " +
+                       "Call .Close() on any open `$dev variable or restart the PowerShell session.")
+            }
+            throw "Failed to open FT232H device: $status"
+        }
+
+        # Read current EEPROM - preserve all fields, only modify what was requested
+        $eeprom = [FTD2XX_NET.FTDI+FT232H_EEPROM_STRUCTURE]::new()
+        $status = $ftdi.ReadFT232HEEPROM($eeprom)
+        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
+            $ftdi.Close() | Out-Null
+            throw "ReadFT232HEEPROM failed: $status"
+        }
+
+        # Build description of changes for ShouldProcess
+        $changes = [System.Collections.Generic.List[string]]::new()
+        if ($null -ne $IsVCP)         { $changes.Add("IsVCP=$IsVCP") }
+        if ($null -ne $ACDriveCurrent) { $changes.Add("ACDriveCurrent=$ACDriveCurrent") }
+        if ($null -ne $ADDriveCurrent) { $changes.Add("ADDriveCurrent=$ADDriveCurrent") }
+        if ($CbusPins) {
+            foreach ($pin in $CbusPins.Keys) {
+                $changes.Add("Cbus$pin=$($CbusPins[$pin])")
+            }
+        }
+
+        $action = "Write FT232H EEPROM: $($changes -join ', ')"
+        if (-not $PSCmdlet.ShouldProcess("FT232H device index $Index", $action)) {
+            $ftdi.Close() | Out-Null
+            return $null
+        }
+
+        # Apply changes
+        if ($null -ne $IsVCP)          { $eeprom.IsVCP = [bool]$IsVCP }
+        if ($null -ne $ACDriveCurrent)  { $eeprom.ACDriveCurrent = [byte]$ACDriveCurrent }
+        if ($null -ne $ADDriveCurrent)  { $eeprom.ADDriveCurrent = [byte]$ADDriveCurrent }
+
+        if ($CbusPins) {
+            foreach ($pin in $CbusPins.Keys) {
+                $modeName = $CbusPins[$pin]
+                # Resolve name to integer using reverse lookup
+                $modeVal = $null
+                foreach ($k in $script:FT_232H_CBUS_NAMES.Keys) {
+                    if ($script:FT_232H_CBUS_NAMES[$k] -eq $modeName) {
+                        $modeVal = [byte]$k
+                        break
+                    }
+                }
+                if ($null -eq $modeVal) {
+                    $ftdi.Close() | Out-Null
+                    throw "Unknown FT232H CBUS mode '$modeName'. Valid: $($script:FT_232H_CBUS_NAMES.Values -join ', ')"
+                }
+                switch ([int]$pin) {
+                    0 { $eeprom.Cbus0 = $modeVal }
+                    1 { $eeprom.Cbus1 = $modeVal }
+                    2 { $eeprom.Cbus2 = $modeVal }
+                    3 { $eeprom.Cbus3 = $modeVal }
+                    4 { $eeprom.Cbus4 = $modeVal }
+                    5 { $eeprom.Cbus5 = $modeVal }
+                    6 { $eeprom.Cbus6 = $modeVal }
+                    7 { $eeprom.Cbus7 = $modeVal }
+                    8 { $eeprom.Cbus8 = $modeVal }
+                    9 { $eeprom.Cbus9 = $modeVal }
+                    default {
+                        $ftdi.Close() | Out-Null
+                        throw "FT232H Cbus pin must be 0-9, got: $pin"
+                    }
+                }
+            }
+        }
+
+        $status = $ftdi.WriteFT232HEEPROM($eeprom)
+        $ftdi.Close() | Out-Null
+
+        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
+            throw "WriteFT232HEEPROM failed: $status"
+        }
+
+        Write-Verbose "FT232H EEPROM updated: $action"
+
+        return [PSCustomObject]@{
+            Success        = $true
+            DeviceIndex    = $Index
+            ChangesApplied = $changes
+            IsVCP          = $eeprom.IsVCP
+            ACDriveCurrent = $eeprom.ACDriveCurrent
+            ADDriveCurrent = $eeprom.ADDriveCurrent
+            Message        = "EEPROM written. Replug device (or call .CyclePort()) to activate."
+        }
+
+    } catch [System.NotImplementedException] {
+        Write-Warning "Set-FtdiFt232hEepromMode: FTDI assembly not loaded."
+        return [PSCustomObject]@{ Success = $false; Error = 'FTDI assembly not loaded' }
+    } catch {
+        Write-Error "Set-FtdiFt232hEepromMode failed: $_"
+        return [PSCustomObject]@{ Success = $false; Error = $_.Exception.Message }
+    }
+}
