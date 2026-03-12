@@ -36,7 +36,8 @@
         'Write-PsGadgetSsd1306',
         'Set-PsGadgetSsd1306Cursor',
         'Install-PsGadgetMpyScript',
-        'Get-PsGadgetEspNowDevices'
+        'Get-PsGadgetEspNowDevices',
+        'Send-PsGadgetI2CWrite'
     )
     
     # No cmdlets, variables, or aliases exported
@@ -78,6 +79,7 @@
         'Public/Set-PsGadgetFt232rCbusMode.ps1',
         'Public/Set-PsGadgetFtdiEeprom.ps1',
         'Public/Set-PsGadgetFtdiMode.ps1',
+        'Public/Send-PsGadgetI2CWrite.ps1',
         'Public/Set-PsGadgetGpio.ps1',
         'Public/Set-PsGadgetSsd1306Cursor.ps1',
         'Public/Write-PsGadgetSsd1306.ps1',

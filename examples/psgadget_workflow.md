@@ -589,7 +589,8 @@ $conn.Close()
 | Connect-PsGadgetMpy         | Open a MicroPython REPL connection                            |
 | Install-PsGadgetMpyScript   | Deploy bundled ESP-NOW Receiver or Transmitter main.py + config.json to an ESP32 via mpremote (-SerialPort, -Role, -ConfigPath, -Force) |
 | Get-PsGadgetEspNowDevices   | Pull known_devices.txt from Receiver flash via mpremote; returns [PSCustomObject]{Mac, LastSeen}[] (-SerialPort, -OutputPath) |
-| Set-PsGadgetFtdiMode        | Set operating mode of a connected FTDI device (MPSSE, CBUS, AsyncBitBang); dispatches by device type automatically |
+| Send-PsGadgetI2CWrite       | Write bytes to an I2C device over MPSSE (-PsGadget, -Address, -Data); call after Set-PsGadgetFtdiMode -Mode MpsseI2c |
+| Set-PsGadgetFtdiMode        | Set operating mode of a connected FTDI device (MPSSE, MpsseI2c, CBUS, AsyncBitBang); MpsseI2c also runs I2C idle-state init |
 | Get-PsGadgetConfig          | Return current in-memory PSGadget config; use -Section ftdi or logging to filter |
 | Set-PsGadgetConfig          | Set a config value by dot-key (e.g. 'ftdi.highDriveIOs') and persist to ~/.psgadget/config.json |
 | Test-PsGadgetEnvironment    | Verify environment, backend, native lib, and device count; returns Status/Reason/NextStep (-Verbose for detail) |

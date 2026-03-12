@@ -86,7 +86,7 @@ function Set-PsGadgetFtdiMode {
         [PsGadgetFtdi]$PsGadget,
 
         [Parameter(Mandatory = $true, Position = 1)]
-        [ValidateSet('MPSSE', 'CBUS', 'AsyncBitBang', 'SyncBitBang', 'UART')]
+        [ValidateSet('MPSSE', 'MpsseI2c', 'CBUS', 'AsyncBitBang', 'SyncBitBang', 'UART')]
         [string]$Mode,
 
         [Parameter(Mandatory = $false)]
@@ -103,6 +103,7 @@ function Set-PsGadgetFtdiMode {
         'UART'         = 0x00
         'AsyncBitBang' = 0x01
         'MPSSE'        = 0x02
+        'MpsseI2c'     = 0x02   # MPSSE mode byte; I2C init follows SetBitMode
         'SyncBitBang'  = 0x04
         'CBUS'         = 0x20
     }
@@ -154,7 +155,7 @@ function Set-PsGadgetFtdiMode {
         $modeByte = $modeTable[$Mode]
 
         # MPSSE and UART ignore the mask (direction managed by MPSSE engine / reset)
-        $effectiveMask = if ($Mode -eq 'MPSSE' -or $Mode -eq 'UART') { 0x00 } else { [byte]$Mask }
+        $effectiveMask = if ($Mode -eq 'MPSSE' -or $Mode -eq 'MpsseI2c' -or $Mode -eq 'UART') { 0x00 } else { [byte]$Mask }
 
         $log.WriteDebug("SetBitMode: mode=$Mode (0x$($modeByte.ToString('X2'))) mask=0x$($effectiveMask.ToString('X2'))")
 
@@ -186,11 +187,16 @@ function Set-PsGadgetFtdiMode {
                 'AsyncBitBang' { $conn.GpioMethod = 'AsyncBitBang' }
                 'SyncBitBang'  { $conn.GpioMethod = 'SyncBitBang'  }
                 'MPSSE'        { $conn.GpioMethod = 'MPSSE' }
+                'MpsseI2c'     { $conn.GpioMethod = 'MpsseI2c' }
                 'UART'         {
                     if ($conn.PSObject.Properties['OriginalGpioMethod']) {
                         $conn.GpioMethod = $conn.OriginalGpioMethod
                     }
                 }
+            }
+            # For MpsseI2c: run I2C idle-state and clock setup on top of base MPSSE
+            if ($Mode -eq 'MpsseI2c') {
+                Initialize-MpsseI2C -DeviceHandle $conn | Out-Null
             }
             $log.WriteInfo("SetBitMode OK: $($PsGadget.SerialNumber) is now in $Mode mode (GpioMethod=$($conn.GpioMethod))")
             return [PSCustomObject]@{
