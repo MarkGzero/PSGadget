@@ -645,7 +645,7 @@ function Invoke-FtdiI2CScan {
             }
         }
 
-    } elseif ($gpioMethod -eq 'MPSSE' -and $script:FtdiInitialized) {
+    } elseif (($gpioMethod -eq 'MPSSE' -or $gpioMethod -eq 'MpsseI2c') -and $script:FtdiInitialized) {
         # D2XX path - MPSSE bit-bang I2C scan.
         $rawDevice = Get-FtdiD2xxHandle -DeviceHandle $Connection
         if (-not $rawDevice) { throw 'Cannot resolve raw FTDI device handle for MPSSE scan' }

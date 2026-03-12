@@ -61,6 +61,10 @@ function Send-PsGadgetI2CWrite {
         throw "PsGadgetFtdi is not open. Call New-PsGadgetFtdi first."
     }
 
+    if ($PsGadget._connection.GpioMethod -ne 'MpsseI2c') {
+        throw "Device not in MpsseI2c mode. Run Set-PsGadgetFtdiMode -Mode MpsseI2c first."
+    }
+
     Send-MpsseI2CWrite -DeviceHandle $PsGadget._connection `
                        -Address $Address `
                        -Data $Data `
