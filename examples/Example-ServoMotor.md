@@ -27,13 +27,15 @@ Two hardware approaches are covered:
 - [Step 1 - Install Drivers and Verify Detection](#step-1---install-drivers-and-verify-detection)
 - [Step 2 - Smoke Test: Move to Three Positions](#step-2---smoke-test-move-to-three-positions)
 - [Step 3 - Precise Position Script (Single Servo)](#step-3---precise-position-script-single-servo)
-  - [Fix Windows Timer Resolution](#fix-windows-timer-resolution)
+  - [Fix Windows Timer Resolution and USB Latency](#fix-windows-timer-resolution-and-usb-latency)
   - [Set-Servo function](#set-servo-function)
   - [Sweep demo](#sweep-demo)
 - [Speeding Up and Resolution Limits](#speeding-up-and-resolution-limits)
   - [Raw MPSSE write path](#raw-mpsse-write-path)
   - [Async bit-bang streaming (multi-servo)](#async-bit-bang-streaming-multi-servo)
 - [Troubleshooting](#troubleshooting)
+  - [Device appears twice in List-PsGadgetFtdi (VCP driver conflict)](#device-appears-twice-in-list-psgadgetftdi-vcp-driver-conflict)
+  - [FT232H signal is wrong frequency on scope (~20 Hz instead of 50 Hz)](#ft232h-signal-is-wrong-frequency-on-scope-20-hz-instead-of-50-hz)
   - [Servo does not move at all](#servo-does-not-move-at-all)
   - [Servo twitches or buzzes continuously](#servo-twitches-or-buzzes-continuously)
   - [Position is wrong or inconsistent](#position-is-wrong-or-inconsistent)
@@ -215,6 +217,44 @@ $dev | Get-Member   # confirms object type
 $dev.Close()
 ```
 
+**Check for VCP driver conflict before continuing (applies to both FT232H and FT232R):**
+
+```powershell
+# Both FT232H and FT232R can enumerate as a VCP COM port simultaneously with D2XX,
+# depending on their EEPROM configuration. When this happens, the VCP driver holds
+# partial ownership of the hardware interface and D2XX SetBitMode calls succeed
+# without error but produce no electrical output.
+#
+# FT232H: factory EEPROM may have IsVCP=True (chip- and board-dependent).
+# FT232R: factory EEPROM defaults to RIsD2XX=False, meaning VCP is ON by default.
+#         Almost every fresh FT232R will enumerate as a COM port out of the box.
+#         Running CBUS bit-bang or async bit-bang on ADBUS requires D2XX exclusive
+#         access, so VCP must be disabled first.
+
+# Check: does the device appear twice?
+List-PsGadgetFtdi -ShowVCP | Format-Table Index, Type, SerialNumber, Flags
+# If the same serial number appears twice (once as D2XX, once as a COM port),
+# you have a VCP conflict. Fix it before running any servo code:
+
+# Read EEPROM to confirm (look for IsVCP : True on FT232H, RIsD2XX : False on FT232R)
+Get-PsGadgetFtdiEeprom -Index 0
+
+# Fix: disable VCP permanently in EEPROM (one-time, requires USB replug)
+Set-PsGadgetFtdiEeprom -Index 0 -DisableVcp
+
+# Verify: after replug, should show only one D2XX entry with no COM port
+List-PsGadgetFtdi -ShowVCP | Format-Table
+Get-PsGadgetFtdiEeprom -Index 0   # IsVCP : False (FT232H) or RIsD2XX : True (FT232R)
+```
+
+> **Engineer**: when the VCP driver (`ftdibus.sys`) is loaded alongside `ftd2xx.dll`
+> for the same physical device, it holds a partial claim on the USB interface.
+> `SetBitMode` calls return `FT_OK` but the mode change has no effect — the MPSSE
+> engine (FT232H) never activates, and CBUS/async bit-bang (FT232R) produce no
+> output. FT232H EEPROM flag: `IsVCP` (set to `False` to fix). FT232R EEPROM flag:
+> `RIsD2XX` (set to `True` to fix). Both are written by `Set-PsGadgetFtdiEeprom
+> -DisableVcp`; a USB replug is the only requirement after writing.
+
 ---
 
 ## Step 2 - Smoke Test: Move to Three Positions
@@ -234,11 +274,15 @@ Add-Type -MemberDefinition '
 [Win32.WinTimer]::timeBeginPeriod(1)
 
 $dev = New-PsGadgetFtdi -Index 0
+# Reduce FTDI USB latency timer from 16 ms (default) to 1 ms.
+# Without this each Write() adds up to 16 ms of bus latency, inflating
+# the servo period from the intended 20 ms to ~50 ms (~20 Hz on scope).
+$dev._connection.Device.SetLatency(1) | Out-Null
 
 function Send-ServoPulse {
     param(
         [Parameter(Mandatory)]$PsGadget,
-        [int]$PinAcbus = 0,
+        [int]$PinAcbus = 5,
         [double]$PulseMs = 1.5,      # 1.0 = 0 deg, 1.5 = 90 deg, 2.0 = 180 deg
         [int]$Cycles   = 25          # 25 cycles at 20 ms period = 500 ms hold
     )
@@ -287,10 +331,15 @@ see the Troubleshooting section.
 
 ## Step 3 - Precise Position Script (Single Servo)
 
-### Fix Windows Timer Resolution
+### Fix Windows Timer Resolution and USB Latency
 
-This was covered in Step 2. Add the `Add-Type` block once at the top of your
-script and call `timeBeginPeriod(1)` before any servo loop.
+Two setup calls are required before any servo loop:
+- `timeBeginPeriod(1)` — improves Windows OS sleep granularity from ~15 ms to ~1 ms
+- `SetLatency(1)` — reduces FTDI USB latency timer from 16 ms to 1 ms
+
+Without both calls, each `Write()` to the FTDI chip stalls up to 16 ms on the
+default USB latency timer, producing ~20 Hz output instead of the target 50 Hz
+and stretching the pulse from 1.5 ms to ~20 ms (scope-measured result).
 
 ```powershell
 Add-Type -MemberDefinition '
@@ -307,6 +356,7 @@ number of 50 Hz cycles. Uses the raw MPSSE write path for lower overhead.
 
 ```powershell
 $rawFtdi = $dev._connection.Device   # FTD2XX_NET.FTDI handle
+$rawFtdi.SetLatency(1) | Out-Null    # reduce USB latency timer from 16 ms to 1 ms
 
 function Set-Servo {
     param(
@@ -346,10 +396,13 @@ function Set-Servo {
 > per period. The MPSSE engine drives the pin level immediately on receipt.
 
 > **Scripter**: `$rawFtdi = $dev._connection.Device` accesses the underlying
-> FTD2XX_NET .NET object directly, bypassing PSGadget cmdlet overhead. This
-> saves ~3-5 ms per period compared to going through `Set-PsGadgetGpio`. For
-> a servo loop sending 50 pulses/sec that 3 ms matters — it can throw the
-> 20 ms period off by 15%.
+> FTD2XX_NET .NET object directly, bypassing PSGadget cmdlet overhead. The
+> larger factor is the FTDI USB latency timer: at its default of 16 ms, each
+> `Write()` can stall up to 16 ms waiting for a USB ACK. With two writes per
+> servo period (HIGH then LOW) this adds up to 32 ms extra per cycle —
+> measured result without `SetLatency(1)`: ~20 Hz, 40% duty (pulse stuck at
+> ~20 ms instead of 1.5 ms). Calling `SetLatency(1)` first drops this to
+> ~1 ms per write and brings the output close to 50 Hz spec.
 
 ### Sweep demo
 
@@ -398,15 +451,34 @@ try {
 
 ### Raw MPSSE write path
 
-The `Set-Servo` function above already uses the raw write path. The remaining
-bottleneck is `Start-Sleep` resolution. With `timeBeginPeriod(1)`:
+The `Set-Servo` function above already uses the raw write path. With both
+`timeBeginPeriod(1)` and `SetLatency(1)` applied:
 
+- Achieved frequency: ~40-45 Hz (vs 50 Hz target)
 - Minimum reliable sleep: ~1 ms
 - Pulse width resolution: 1 ms steps
 - Angular resolution: ~18 deg/step (10 discrete positions over 0-180 deg)
 
 This is sufficient for point-to-point positioning (e.g. 0, 45, 90, 135, 180
 degrees) but not for smooth analog sweeps.
+
+**Measured signal characteristics (FT232H ACBUS, scope, SG90 servo):**
+
+| Setup | Frequency | Duty+ | HIGH time | Result |
+|-------|-----------|-------|-----------|--------|
+| No SetLatency (default 16 ms) | 20 Hz | 40% | ~20 ms | Servo stuck at max position |
+| SetLatency(1) + timeBeginPeriod(1) | ~45 Hz | ~7.5% | ~1.5 ms | Servo responds correctly |
+| Target (RC servo spec) | 50 Hz | 7.5% | 1.5 ms | Ideal |
+
+Signal amplitude: 3.59 V (FT232H ACBUS at 4 mA drive, 3.3 V nominal).
+
+> **Engineer**: the root cause is the FTDI USB latency timer (`FT_SetLatencyTimer`).
+> It defaults to 16 ms, which is the minimum time the chip waits before flushing
+> a USB IN token back to the host. For GPIO output this means each `Write()` call
+> can stall up to 16 ms. With two writes per servo period and the host sleep on top,
+> the actual period balloons from 20 ms to ~50 ms. Setting the timer to 1 ms via
+> `$rawFtdi.SetLatency(1)` brings each write overhead down to ~1 ms and restores
+> near-correct servo timing. The method is `FTD2XX_NET.FTDI.SetLatency(byte)`.
 
 ### Async bit-bang streaming (multi-servo)
 
@@ -505,8 +577,85 @@ $dev.Close()
 
 ## Troubleshooting
 
+### Device appears twice in List-PsGadgetFtdi (VCP driver conflict)
+
+Symptom: `List-PsGadgetFtdi -ShowVCP` shows the same device at two different
+indices — one as a D2XX device and one as a COM port (e.g. COM11). Serial
+numbers match except the VCP entry has a trailing `A`.
+
+Affected chips and default state:
+
+| Chip    | Factory EEPROM default | VCP on by default? |
+|---------|------------------------|--------------------|
+| FT232H  | `IsVCP = True` on some breakout boards | Sometimes |
+| FT232R  | `RIsD2XX = False`      | Almost always      |
+
+For FT232R this is the expected out-of-box state — the chip enumerates as a
+COM port by design until you set `RIsD2XX=True`. CBUS bit-bang and async
+bit-bang both require D2XX exclusive access via `SetBitMode`; neither works
+while `ftdibus.sys` holds the interface.
+
+Root cause: Windows loads both `ftdibus.sys` (VCP driver → COM port) and
+`ftd2xx.dll` for the same physical chip. The VCP driver holds partial
+ownership of the hardware interface. `SetBitMode` returns `FT_OK` but the
+mode change has no effect — all GPIO commands succeed without error but
+produce no electrical output.
+
+Quick workaround (no replug needed):
+```
+Device Manager -> Ports (COM & LPT) -> USB Serial Port (COMxx) -> Disable device
+```
+Servos will work until the next reboot or replug reloads the driver.
+
+Permanent fix:
+```powershell
+# Confirm EEPROM state
+Get-PsGadgetFtdiEeprom -Index 0
+# FT232H: look for IsVCP : True
+# FT232R: look for RIsD2XX : False
+
+# Write EEPROM to disable VCP (non-volatile, survives power cycle)
+Set-PsGadgetFtdiEeprom -Index 0 -DisableVcp
+# Accept the prompt to cycle the USB port, or replug manually.
+
+# Verify: single D2XX entry, no COM port
+List-PsGadgetFtdi -ShowVCP | Format-Table
+Get-PsGadgetFtdiEeprom -Index 0   # IsVCP : False (FT232H) or RIsD2XX : True (FT232R)
+```
+
+> **Beginner**: after running `Set-PsGadgetFtdiEeprom -Index 0 -DisableVcp`
+> and replugging the USB cable, the COM port entry disappears from Device
+> Manager. The FTDI adapter still works for everything — you just cannot use
+> it as a plain serial port any more. If you ever need the COM port back, run
+> `Set-PsGadgetFtdiEeprom -Index 0 -EnableVcp`.
+
+### FT232H signal is wrong frequency on scope (~20 Hz instead of 50 Hz)
+
+Symptom: oscilloscope on ACBUS shows ~20 Hz, ~40% duty cycle. The servo is
+stuck at maximum deflection or does not respond to angle changes.
+
+Cause: the FTDI USB latency timer defaults to 16 ms. Each `Write()` call stalls
+up to 16 ms for a USB ACK. Two writes per servo cycle (HIGH + LOW) add up to
+~32 ms of extra latency per period, expanding the 20 ms period to ~50 ms and
+the 1.5 ms pulse to ~20 ms.
+
+Fix: call `SetLatency(1)` immediately after opening the device handle:
+
+```powershell
+$rawFtdi = $dev._connection.Device
+$rawFtdi.SetLatency(1) | Out-Null   # must be present before any servo loop
+```
+
+After applying `SetLatency(1)`, re-measure: you should see ~45 Hz, ~7.5% duty,
+and the servo should respond correctly to angle commands.
+
 ### Servo does not move at all
 
+- **Check for VCP driver conflict first.** This is the most common cause of
+  silent GPIO failure on both FT232H and FT232R. FT232R ships with VCP enabled
+  by default (`RIsD2XX=False`); FT232H may also have `IsVCP=True` from the
+  factory. Run `List-PsGadgetFtdi -ShowVCP | Format-Table` — if the device
+  appears twice (D2XX entry + COM port entry), see the section above.
 - Check power: the servo power (red) wire must be connected to an external
   5 V supply **and** that supply's GND must be connected to the FTDI GND.
   A servo with no shared ground will not respond to the signal.
@@ -559,6 +708,7 @@ successfully and that `timeBeginPeriod(1)` returned `0`.
 Import-Module G:\PSSummit2026\psgadget\PSGadget.psm1
 $dev     = New-PsGadgetFtdi -Index 0
 $rawFtdi = $dev._connection.Device   # FTD2XX_NET.FTDI handle
+$rawFtdi.SetLatency(1) | Out-Null    # required: default 16 ms kills servo timing
 
 # Fix Windows timer resolution
 Add-Type -MemberDefinition '
@@ -631,6 +781,7 @@ Add-Type -MemberDefinition '
 
 $dev     = New-PsGadgetFtdi -Index 0
 $rawFtdi = $dev._connection.Device
+$rawFtdi.SetLatency(1) | Out-Null    # required: default 16 ms kills servo timing
 [Win32.WinTimer]::timeBeginPeriod(1)
 
 function Set-TwoServos {
@@ -744,3 +895,6 @@ try {
 | 180 | 90   | 2.0 ms    | 1.5 ms     | Full right, level |
 | 90  | 45   | 1.5 ms    | 1.25 ms    | Center, angled down |
 | 90  | 135  | 1.5 ms    | 1.75 ms    | Center, angled up |
+
+
+
