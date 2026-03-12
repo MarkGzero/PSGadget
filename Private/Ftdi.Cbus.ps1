@@ -50,6 +50,154 @@ foreach ($k in $script:FT_CBUS_NAMES.Keys) {
     $script:FT_CBUS_VALUES[$script:FT_CBUS_NAMES[$k]] = [byte]$k
 }
 
+# FT_232H_CBUS_OPTIONS integer-to-name lookup.
+# Reference: FTD2XX_NET FT_232H_CBUS_OPTIONS enum + AN_146 FT232H datasheet.
+$script:FT_232H_CBUS_NAMES = @{
+    0  = 'FT_CBUS_TRISTATE'
+    1  = 'FT_CBUS_TXLED'
+    2  = 'FT_CBUS_RXLED'
+    3  = 'FT_CBUS_TXRXLED'
+    4  = 'FT_CBUS_PWREN'
+    5  = 'FT_CBUS_SLEEP'
+    6  = 'FT_CBUS_DRIVE_0'
+    7  = 'FT_CBUS_DRIVE_1'
+    8  = 'FT_CBUS_IOMODE'
+    9  = 'FT_CBUS_TXDEN'
+    10 = 'FT_CBUS_CLK30'
+    11 = 'FT_CBUS_CLK15'
+    12 = 'FT_CBUS_CLK7_5'
+}
+
+function Get-FtdiFt232hEeprom {
+    <#
+    .SYNOPSIS
+    Reads the FT232H EEPROM and returns a rich object with all fields.
+
+    .DESCRIPTION
+    Opens the FT232H device by index via D2XX, reads the FT232H_EEPROM_STRUCTURE,
+    and returns a PSCustomObject with common USB descriptor fields plus all FT232H-
+    specific fields (ACBUS/ADBUS drive settings, CBUS0-9 pin modes, interface
+    configuration flags, etc.).
+
+    The device must not already be opened by another handle.
+
+    .PARAMETER Index
+    Zero-based device index (from List-PsGadgetFtdi).
+
+    .PARAMETER SerialNumber
+    Optional fallback when OpenByIndex fails.
+
+    .EXAMPLE
+    Get-FtdiFt232hEeprom -Index 0
+
+    .OUTPUTS
+    PSCustomObject with EEPROM fields.
+    #>
+    [CmdletBinding()]
+    [OutputType([System.Object])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Index,
+
+        [Parameter(Mandatory = $false)]
+        [string]$SerialNumber = ''
+    )
+
+    try {
+        if (-not $script:FtdiInitialized) {
+            throw [System.NotImplementedException]::new("FTDI assembly not loaded")
+        }
+
+        $ftdi   = [FTD2XX_NET.FTDI]::new()
+        $status = $ftdi.OpenByIndex([uint32]$Index)
+
+        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK -and $SerialNumber -ne '') {
+            Write-Verbose "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
+            $ftdi.Close() | Out-Null
+            $ftdi   = [FTD2XX_NET.FTDI]::new()
+            $status = $ftdi.OpenBySerialNumber($SerialNumber)
+        }
+
+        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
+            $ftdi.Close() | Out-Null
+            if ($status -eq [FTD2XX_NET.FTDI+FT_STATUS]::FT_DEVICE_NOT_OPENED) {
+                throw ("Device is already open - close the existing connection first. " +
+                       "Call .Close() on any open `$dev variable or restart the PowerShell session.")
+            }
+            throw "Failed to open FT232H device: $status"
+        }
+
+        $eeprom = [FTD2XX_NET.FTDI+FT232H_EEPROM_STRUCTURE]::new()
+        $status = $ftdi.ReadFT232HEEPROM($eeprom)
+        $ftdi.Close() | Out-Null
+
+        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
+            throw "ReadFT232HEEPROM failed: $status"
+        }
+
+        # Helper: resolve FT_232H_CBUS_OPTIONS byte -> friendly name
+        $resolveCbus = {
+            param([object]$val)
+            $intVal = [int]$val
+            if ($script:FT_232H_CBUS_NAMES.ContainsKey($intVal)) {
+                return $script:FT_232H_CBUS_NAMES[$intVal]
+            }
+            return "UNKNOWN($intVal)"
+        }
+
+        return [PSCustomObject]@{
+            # USB descriptor fields
+            VendorID            = '0x{0:X4}' -f $eeprom.VendorID
+            ProductID           = '0x{0:X4}' -f $eeprom.ProductID
+            Manufacturer        = $eeprom.Manufacturer
+            ManufacturerID      = $eeprom.ManufacturerID
+            Description         = $eeprom.Description
+            SerialNumber        = $eeprom.SerialNumber
+            MaxPower            = $eeprom.MaxPower
+            SelfPowered         = $eeprom.SelfPowered
+            RemoteWakeup        = $eeprom.RemoteWakeup
+            PullDownEnable      = $eeprom.PullDownEnable
+            SerNumEnable        = $eeprom.SerNumEnable
+            # ACBUS (C-bus, MPSSE high-byte) drive settings
+            ACSlowSlew          = $eeprom.ACSlowSlew
+            ACSchmittInput      = $eeprom.ACSchmittInput
+            ACDriveCurrent      = $eeprom.ACDriveCurrent
+            # ADBUS (D-bus, MPSSE low-byte) drive settings
+            ADSlowSlew          = $eeprom.ADSlowSlew
+            ADSchmittInput      = $eeprom.ADSchmittInput
+            ADDriveCurrent      = $eeprom.ADDriveCurrent
+            # CBUS pin function assignments (ACBUS0-9)
+            Cbus0               = (& $resolveCbus $eeprom.Cbus0)
+            Cbus1               = (& $resolveCbus $eeprom.Cbus1)
+            Cbus2               = (& $resolveCbus $eeprom.Cbus2)
+            Cbus3               = (& $resolveCbus $eeprom.Cbus3)
+            Cbus4               = (& $resolveCbus $eeprom.Cbus4)
+            Cbus5               = (& $resolveCbus $eeprom.Cbus5)
+            Cbus6               = (& $resolveCbus $eeprom.Cbus6)
+            Cbus7               = (& $resolveCbus $eeprom.Cbus7)
+            Cbus8               = (& $resolveCbus $eeprom.Cbus8)
+            Cbus9               = (& $resolveCbus $eeprom.Cbus9)
+            # Interface configuration flags
+            IsFifo              = $eeprom.IsFifo
+            IsFifoTar           = $eeprom.IsFifoTar
+            IsFastSer           = $eeprom.IsFastSer
+            IsFT1248            = $eeprom.IsFT1248
+            FT1248Cpol          = $eeprom.FT1248Cpol
+            FT1248Lsb           = $eeprom.FT1248Lsb
+            FT1248FlowControl   = $eeprom.FT1248FlowControl
+            IsVCP               = $eeprom.IsVCP
+            PowerSaveEnable     = $eeprom.PowerSaveEnable
+        }
+
+    } catch [System.NotImplementedException] {
+        Write-Warning "Get-FtdiFt232hEeprom: FTDI assembly not loaded."
+        return $null
+    } catch {
+        Write-Error "Get-FtdiFt232hEeprom failed: $_"
+        return $null
+    }
+}
+
 function Get-FtdiFt232rEeprom {
     <#
     .SYNOPSIS

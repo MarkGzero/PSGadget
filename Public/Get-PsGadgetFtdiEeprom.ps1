@@ -18,8 +18,7 @@ function Get-PsGadgetFtdiEeprom {
       - Verifying serial number, description, and USB power settings
       - Confirming driver mode (D2XX vs VCP) on FT232R
 
-    Supported device types:  FT232R / FT232RL / FT232RNL
-    (Support for FT232H, FT2232H, FT4232H, and X-Series will be added in a future release.)
+    Supported device types:  FT232R / FT232RL / FT232RNL / FT232H
 
     .PARAMETER Index
     Zero-based index of the device to read (as shown by List-PsGadgetFtdi).
@@ -96,10 +95,13 @@ function Get-PsGadgetFtdiEeprom {
             '^FT232R(L|NL)?$' {
                 return Get-FtdiFt232rEeprom -Index $targetIndex -SerialNumber $targetDev.SerialNumber
             }
+            '^FT232H$' {
+                return Get-FtdiFt232hEeprom -Index $targetIndex -SerialNumber $targetDev.SerialNumber
+            }
             default {
                 Write-Warning (
                     "EEPROM read for '$($targetDev.Type)' is not yet implemented. " +
-                    "Currently supported: FT232R / FT232RL / FT232RNL."
+                    "Currently supported: FT232R / FT232RL / FT232RNL / FT232H."
                 )
                 return $null
             }
