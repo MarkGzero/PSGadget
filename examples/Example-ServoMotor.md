@@ -21,7 +21,8 @@ Two hardware approaches are covered:
   - [How RC Servo PWM Works](#how-rc-servo-pwm-works)
   - [Why FTDI Cannot Do Real PWM](#why-ftdi-cannot-do-real-pwm)
   - [The Two Software PWM Approaches](#the-two-software-pwm-approaches)
-  - [Wiring - FT232H ACBUS0 (single servo)](#wiring---ft232h-acbus0-single-servo)
+  - [Wiring - FT232H D4-D7 ADBUS (single servo)](#wiring---ft232h-d4-d7-adbus-single-servo)
+  - [Wiring - FT232H C0-C7 ACBUS (single servo, alternative)](#wiring---ft232h-c0-c7-acbus-single-servo-alternative)
   - [Wiring - FT232R or FT232H Async Bit-Bang (multi-servo)](#wiring---ft232r-or-ft232h-async-bit-bang-multi-servo)
   - [Power Considerations](#power-considerations)
 - [Step 1 - Install Drivers and Verify Detection](#step-1---install-drivers-and-verify-detection)
@@ -132,19 +133,20 @@ generated in software:
 5. Repeat at 50 Hz.
 
 The achievable resolution is limited by the host timer granularity. On
-Windows, the default timer fires at ~15.625 ms. After calling
-`timeBeginPeriod(1)`, resolution improves to ~1 ms. That gives
-approximately **10 discrete positions** across the 1.0-2.0 ms range —
-enough for basic demos and point-to-point positioning, but not analog
-smoothness.
+Windows, `Start-Sleep` defaults to ~15.625 ms granularity. Calling
+`timeBeginPeriod(1)` is unreliable in PowerShell — `Add-Type` caches the
+definition, so the winmm.dll registration silently fails in some sessions
+(scope-confirmed: still 20.83 Hz / 33% duty with `Start-Sleep`). A reliable
+alternative is a **Stopwatch spin-wait** for the short pulse using the CPU
+performance counter (~10 MHz), which requires no `Add-Type` and gives accurate
+pulse widths to ~1 us regardless of OS timer state.
 
 ### The Two Software PWM Approaches
 
 | Approach | Resolution | Servos | Chip | Notes |
 |---|---|---|---|---|
-| `timeBeginPeriod(1)` + MPSSE GPIO | ~10 positions (1 ms steps) | 1-4 | FT232H | Simplest code; ACBUS pins |
-| `timeBeginPeriod(1)` + raw MPSSE write | ~10 positions | 1-4 | FT232H | Lower overhead; same wiring |
-| Async bit-bang streaming | ~50 positions (sub-ms) | up to 8 | FT232H or FT232R | Best resolution; ADBUS wiring |
+| Stopwatch spin-wait + raw `0x80` write | ~100+ positions (~1 us) | 1-4 | FT232H | Recommended; D4-D7 or C0-C7 |
+| Async bit-bang streaming | ~100 positions (10 us) | up to 8 | FT232H or FT232R | Best for multi-servo; D0-D7 |
 
 > **Engineer**: the async bit-bang approach streams a pre-computed byte
 > buffer representing multiple PWM periods. The FTDI chip clocks each byte
@@ -154,24 +156,50 @@ smoothness.
 > 1 ms software approach. The tradeoff is that changing position requires
 > rebuilding the buffer and re-streaming.
 
-### Wiring - FT232H ACBUS0 (single servo)
+### Wiring - FT232H D4-D7 ADBUS (single servo)
 
-Connect ACBUS0 to the servo signal wire. Use a separate 5 V supply for the
-servo power rail.
+Connect D7 (ADBUS7) to the servo signal wire. D4-D7 are the MPSSE GPIO pins
+on the low byte (D-bus); D0-D3 are reserved by the MPSSE engine for serial
+protocol signals (clock, MOSI, MISO, CS) and cannot be used as servo outputs.
 
-| FT232H pin | Signal   | Servo wire        |
-|-----------|----------|-------------------|
-| ACBUS0    | Signal   | Signal (yellow/white/orange) |
-| GND       | Ground   | Ground (brown/black) — shared with servo supply GND |
+| FT232H pin | Signal | Servo wire |
+|-----------|--------|------------|
+| D7 (ADBUS7) | Signal | Signal (yellow/white/orange) |
+| GND | Ground | Ground (brown/black) — shared with servo supply GND |
 | *(separate 5 V supply)* | — | Power (red/orange) |
 
-> **Beginner**: the GND (ground) of the FTDI adapter and the GND of the servo
-> power supply MUST be connected together. Otherwise the servo signal has no
-> reference and will not work, or may damage the FTDI output.
+Any of D4-D7 works. D7 is a safe default when not running SPI/I2C, since it
+is furthest from the D0-D3 protocol pins.
 
-> **Engineer**: FT232H ACBUS0 in MPSSE mode is driven by the `0x82` high-byte
-> command. Output voltage is 3.3 V when VIO is at 3.3 V (default). Check your
-> servo signal threshold — most SG90 and MG996R variants accept 3.3 V signal.
+> **Beginner**: the GND of the FTDI adapter and the GND of the servo power
+> supply MUST be connected together. Otherwise the signal has no return path
+> and the servo will not respond.
+
+> **Engineer**: D4-D7 are MPSSE GPIO controlled by the `0x80` (Set Data Bits
+> Low Byte / ADBUS) command. Byte 1 = output value; byte 2 = direction mask.
+> D0-D3 are managed by the MPSSE engine and must not be set via `0x80` writes
+> during active SPI/I2C transfers. Output is 3.3 V at 4 mA drive. Most SG90
+> and MG996R servo signal inputs accept 3.3 V logic.
+
+### Wiring - FT232H C0-C7 ACBUS (single servo, alternative)
+
+C0-C7 (ACBUS0-7) are the second MPSSE GPIO bank, controlled by the `0x82`
+(Set Data Bits High Byte / ACBUS) command. Use these if D4-D7 are occupied by
+SPI/I2C chip select or reset lines.
+
+| FT232H pin | Signal | Servo wire |
+|-----------|--------|------------|
+| C0 (ACBUS0) | Signal | Signal (yellow/white/orange) |
+| GND | Ground | Ground (brown/black) — shared with servo supply GND |
+| *(separate 5 V supply)* | — | Power (red/orange) |
+
+In code, replace `0x80` with `0x82`. Pin mask is the same: C0 = bit 0, C7 = bit 7.
+
+> **Engineer**: C8 and C9 are NOT general-purpose GPIO — they are
+> special-purpose EEPROM-configured pins (PWREN/SLEEP/TXDEN). Only C0-C7 are
+> freely usable as GPIO. The PSGadget `Set-PsGadgetGpio` cmdlet controls ACBUS
+> via `0x82`; it does NOT currently support ADBUS D-bus GPIO. Use raw `0x80`
+> writes (as shown in the code examples) when controlling D4-D7.
 
 ### Wiring - FT232R or FT232H Async Bit-Bang (multi-servo)
 
@@ -259,59 +287,59 @@ Get-PsGadgetFtdiEeprom -Index 0   # IsVCP : False (FT232H) or RIsD2XX : True (FT
 
 ## Step 2 - Smoke Test: Move to Three Positions
 
-This test uses `timeBeginPeriod(1)` to get 1 ms resolution and sends pulses
-manually. Three positions only (1 ms, 1.5 ms, 2 ms = 0, 90, 180 degrees).
+Three positions only (0, 90, 180 degrees). Uses a Stopwatch spin-wait for
+accurate pulse timing — no `Add-Type` or `timeBeginPeriod` required.
+
+Note: `Set-PsGadgetGpio` only controls ACBUS (C-bus) pins via `0x82` and does
+not support ADBUS D-bus pins. For D4-D7, use raw MPSSE writes as shown below.
 
 ```powershell
 Import-Module G:\PSSummit2026\psgadget\PSGadget.psm1
 
-# Fix Windows timer resolution from ~15 ms to ~1 ms
-Add-Type -MemberDefinition '
-    [DllImport("winmm.dll")] public static extern int timeBeginPeriod(int t);
-    [DllImport("winmm.dll")] public static extern int timeEndPeriod(int t);
-' -Name 'WinTimer' -Namespace 'Win32' -ErrorAction SilentlyContinue
+$dev     = New-PsGadgetFtdi -Index 0
+$rawFtdi = $dev._connection.Device
+$rawFtdi.SetLatency(1) | Out-Null   # reduce USB latency timer from 16 ms to 1 ms
 
-[Win32.WinTimer]::timeBeginPeriod(1)
+# Stopwatch for accurate sub-ms pulse timing (immune to OS timer granularity)
+$sw     = [System.Diagnostics.Stopwatch]::new()
+$swFreq = [System.Diagnostics.Stopwatch]::Frequency   # typically 10 MHz HPET
 
-$dev = New-PsGadgetFtdi -Index 0
-# Reduce FTDI USB latency timer from 16 ms (default) to 1 ms.
-# Without this each Write() adds up to 16 ms of bus latency, inflating
-# the servo period from the intended 20 ms to ~50 ms (~20 Hz on scope).
-$dev._connection.Device.SetLatency(1) | Out-Null
+# Servo on D7 (ADBUS7): MPSSE command 0x80, pin mask = bit 7 = 0x80
+$D7_HI = [byte[]](0x80, 0x80, 0xFF)   # D7 HIGH, all D-bus as outputs
+$D7_LO = [byte[]](0x80, 0x00, 0xFF)   # all D-bus LOW
 
 function Send-ServoPulse {
     param(
-        [Parameter(Mandatory)]$PsGadget,
-        [int]$PinAcbus = 5,
-        [double]$PulseMs = 1.5,      # 1.0 = 0 deg, 1.5 = 90 deg, 2.0 = 180 deg
-        [int]$Cycles   = 25          # 25 cycles at 20 ms period = 500 ms hold
+        [double]$PulseMs = 1.5,   # 1.0 = 0 deg, 1.5 = 90 deg, 2.0 = 180 deg
+        [int]$Cycles     = 25     # 25 cycles at ~20 ms period = ~500 ms hold
     )
-    $lowMs = 20 - $PulseMs
+    $pulseTicks = [long]($PulseMs * $swFreq / 1000.0)
+    $lowMs      = 20.0 - $PulseMs
+    $w = 0
     for ($i = 0; $i -lt $Cycles; $i++) {
-        Set-PsGadgetGpio -PsGadget $PsGadget -Pins @($PinAcbus) -State HIGH
-        Start-Sleep -Milliseconds $PulseMs
-        Set-PsGadgetGpio -PsGadget $PsGadget -Pins @($PinAcbus) -State LOW
-        Start-Sleep -Milliseconds $lowMs
+        $rawFtdi.Write($D7_HI, 3, [ref]$w) | Out-Null
+        $sw.Restart()
+        while ($sw.ElapsedTicks -lt $pulseTicks) {}   # spin-wait: accurate to ~1 us
+        $rawFtdi.Write($D7_LO, 3, [ref]$w) | Out-Null
+        Start-Sleep -Milliseconds $lowMs              # low period; OS imprecision OK
     }
 }
 
 try {
     Write-Host "-> Center (90 deg)"
-    Send-ServoPulse -PsGadget $dev -PulseMs 1.5
+    Send-ServoPulse -PulseMs 1.5
 
     Write-Host "-> Minimum (0 deg)"
-    Send-ServoPulse -PsGadget $dev -PulseMs 1.0
+    Send-ServoPulse -PulseMs 1.0
 
     Write-Host "-> Maximum (180 deg)"
-    Send-ServoPulse -PsGadget $dev -PulseMs 2.0
+    Send-ServoPulse -PulseMs 2.0
 
     Write-Host "-> Back to center (90 deg)"
-    Send-ServoPulse -PsGadget $dev -PulseMs 1.5
+    Send-ServoPulse -PulseMs 1.5
 
 } finally {
-    [Win32.WinTimer]::timeEndPeriod(1)
-    # Stop sending pulses - servo will hold last position briefly then go limp
-    Set-PsGadgetGpio -PsGadget $dev -Pins @(0) -State LOW
+    $rawFtdi.Write($D7_LO, 3, [ref]0) | Out-Null
     $dev.Close()
 }
 ```
