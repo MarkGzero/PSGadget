@@ -37,7 +37,8 @@
         'Set-PsGadgetSsd1306Cursor',
         'Install-PsGadgetMpyScript',
         'Get-PsGadgetEspNowDevices',
-        'Send-PsGadgetI2CWrite'
+        'Send-PsGadgetI2CWrite',
+        'Invoke-PsGadgetI2CScan'
     )
     
     # No cmdlets, variables, or aliases exported
