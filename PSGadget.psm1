@@ -11,7 +11,8 @@ $ClassFiles = @(
     'PsGadgetLogger.ps1',
     'PsGadgetSsd1306.ps1',
     'PsGadgetFtdi.ps1',
-    'PsGadgetMpy.ps1'
+    'PsGadgetMpy.ps1',
+    'PsGadgetPca9685.ps1'
 )
 
 foreach ($ClassFile in $ClassFiles) {

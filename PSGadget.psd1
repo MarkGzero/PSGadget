@@ -38,7 +38,12 @@
         'Install-PsGadgetMpyScript',
         'Get-PsGadgetEspNowDevices',
         'Send-PsGadgetI2CWrite',
-        'Invoke-PsGadgetI2CScan'
+        'Invoke-PsGadgetI2CScan',
+        'Connect-PsGadgetPca9685',
+        'Invoke-PsGadgetPca9685SetChannel',
+        'Invoke-PsGadgetPca9685SetChannels',
+        'Get-PsGadgetPca9685Channel',
+        'Get-PsGadgetPca9685Frequency'
     )
     
     # No cmdlets, variables, or aliases exported
@@ -51,8 +56,9 @@
         'PSGadget.psm1',
         'Classes/PsGadgetLogger.ps1',
         'Classes/PsGadgetSsd1306.ps1',
-        'Classes/PsGadgetFtdi.ps1', 
+        'Classes/PsGadgetFtdi.ps1',
         'Classes/PsGadgetMpy.ps1',
+        'Classes/PsGadgetPca9685.ps1',
         'Private/Ftdi.Backend.ps1',
         'Private/Ftdi.Cbus.ps1',
         'Private/Ftdi.IoT.ps1',
@@ -67,11 +73,17 @@
         'Public/Clear-PsGadgetSsd1306.ps1',
         'Public/Connect-PsGadgetFtdi.ps1',
         'Public/Connect-PsGadgetMpy.ps1',
+        'Public/Connect-PsGadgetPca9685.ps1',
         'Public/Connect-PsGadgetSsd1306.ps1',
         'Public/Get-PsGadgetConfig.ps1',
         'Public/Get-PsGadgetEspNowDevices.ps1',
         'Public/Get-PsGadgetFtdiEeprom.ps1',
+        'Public/Get-PsGadgetPca9685Channel.ps1',
+        'Public/Get-PsGadgetPca9685Frequency.ps1',
         'Public/Install-PsGadgetMpyScript.ps1',
+        'Public/Invoke-PsGadgetI2CScan.ps1',
+        'Public/Invoke-PsGadgetPca9685SetChannel.ps1',
+        'Public/Invoke-PsGadgetPca9685SetChannels.ps1',
         'Public/List-PsGadgetFtdi.ps1',
         'Public/List-PsGadgetMpy.ps1',
         'Public/New-PsGadgetFtdi.ps1',
