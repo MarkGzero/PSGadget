@@ -19,6 +19,7 @@ understand why the code is organised the way it is.
 - [Module load order](#module-load-order)
 - [Backend selection logic](#backend-selection-logic)
 - [Stub mode](#stub-mode)
+- [Performance tiers](#performance-tiers)
 - [Design rules](#design-rules)
 
 ---
@@ -38,7 +39,7 @@ understand why the code is organised the way it is.
 
 PSGadget has four layers. Each layer talks only to the layer below it:
 
-```
+```text
 +-------------------------------------------------------+
 |  API Layer        Public/*.ps1                        |
 |  Thin cmdlet wrappers, parameter validation, output   |
@@ -74,6 +75,7 @@ methods which in turn call protocol functions.
 enumerate connected devices.
 
 **Files**:
+
 - `Private/Initialize-FtdiAssembly.ps1` -- loads the correct managed DLL for
   the current runtime (see Backend selection logic below)
 - `Private/Ftdi.Windows.ps1` -- D2XX operations on Windows:
@@ -95,6 +97,7 @@ enumerate connected devices.
   used on PS 7.4+ / .NET 8+
 
 **Does not**:
+
 - Know about I2C, SPI, or MPSSE.
 - Know about register maps or device protocols.
 
@@ -106,6 +109,7 @@ enumerate connected devices.
 primitives, manage GPIO direction and value state.
 
 **Files**:
+
 - `Private/Ftdi.Mpsse.ps1`:
   - `Set-FtdiGpioPins` -- set ACBUS direction and value via MPSSE command 0x82;
     uses read-modify-write to preserve unrelated pin state
@@ -122,6 +126,7 @@ primitives, manage GPIO direction and value state.
 - `Private/Mpy.Backend.ps1` -- MicroPython serial REPL operations via mpremote
 
 **Does not**:
+
 - Know about SSD1306 registers or other device protocols.
 - Call transport functions directly; it receives an already-open device handle.
 
@@ -133,6 +138,7 @@ primitives, manage GPIO direction and value state.
 sequences, mode management, connection lifecycle.
 
 **Files**:
+
 - `Classes/PsGadgetFtdi.ps1` -- `PsGadgetFtdi` class:
   - Wraps a transport handle
   - Owns connect/close lifecycle
@@ -153,6 +159,7 @@ sequences, mode management, connection lifecycle.
   - Verbose console output is separate and optional
 
 **Does not**:
+
 - Contain raw MPSSE opcodes unless explicitly documented with the opcode value
   and its source in the FTDI Application Note.
 
@@ -165,6 +172,7 @@ sequences, mode management, connection lifecycle.
 **Files**: `Public/*.ps1` -- one file per exported function.
 
 Each cmdlet:
+
 - Validates and coerces parameters
 - Calls one or more device-layer methods or class constructors
 - Returns pipeline-friendly output (`PSCustomObject` or typed objects)
@@ -174,7 +182,7 @@ Each cmdlet:
 
 ## File map
 
-```
+```text
 PSGadget/
   PSGadget.psd1                  Module manifest
   PSGadget.psm1                  Loader (dot-sources files in strict order)
@@ -246,7 +254,7 @@ PSGadget/
 `Initialize-FtdiAssembly` selects the managed DLL at module import time based
 on the PowerShell and .NET version:
 
-```
+```text
 PS version   .NET version   Backend chosen
 ----------   ------------   --------------
 5.1          4.8 (netfx)    lib/net48/FTD2XX_NET.dll
@@ -264,7 +272,7 @@ hardware functions fall back to stub mode.
 Script-scope flags set after loading:
 
 | Flag | Type | Meaning |
-|------|------|---------|
+|------|------|---------|  
 | `$script:IotBackendAvailable` | bool | .NET IoT DLLs loaded and verified |
 | `$script:D2xxLoaded` | bool | FTD2XX_NET.dll loaded and FT_OK constant accessible |
 | `$script:FtdiSharpAvailable` | bool | FtdiSharp.dll loaded |
@@ -285,6 +293,194 @@ development machine with no hardware), all device operations run in stub mode:
 Stub mode is implemented via `try/catch [System.NotImplementedException]`
 blocks in platform-specific backend functions. Real hardware errors are caught
 separately and re-thrown.
+
+---
+
+## Performance tiers
+
+Every operation you send to an FTDI chip passes through some number of
+PowerShell and .NET layers before reaching the USB driver. Each layer adds
+overhead: parameter binding, object property resolution, function call setup,
+and log writes. For low-frequency operations the overhead is invisible. For
+timing-sensitive operations you need to know exactly which layers you are
+traversing and whether any of them can be eliminated.
+
+Use this table to pick the right tier for your use case. Tiers are ordered
+slowest to fastest -- lower tier number means fewer layers traversed.
+Tiers 3 and 4 are only accessible when working inside the module source
+(contributor context). External scripts can only reach Tiers 0, 1, 2, 5, 6, 7.
+
+| Tier | Entry point | Accessible from | Layers crossed | Use case |
+|------|-------------|-----------------|----------------|----------|
+| 7 | `Set-PsGadgetGpio -Index n` (public, opens per call) | scripts | 6+ (API + enumerate + open + function + .NET -> USB + close) | One-shot operations only |
+| 6 | `Set-PsGadgetGpio -Connection $conn` (public, pre-opened) | scripts | 4 (API param binding + function + read-modify-write + .NET -> USB) | LEDs, relays, solenoids |
+| 5 | `$dev.SetPin()` (class method) | scripts | 4 (class + logger + API + function + .NET -> USB) | OOP style, human-speed operations |
+| 4 | `Set-FtdiGpioPins` (private) | module source only | 3 (function + read-modify-write USB read + write) | Moderate frequency with auto pin-preservation |
+| 3 | `Send-MpsseAcbusCommand` (private) | module source only | 2 (function + .NET -> USB) | Hot loops where caller manages pin state |
+| 2 | Batched MPSSE buffer -- single `$ftdi.Write()` with N commands | scripts (`$dev._connection.device`) | 1 (.NET -> USB, one transaction for N commands) | Step sequences, multi-pin state machines |
+| 1 | Raw .NET -- `$ftdi.Write([byte[]](0x82, val, dir))` | scripts (`$dev._connection.device`) | 1 (.NET -> USB) | PWM bit-bang, fastest single-command toggle |
+| 0 | MPSSE hardware clock (I2C, SPI, JTAG) | scripts (public functions) | 0 (timing done in FTDI chip silicon) | High-speed serial protocols; PS only sends the payload |
+
+### Tier 7 -- Full open/close per call
+
+```powershell
+Set-PsGadgetGpio -Index 0 -Pins @(2) -State HIGH
+```
+
+What happens on every call:
+
+1. `Set-PsGadgetGpio` binds parameters, resolves ParameterSetName
+2. `Get-FtdiDeviceList` calls `GetNumberOfDevices` + `GetDeviceList` (two USB commands)
+3. `Connect-PsGadgetFtdi` retry loop, opens D2XX handle, sends MPSSE init sequence (3 bytes)
+4. `Set-FtdiGpioPins` reads current pin state (USB read), computes bitmask
+5. `Send-MpsseAcbusCommand` writes 3-byte MPSSE command
+6. `$connection.Close()` releases D2XX handle
+
+The USB open/close alone costs ~10-50 ms on Windows. Use this tier only
+for operations that happen once per script run (provisioning, relay set-and-forget).
+
+### Tier 6 -- Public function, pre-opened connection
+
+```powershell
+$conn = Connect-PsGadgetFtdi -Index 0
+Set-PsGadgetGpio -Connection $conn -Pins @(2) -State HIGH   # in a loop
+$conn.Close()
+```
+
+Eliminates the enumeration and open/close cost. Still pays full PowerShell parameter binding on every call and does a USB read inside `Set-FtdiGpioPins` to preserve unrelated pins (read-modify-write).
+
+Suitable for LED blink patterns, relay sequencing, motor enable/disable at human-visible speeds (< ~100 calls/second).
+
+### Tier 5 -- Class method
+
+```powershell
+$dev = New-PsGadgetFtdi -Index 0
+$dev.SetPin(2, "HIGH")   # in a loop
+$dev.Close()
+```
+
+`SetPin()` calls `Set-PsGadgetGpio -Connection $this._connection` internally, so it is not faster than Tier 6 -- it adds a Logger.WriteTrace() call on top.
+
+The benefit is clean OOP syntax and lifecycle management (IDisposable), not speed.  
+
+### Tier 4 -- Direct private protocol function
+
+> Note: `Set-FtdiGpioPins` is a private function. It is not accessible from
+> user scripts. This tier is documented for contributors modifying module internals.
+
+```powershell
+$conn = Connect-PsGadgetFtdi -Index 0
+# Inside module source only -- private function, not available in user scripts
+Set-FtdiGpioPins -DeviceHandle $conn -Pins @(2) -Direction HIGH
+$conn.Close()
+```
+
+Saves one PowerShell function call and its full parameter binding compared to
+Tier 6. `Set-FtdiGpioPins` still does a read-modify-write (one USB read + one
+USB write) to preserve unrelated pin states. If you own the full ACBUS byte
+yourself, use Tier 3 instead.
+
+### Tier 3 -- Direct MPSSE command, caller-managed state
+
+> Note: `Send-MpsseAcbusCommand` is a private function. It is not accessible
+> from user scripts. This tier is documented for contributors modifying module internals.
+
+```powershell
+$conn = Connect-PsGadgetFtdi -Index 0
+[byte]$acbusState = 0x00   # track state yourself -- no USB read needed
+[byte]$dirMask    = 0xFF   # all outputs
+
+# Toggle pin 2 HIGH
+$acbusState = $acbusState -bor 0x04
+Send-MpsseAcbusCommand -DeviceHandle $conn -Value $acbusState -DirectionMask $dirMask
+
+# Toggle pin 2 LOW
+$acbusState = $acbusState -band 0xFB
+Send-MpsseAcbusCommand -DeviceHandle $conn -Value $acbusState -DirectionMask $dirMask
+
+$conn.Close()
+```
+
+Eliminates the USB read entirely. The ACBUS state is maintained in a PS variable. Each call is one PowerShell function call + one `rawFtdi.Write(3 bytes)`.
+
+### Tier 2 -- Batched MPSSE buffer
+
+```powershell
+$ftdi = $dev._connection.Device   # raw FTD2XX_NET.FTDI object
+
+# Build a byte array with N MPSSE ACBUS commands -- all sent in one USB transaction
+# Each command is 3 bytes: 0x82, value, direction
+[byte[]]$seq = @(
+    0x82, 0x04, 0xFF,   # ACBUS2 HIGH  (step 1)
+    0x82, 0x00, 0xFF,   # ACBUS2 LOW   (step 2)
+    0x82, 0x04, 0xFF,   # ACBUS2 HIGH  (step 3)
+    0x82, 0x00, 0xFF    # ACBUS2 LOW   (step 4)
+)
+
+[uint32]$w = 0
+$ftdi.Write($seq, $seq.Length, [ref]$w) | Out-Null
+```
+
+The entire sequence is delivered to the FTDI chip in a single USB bulk transfer. The chip executes each ACBUS command back-to-back at its own internal rate. This is the highest throughput achievable for GPIO state changes from PowerShell because the USB transaction overhead is paid only once.
+
+Pre-compute your sequences before the loop. Do not build the byte array inside the loop -- array allocation in PS is the bottleneck at that point.
+
+### Tier 1 -- Raw .NET call, single command
+
+```powershell
+$ftdi = $dev._connection.Device   # FTD2XX_NET.FTDI
+[uint32]$w = 0
+$ftdi.Write([byte[]](0x82, 0x04, 0xFF), 3, [ref]$w) | Out-Null   # ACBUS2 HIGH
+```
+
+One direct .NET method call. No PowerShell function overhead. This is the
+minimum achievable from a PS script for a single command. Combine with
+pre-allocated buffers (Tier 2) to amortize USB round-trip latency across
+multiple transitions.
+
+### Tier 0 -- MPSSE hardware protocols (I2C, SPI, JTAG)
+
+The FTDI MPSSE engine handles clock generation and bus timing autonomously in silicon. Once you configure the engine and send a payload, the chip clocks the bits out at hardware speed independent of PowerShell execution.
+
+For I2C and SPI the bottleneck is the USB transfer of the payload, not PS call overhead. Use `Send-PsGadgetI2CWrite` or `Invoke-PsGadgetI2CScan` for standard I2C operations -- the protocol timing is handled entirely in chip silicon.
+
+```powershell
+$dev = New-PsGadgetFtdi -Index 0
+Set-PsGadgetFtdiMode -PsGadget $dev -Mode MpsseI2c
+
+# PS sends the payload byte array once via USB.
+# The MPSSE engine generates START, address, ACK, data bytes, and STOP
+# entirely in hardware at the configured SCL frequency.
+# No PS loop is involved in the bus timing.
+Send-PsGadgetI2CWrite -PsGadget $dev -Address 0x40 -Data @(0x00, 0x10)
+
+$dev.Close()
+```
+
+The `Set-PsGadgetFtdiMode -Mode MpsseI2c` call sends the MPSSE initialisation sequence once (clock divisor, disable clock-divide-by-5, disable 3-phase clocking). After that, each `Send-PsGadgetI2CWrite` call transfers a single USB bulk packet; the chip handles every SCL edge autonomously. For a PCA9685 servo driver board this is the correct tier -- PS sends a 2-4 byte register write and the board handles PWM generation in its own silicon.
+
+---
+
+### Timing reality on Windows
+
+These are approximate round-trip times measured on Windows 10 with an FT232H
+via FTD2XX_NET. They represent the minimum achievable in each tier:
+
+| Operation | Approximate latency |
+|-|-|
+| Single USB bulk write (ftd2xx.dll) | ~0.5-1 ms (Windows USB frame timing) |
+| `Send-MpsseAcbusCommand` (Tier 3) | ~1-2 ms |
+| `Set-FtdiGpioPins` with USB read (Tier 4) | ~2-4 ms first call (two USB transfers); ~1-2 ms subsequent calls (cached read) |
+| `Set-PsGadgetGpio -Connection` (Tier 6) | ~3-6 ms |
+| `Set-PsGadgetGpio -Index` (Tier 7) | ~15-60 ms (enumerate + open + close) |
+
+**Windows USB frame timing (1 ms) is the floor for any single USB transaction.**
+
+This means software PWM from PowerShell is limited to approximately 500 Hz maximum, and only if you use Tier 1/2 (raw .NET + batched buffers) and accept that the duty cycle will have jitter driven by Windows thread scheduling (~1-5 ms).
+
+For servo control (50 Hz, 1-2 ms pulse): achievable with Tier 2 (batched buffer), but jitter will be visible on a scope. For precision servo positioning use a dedicated servo driver board (PCA9685 over I2C) -- the MPSSE engine handles I2C timing; PS only sends the register write.
+
+For stepper motors at moderate speed (< 200 steps/second): Tier 3 or Tier 4 is sufficient. For microstepping at high speed, pre-compute the full step sequence as a batched byte array (Tier 2) and send in one `Write()` call.
 
 ---
 

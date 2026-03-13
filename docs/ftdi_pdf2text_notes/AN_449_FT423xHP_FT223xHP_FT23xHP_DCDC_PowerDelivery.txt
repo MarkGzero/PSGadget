@@ -1,0 +1,316 @@
+===== PAGE 1 =====
+Application Note
+                        AN_449 FT423xHP/FT223xHP/FT23xHP DCDC Power Delivery
+                                                                                                                    Version 1.2
+
+                                                              Document No.: FT_001475  Clearance No.: FTDI#553
+
+           Application Note
+
+            AN_449
+
+ FT423xHP/FT223xHP/FT23xHP DCDC
+          Power Delivery
+
+                                    Version 1.2
+
+                             Issue Date: 28-11-2023
+
+          This application note acts as a user’s guide for FT4233HP/FT2233HP/FT233HP and
+             FT4232HP/FT2232HP/FT232HP DCDC power delivery application users.
+        FT4233HP/FT2233HP supports Power Delivery (PD) standards enabling support for
+      power negotiation with the ability to sink or source current to a USB host device. It can
+        support 9V3A, 12V3A, 15V3A, 20V3A power delivery. For more details, please check
+           datasheet FT4233HP/FT2233HP/FT233HP and FT4232HP/FT2232HP/FT232HP.
+
+                                                                              1
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 2 =====
+y
+
+74 FTDI
+Chie
+
+N
+—
+
+Application Note
+AN_449 FT423xHP/FT223xHP/FT23xHP DCDC Power Delivery
+
+Version 1.2
+
+Document No.: FT_001475 Clearance No.: FTDI#553
+
+Table of Contents
+L Introduction ...ccccecccsccneeceeenneenueeeuenneenusenusnueeuusenussuussuas O
+
+1.1 DCDC Power Delivery Diagram .......ccccccessseeseeeeseeeeeseeeesenenens3
+1.2 Power Delivery DeSIGN .....ccccccsscceeseceesceeeeceeseeeesceeeeneeeesensanens3
+1.3 Configuration Parameters .....ccccccescceesceeeeseeseeeeseeeeeneeeenensanens3
+1.4 EEPROM SettingS.....ccccccsscceecceescceesceeesceeeaseesceeeseesaneesesensunens3
+1.5 GPIO Indicator. .......cccccceseeeeee eee eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee4
+
+2 Contact InfOrmatiOn .......cccccsseeeseseeseseeeseeeesesenseseeesasens D
+Appendix A — Reference ....cccssscesseeessnseeseseessnsesseseessaseres O
+Document REFEreNCes .....cccscceeseeeeseeeeeeeeeeseeseeesneeeaneeeanensaeensaeeeanes6
+Acronyms and AbbreviatiOns........cccccccsscceesceeesseeseseeseeeeeeeeenensunens6
+Appendix B — Hardware Design Reference ......sccsssseseesses 7
+Appendix C — List of Tables and Figures. .........ss0ssssss0855 10
+List Of Table@S......cccccccceceeecceescceeeceeeeseeeaseeseeeeeneeeeseeeanensaeeeeneeeeneneas10
+List Of FIQUIFES ....ccccceeeceeeeseeseeeeseeeeseeseseesaeeeeneeeeneeeanensaeeeeneeeenenens10
+Appendix D — ReVISION HiStOry .......ccceeseeesceeesenseeeeeeeseees LL
+
+2
+
+Product Page
+Document Feedback                                                 Copyright © Future Technology Devices International Limited
+
+===== PAGE 3 =====
+Application Note
+                        AN_449 FT423xHP/FT223xHP/FT23xHP DCDC Power Delivery
+                                                                                                                    Version 1.2
+
+                                                              Document No.: FT_001475  Clearance No.: FTDI#553
+
+1 Introduction
+
+1.1 DCDC Power Delivery Diagram
+
+                          Figure 1 - Power Delivery Diagram
+
+1.2 Power Delivery Design
+
+Refer to Appendix A – References for design schematics.
+
+1.3 Configuration Parameters
+
+Please refer to AN_448_FT4233HP_FT2233HP_FT233HP_Configuration_Guide for details.
+
+1.4 EEPROM Settings
+
+Based on the configuration above, and set through programming an external EEPROM using
+FT_PROG, an FTx233HP/FT233HP  will execute power delivery from PD2 (SNK only) to PD1
+(SNK/SOURCE).
+
+                                                                              3
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 4 =====
+Application Note
+                        AN_449 FT423xHP/FT223xHP/FT23xHP DCDC Power Delivery
+                                                                                                                    Version 1.2
+
+                                                              Document No.: FT_001475  Clearance No.: FTDI#553
+
+1.5 GPIO Indicator
+
+      EEPROM Setting                      GPIO Indicator
+
+                                            GPIO0 = GPIO1 = High            9V3A
+                                                 Other GPIO pins are low
+
+                                           GPIO0 = GPIO7* = High           12V3A
+                                                 Other GPIO pins are low
+
+                                           GPIO0 = GPIO6* = High           15V3A
+                                                 Other GPIO pins are low
+
+                                            GPIO0 = GPIO3 = High
+           20V3A                                                 Other GPIO pins are low
+                              Table 1 - GPIO Indicator
+
+Note: Since GPIO6/7 does not exist in FTx232HP/FT232HP, user can use GPIO1-3 to configure with
+board design.
+
+                                                                              4
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 5 =====
+Application Note
+                        AN_449 FT423xHP/FT223xHP/FT23xHP DCDC Power Delivery
+                                                                                                                    Version 1.2
+
+                                                              Document No.: FT_001475  Clearance No.: FTDI#553
+
+2 Contact Information
+
+Head Office – Glasgow, UK                 Branch Office – Tigard, Oregon, USA
+
+Future Technology Devices International Limited (UK)    Future Technology Devices International Limited
+Unit 1, 2 Seaward Place, Centurion Business Park       (USA)
+Glasgow G41 1HH                               7130 SW Fir Loop
+United Kingdom                                          Tigard, OR 97223-8160
+Tel: +44 (0) 141 429 2777                      USA
+Fax: +44 (0) 141 429 2758                               Tel: +1 (503) 547 0988
+                                                    Fax: +1 (503) 547 0987
+ E-mail (Sales)              sales1@ftdichip.com
+ E-mail (Support)           support1@ftdichip.com      E-Mail (Sales)                 us.sales@ftdichip.com
+ E-mail (General Enquiries)  admin1@ftdichip.com       E-Mail (Support)              us.support@ftdichip.com
+                                                          E-Mail (General Enquiries)     us.admin@ftdichip.com
+
+Branch Office – Taipei, Taiwan              Branch Office – Shanghai, China
+
+Future Technology Devices International Limited         Future Technology Devices International Limited
+(Taiwan)                                              (China)
+2F, No. 516, Sec. 1, NeiHu Road                  Room 1103, No. 666 West Huaihai Road,
+Taipei 114                                           Shanghai, 200052
+Taiwan, R.O.C.                                      China
+Tel: +886 (0) 2 8797 1330                                Tel: +86 (21) 62351596
+Fax: +886 (0) 2 8751 9737                           Fax: +86 (21) 62351595
+
+ E-mail (Sales)              tw.sales1@ftdichip.com     E-mail (Sales)                cn.sales@ftdichip.com
+ E-mail (Support)           tw.support1@ftdichip.com  E-mail (Support)              cn.support@ftdichip.com
+ E-mail (General Enquiries)  tw.admin1@ftdichip.com    E-mail (General Enquiries)    cn.admin@ftdichip.com
+
+Web Site
+
+http://ftdichip.com
+
+Distributor and Sales Representatives
+
+Please visit the Sales Network page of the FTDI Web site for the contact details of our distributor(s) and sales
+representative(s) in your country.
+
+System and equipment manufacturers and designers are responsible to ensure that their systems, and any Future Technology
+Devices International Ltd (FTDI) devices incorporated in their systems, meet all applicable safety, regulatory and system-level
+performance requirements. All application-related information in this document (including application descriptions, suggested
+FTDI devices and other materials) is provided for reference only. While FTDI has taken care to assure  it is accurate, this
+information is subject to customer confirmation, and FTDI disclaims all liability for system designs and for any applications
+assistance provided by FTDI. Use of FTDI devices in life support and/or safety applications is entirely at the user’s risk, and the
+user agrees to defend, indemnify, and hold harmless FTDI from any and all damages, claims, suits, or expense resulting from
+such use. This document is subject to change without notice. No freedom to use patents or other intellectual property rights is
+implied by the publication of this document. Neither the whole nor any part of the information contained in, or the product
+described in this document, may be adapted, or reproduced in any material or electronic form without the prior written consent
+of the copyright holder. Future Technology Devices International Ltd, Unit 1, 2 Seaward Place, Centurion Business Park, Glasgow
+G41 1HH, United Kingdom. Scotland Registered Company Number: SC136640
+
+                                                                              5
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 6 =====
+Application Note
+                        AN_449 FT423xHP/FT223xHP/FT23xHP DCDC Power Delivery
+                                                                                                                    Version 1.2
+
+                                                              Document No.: FT_001475  Clearance No.: FTDI#553
+
+Appendix A – References
+
+Document References
+
+AN_448_FT4233HP_FT2233HP_FT233HP_Configuration_Guide
+
+DS_FT4233HP
+
+DS_FT2233HP
+
+DS_FT233HP
+FT_PROG EEPROM Programming Utility
+
+Acronyms and Abbreviations
+
+      Terms         Description
+
+      EEPROM          Electrically Erasable Programmable Read-Only Memory
+
+        GPIO          General Purpose Input Output
+
+       USB           Universal Serial Bus
+
+                                                                              6
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 7 =====
+Application Note
+                        AN_449 FT423xHP/FT223xHP/FT23xHP DCDC Power Delivery
+                                                                                                                    Version 1.2
+
+                                                              Document No.: FT_001475  Clearance No.: FTDI#553
+
+Appendix B – Hardware Design Reference
+
+                                                                              7
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 8 =====
+Application Note
+                        AN_449 FT423xHP/FT223xHP/FT23xHP DCDC Power Delivery
+                                                                                                                    Version 1.2
+
+                                                              Document No.: FT_001475  Clearance No.: FTDI#553
+
+                                                                              8
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 9 =====
+Application Note
+                        AN_449 FT423xHP/FT223xHP/FT23xHP DCDC Power Delivery
+                                                                                                                    Version 1.2
+
+                                                              Document No.: FT_001475  Clearance No.: FTDI#553
+
+                                                                              9
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 10 =====
+Application Note
+                        AN_449 FT423xHP/FT223xHP/FT23xHP DCDC Power Delivery
+                                                                                                                    Version 1.2
+
+                                                              Document No.: FT_001475  Clearance No.: FTDI#553
+
+Appendix C – List of Tables and Figures
+
+List of Tables
+
+Table 1 - GPIO Indicator ...................................................................................................... 4
+
+List of Figures
+
+Figure 1 - Power Delivery Diagram ........................................................................................ 3
+
+                                                                            10
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 11 =====
+Application Note
+                        AN_449 FT423xHP/FT223xHP/FT23xHP DCDC Power Delivery
+                                                                                                                    Version 1.2
+
+                                                              Document No.: FT_001475  Clearance No.: FTDI#553
+
+Appendix D – Revision History
+
+Document Title:            AN_449 FT423xHP/FT223xHP/FT23xHP DCDC Power Delivery
+
+Document Reference No.:     FT_001475
+
+Clearance No.:             FTDI#553
+
+Product Page:                http://www.ftdichip.com/FTProducts.htm
+
+Document Feedback:        Send Feedback
+
+   Revision                    Changes                          Date
+
+      1.0          Initial Release.                                       30-04-2020
+
+               Updated Release (Updated for FT4233HP support /
+      1.1       Updated Figure 1 / Updated Table 1 and added a           12-08-2020
+                  note).
+
+      1.2       Minor editorial changes for the new release version.        28-11-2023
+
+                                                                            11
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited

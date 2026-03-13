@@ -1,0 +1,1365 @@
+===== PAGE 1 =====
+Application Note
+
+          AN_178
+
+  User Guide For libMPSSE - SPI
+
+                                   Version 1.2
+
+                            Issue Date: 18-08-2023
+
+         This application note is a guide to using the libMPSSE-SPI – a library which
+          simplifies the design of firmware for interfacing to the FTDI MPSSE configured
+         as an SPI interface. The library is available for Windows and for Linux.
+
+Use of FTDI devices in life support and/or safety applications is entirely at the user’s risk, and the
+  user agrees to defend, indemnify, and hold FTDI harmless from any and all damages, claims,
+                               suits, or expense resulting from such use.
+
+              Future Technology Devices International Limited (FTDI)
+                  Unit 1, 2 Seaward Place, Glasgow G41 1HH, United Kingdom
+                     Tel.: +44 (0) 141 429 2777  Fax: + 44 (0) 141 429 2758
+                       Web Site: http://ftdichip.com
+                 Copyright © Future Technology Devices International Limited
+
+===== PAGE 2 =====
+7 = a                                                                                Application Note
+FTDI                         AN_178 User Guide For libMPSSE - SPI
+
+AX         Chip                                                                               Version 1.2
+
+Document Reference No.: FT_000492 Clearance No.: FTDI# 215
+
+|
+
+Table of Contents
+L Introduction ...cccceccesccneennceneeeeeeneeenuseeesnneenueenuseueesuenneas &
+
+2 SySteEM OVEFrViCW....ccssssccceessencceeeesnseeeeesneeeeeesaeeeeeeseeees D
+
+3 Application Programming Interface (API) ........s00:000: 6
+
+3.1 SPI FUN CtIONS ....cccccceeeeeeeeee eee eee eee eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeenees6
+3.1.1    SPI_GetNUMCHhA|NNEIS ........ 0. ccc eee ese eee ee eee eee eeee eases eeeaeeaeeesesaeeaeeaeeaeeaneaseeneeatennes 6
+3.1.2    SPI_GetChannelInfo..........cccccccecceceeceea cece eee eeeeeeeeae eae eeeeaseeseeaeeaeeaeeaseanegneeseeaeegees 6
+3.1.3    SPI_OpenChannell ..........:ccecee cece eee a eae e en eeeee enna 7
+3.1.4    SPI_InitChannel] ...........cc ccc ccc ccc ec eee e cece ec ene eee eeae eee eae eae eeeeaeeeseeaeeeeeaseaeeanegeeeneeaeegees 7
+3.1.5    iS) =) I © [<1 =1 1-181 0 (=) Pe8
+3.1.6    5S) =) I 2} ~ [68
+3.1.7    SPI_WYitC ont Eee nent neta neta tee8
+3.1.8    SPI_REQAWTitC ........ ccc cece cece cece ence eee ence eee e eee e seas eases eae eaeeasesaeeaeeaeeaseaneasesseeaeegees9
+3.1.9 — SPI_ISBUSY .....ccccecccscsccceeccccecsesueueecceseccccsnsssuueeeeeseeccesecsssssuueeeceseeceessstsuanaeeegs 10
+3.1.10  SPI_ChangeCs ...... ccc erent enee 10
+
+3.2 GPIO FUNCTIONS ......cccceeeeeeeeee eee eens eee eee eeeeeeeeeeeeeeeeeeeeeeeeeeees11
+3.2.1    FT_WritCGPIO 000. EEE EEE t Erne 11
+3.2.2    FT_REA@dGPIO...... 0c teen 11
+
+3.3 Library Infrastructure FUNCTIONS ........scccessseeeessnneeesseeeeeeenes12
+3.3.1    Init_liDMPSSE.......... cece eee eae eeene ea eaeae 12
+3.3.2    Cleanup_liDMPSSE ........ 0c cccece cece eee eee eee ea eaeae 12
+
+3.4 Data TYPES ....ccccccscccssscceeeeeeeeeeeeeeeeeeesenaneeeeeeeeeseaeseeeeneeeeeaanss12
+3.4.1    ChannelCOnfig .........:ccece eee eee eae etree eens ea eneae 12
+3.4.2    TYPCCePS 00. eet e ener eneee 14
+
+4 Example Circuit .......cccccsesecsceeessesseeeeensseesesseseesesssseess LS
+5 Example Program ...ccssscccccessecscecsseenseeseescseessesessessssass LO
+6 Contact InfOrmatiOn ....cccsscceescceeseseeeseeeeseseesseeessaseesan 2D
+
+Appendix A — Reference ....cccssscesseeessnseesnseessnsenseseessnses 24
+
+Document ReEfErenCes .....ccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeneeeseneeesenenunsenaae24
+Acronyms and AbbreviatiOns.,......cccsscccssccessceeseceeseeeeeseeeesensneeeenee24
+2
+
+Product Page
+Document Feedback                                                 Copyright © Future Technology Devices International Limited
+
+===== PAGE 3 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+Appendix B – List of Tables & Figures .......................... 25
+
+  List of Tables ............................................................................. 25
+
+  List of Figures ........................................................................... 25
+Appendix C – Revision History ..................................... 26
+
+                                                                              3
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 4 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+1 Introduction
+
+The Multi-Protocol Synchronous Serial Engine (MPSSE) is a generic hardware found in several FTDI
+chips that allows these chips to communicate with a synchronous serial device such an I2C device,
+a SPI device or a JTAG device. The MPSSE  is currently available on the FT2232D, FT2232H,
+FT4232H and FT232H chips, which communicate with a PC (or an application processor) over the
+USB interface. Applications on a PC or on an embedded system communicate with the MPSSE in
+these chips using the D2XX USB drivers.
+
+The MPSSE takes different commands to send out data from the chips in different formats, namely
+I2C, SPI and JTAG. libMPSSE is a library that provides a user-friendly API that enables users to
+write applications to communicate with the I2C/SPI/JTAG devices without needing to understand
+the MPSSE and its commands. However, if the user wishes then he/she may try to understand the
+working of the MPSSE and use it from their applications directly by calling D2XX functions.
+
+                 User Application
+
+                    libMPSSE
+                (SPI/I2C/JTAG Library)
+
+                 D2XX API
+
+               USB Bus driver
+
+                FTDI USB-to-Legacy
+                    bridge chips
+
+               Legacy protocol slave
+                       device
+
+  Figure 1 - The Software & Hardware Stack through which legacy protocol data flows
+
+As shown in Figure 1, libMPSSE has three different APIs, one each for I2C, SPI and JTAG. This
+document will only describe the SPI section. The libMPSSE (Linux and Windows versions) sample
+code, release notes and all necessary files can be downloaded from the FTDI website at:
+http://www.ftdichip.com/Support/SoftwareExamples/MPSSE.htm
+
+The sample source code contained in this application note is provided as an example and is neither
+guaranteed nor supported by FTDI.
+
+                                                                              4
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 5 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+2 System Overview
+
+          PC/Host                     FTDI Chip                    SPI Device
+
+         Application
+
+                                                      SPI Bus
+                                               SCLK
+                                             MOSI
+      libMPSSE – SPI
+                                             MISO
+                   USB                      CS
+
+      D2XX Driver
+
+                            Figure 2 - System Organization
+
+Figure 2 Shows how the components of the system will typically be organized. The PC/Host may
+be desktop/laptop machine or an embedded system. The FTDI chip and the SPI device would
+usually be on the same PCB. Though only one SPI device is shown in the figure above, up to five
+SPI devices can be connected to each MPSSE.
+
+                                                                              5
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 6 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+3 Application Programming Interface (API)
+
+The libMPSSE-SPI APIs can be divided into two broad sets. The first set consists of six control APIs
+and the second set consists of two data transferring APIs. All the APIs return an FT_STATUS. This
+is the same FT_STATUS that is defined in the D2XX driver.
+
+3.1 SPI Functions
+
+      3.1.1 SPI_GetNumChannels
+
+FT_STATUS SPI_GetNumChannels (uint32 *numChannels)
+
+This function gets the number of SPI channels that are connected to the host system. The number
+of ports available on each of these chips is different.
+
+Parameters:
+
+     out         *numChannels    The number of channels connected to the host
+
+Returns:
+
+       Returns status code of type FT_STATUS
+
+Note:
+
+        FTDI’s USB-to-legacy bridge chips may have multiple channels in  it but not  all these
+       channels can be configured to work as SPI masters. This function returns the total number
+        of channels connected to the host system that has an MPSSE attached to it so that it may
+       be configured as an SPI master.
+
+       For example, if an FT2232D (1 MPSSE port), an FT232H (1 MPSSE port), an FT2232H (2
+      MPSSE ports) and an FT4232H (2 MPSSE ports) are connected to a PC, then a call to
+       SPI_GetNumChannels would return 6 in numChannels.
+
+Warning:
+
+        This function should not be called from two applications or from two threads at the same
+        time.
+
+3.1.2 SPI_GetChannelInfo
+
+FT_STATUS SPI_GetChannelInfo (uint32 index, FT_DEVICE_LIST_INFO_NODE *chanInfo)
+
+This  function  takes a  channel  index  (valid  values  are from 0  to  the  value  returned by
+SPI_GetNumChannels - 1) and provides information about the channel in the form of a populated
+FT_DEVICE_LIST_INFO_NODE structure.
+
+Parameters:
+
+      In      Index             Index of the channel
+     out     *chanInfo          Pointer to FT_DEVICE_LIST_INFO_NODE structure
+
+Returns:
+
+       Returns status code of type FT_STATUS
+
+                                                                              6
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 7 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+Note:
+
+        This API could be called only after calling SPI_GetNumChannels.
+
+See also:
+
+        Structure definition of FT_DEVICE_LIST_INFO_NODE is in the D2XX Programmer's Guide.
+
+Warning:
+
+        This function should not be called from two applications or from two threads at the same
+        time.
+
+3.1.3 SPI_OpenChannel
+
+FT_STATUS SPI_OpenChannel (uint32 index, FT_HANDLE *handle)
+
+This function opens the indexed channel and provides a handle to it. Valid values for the index of
+channel can be from 0 to the value obtained using SPI_GetNumChannels - 1).
+
+Parameters:
+
+      In      Index             Index of the channel
+     out     Handle             Pointer to the handle of type FT_HANDLE
+
+Returns:
+
+       Returns status code of type FT_STATUS
+Note:
+
+        Trying to open an already open channel will return an error code.
+
+3.1.4 SPI_InitChannel
+
+FT_STATUS SPI_InitChannel (FT_HANDLE handle, ChannelConfig *config)
+
+This function initializes the channel and the communication parameters associated with it.
+
+Parameters:
+
+      In      Handle            Handle of the channel
+      In      Config              Pointer to ChannelConfig structure with the value of clock
+                            and latency timer updated
+
+Returns:
+
+       Returns status code of type FT_STATUS
+
+See also:
+
+        Structure definition of ChannelConfig
+
+Note:
+
+        This function internally performs what is required to get the channel operational such as
+        resetting and enabling the MPSSE.
+
+                                                                              7
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 8 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+3.1.5 SPI_CloseChannel
+
+FT_STATUS SPI_CloseChannel (FT_HANDLE handle)
+
+Closes a channel and frees all resources that were used by it.
+
+Parameters:
+
+      in      Handle            Handle of the channel
+     out     none
+
+Returns:
+
+       Returns status code of type FT_STATUS
+
+3.1.6 SPI_Read
+
+FT_STATUS  SPI_Read(FT_HANDLE  handle,  uint8  *buffer,  uint32  sizeToTransfer,  uint32
+*sizeTransferred, uint32 transferOptions)
+
+This  function  reads  the  specified number  of  bits  or  bytes (depending on  transferOptions
+parameter) from an SPI slave.
+
+Parameters:
+
+      In      Handle            Handle of the channel
+     out      Buffer               Pointer to the buffer where data is to be read
+      In      sizeToTransfer     Number of bytes or bits to be read
+     Out     *sizeTransferred    Pointer to variable containing the number of bytes or bits
+                                read
+      In       transferOptions     This parameter specifies data transfer options. The bit
+                                    positions defined for each of these options are:
+                                BIT0: if set then sizeToTransfer is in bits, otherwise bytes.
+                                        Bit masks defined for this bit are
+                            SPI_TRANSFER_OPTIONS_SIZE_IN_BYTES and
+                            SPI_TRANSFER_OPTIONS_SIZE_IN_BITS
+                                BIT1: if set then the chip select line is asserted before
+                                 beginning the transfer. Bit mask defined for this bit is
+                            SPI_TRANSFER_OPTIONS_CHIPSELECT_ENABLE
+                                BIT2: if set then the chip select line is disserted after the
+                                    transfer ends. Bit mask defined for this bit is
+                            SPI_TRANSFER_OPTIONS_CHIPSELECT_DISABLE
+                              BIT3 – BIT31: reserved
+
+Returns:
+
+       Returns status code of type FT_STATUS
+
+Warning:
+
+        This is a blocking function and will not return until either the specified amounts of data are
+        read, or an error is encountered.
+
+3.1.7 SPI_Write
+
+FT_STATUS  SPI_  Write(FT_HANDLE  handle,  uint8  *buffer,  uint32  sizeToTransfer,  uint32
+*sizeTransferred, uint32 transferOptions)
+
+                                                                              8
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 9 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+This  function  writes the  specified number  of  bits  or  bytes (depending on  transferOptions
+parameter) to a SPI slave.
+
+Parameters:
+
+      In      Handle            Handle of the channel
+     out      Buffer               Pointer to the buffer from where data is to be written
+      In      sizeToTransfer     Number of bytes or bits to write
+     out     *sizeTransferred    Pointer to variable containing the number of bytes or bits
+                                   written
+      In       transferOptions     This parameter specifies data transfer options. The bit
+                                    positions defined for each of these options are:
+                                BIT0: if set then sizeToTransfer is in bits, otherwise bytes.
+                                        Bit masks defined for this bit are
+                            SPI_TRANSFER_OPTIONS_SIZE_IN_BYTES and
+                            SPI_TRANSFER_OPTIONS_SIZE_IN_BITS
+                                BIT1: if set then the chip select line is asserted before
+                                 beginning the transfer. Bit mask defined for this bit is
+                            SPI_TRANSFER_OPTIONS_CHIPSELECT_ENABLE
+                                BIT2: if set then the chip select line is disserted after the
+                                    transfer ends. Bit mask defined for this bit is
+                            SPI_TRANSFER_OPTIONS_CHIPSELECT_DISABLE
+                              BIT3 – BIT31: reserved
+
+Returns:
+
+       Returns status code of type FT_STATUS
+
+Warning:
+
+        This is a blocking function and will not return until either the specified amount of data is
+        read, or an error is encountered.
+
+3.1.8 SPI_ReadWrite
+
+FT_STATUS SPI_ReadWrite(FT_HANDLE  handle,  uint8  *inBuffer,  uint8  *outBuffer,  uint32
+sizeToTransfer, uint32 *sizeTransferred, uint32 transferOptions)
+
+This function reads from and writes to the SPI slave simultaneously. Meaning that, one bit is
+clocked in, and one bit is clocked out during every clock cycle.
+
+Parameters:
+
+      In          Handle             Handle of the channel
+      In                 *inBuffer         Pointer to buffer to which data read will be stored
+         out           outBuffer        Pointer to the buffer from where data is to be written
+            in         sizeToTransfer            Number of bytes or bits to write
+         out        *sizeTransferred    Pointer to variable containing the number of bytes or
+                                                                     bits written
+            in         transferOptions     This parameter specifies data transfer options. The
+                                                  bit positions defined for each of these options are:
+                                     BIT0: if set then sizeToTransfer is in bits, otherwise
+                                         bytes. Bit masks defined for this bit are
+                                 SPI_TRANSFER_OPTIONS_SIZE_IN_BYTES and
+                                 SPI_TRANSFER_OPTIONS_SIZE_IN_BITS
+                                     BIT1: if set then the chip select line is asserted
+                                       before beginning the transfer. Bit mask defined for
+
+                                                                              9
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 10 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+                                              this bit is
+                                 SPI_TRANSFER_OPTIONS_CHIPSELECT_ENABLE
+                                     BIT2: if set then the chip select line is disserted after
+                                       the transfer ends. Bit mask defined for this bit is
+                                 SPI_TRANSFER_OPTIONS_CHIPSELECT_DISABLE
+                                    BIT3 – BIT31: reserved
+
+Returns:
+
+       Returns status code of type FT_STATUS
+
+Warning:
+
+        This is a blocking function and will not return until either the specified amount of data is
+        transferred, or an error is encountered.
+
+3.1.9 SPI_IsBusy
+
+FT_STATUS SPI_ IsBusy(FT_HANDLE handle, bool *state)
+
+This function reads the state of the MISO line without clocking the SPI bus.
+
+Some applications need the SPI master to poll the MISO line without clocking the bus to check if
+the SPI slave has completed previous operation and are ready for the next operation. This function
+is useful for such applications.
+
+Parameters:
+
+      in      Handle            Handle of the channel
+     out     *state               Pointer to a variable to which the state of the MISO line
+                                            will be read
+
+Returns:
+
+       Returns status code of type FT_STATUS
+
+3.1.10    SPI_ChangeCS
+
+FT_STATUS SPI_ChangeCS(FT_HANDLE handle, uint32 configOptions)
+
+This function changes the chip select line that is to be used to communicate to the SPI slave.
+
+Parameters:
+
+      in      handle            Handle of the channel
+      in       configOptions       This parameter provides a way to select the chip select line
+                             and the slave's SPI mode. It is the same parameter as
+                                  ConfigChannel.configOptions that is passed to function
+                                 SPI_InitChannel and it is explained in section 3.4.1
+
+Returns:
+
+      Returns status code of type FT_STATUS
+
+                                                                            10
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 11 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+3.2 GPIO functions
+
+Each MPSSE channel in the FTDI chips are provided with a general purpose I/O port having 8 lines
+in addition to the port that  is used for synchronous serial communication. For example, the
+FT232H has only one MPSSE channel with two 8-bit ports, ADBUS and ACBUS. Out of these,
+ADBUS is used for synchronous serial communications (I2C/SPI/JTAG) and ACBUS is free to be
+used as GPIO. The two functions described below have been provided to access these GPIO lines
+(also called the higher byte lines of MPSSE) that are available in various FTDI chips with MPSSEs.
+
+3.2.1 FT_WriteGPIO
+
+FT_STATUS FT_WriteGPIO(FT_HANDLE handle, uint8 dir, uint8 value)
+
+This function writes to the 8 GPIO lines associated with the high byte of the MPSSE channel.
+
+Parameters:
+
+      in      Handle            Handle of the channel
+      in       Dir               Each bit of this byte represents the direction of the 8
+                                   respective GPIO lines. 0 for in and 1 for out
+      in       value                    If the direction of a GPIO line is set to output, then each
+                                         bit of this byte represents the output logic state of the 8
+                                   respective GPIO lines. 0 for logic low and 1 for logic high
+
+Returns:
+
+       Returns status code of type FT_STATUS
+
+3.2.2 FT_ReadGPIO
+
+FT_STATUS FT_ReadGPIO(FT_HANDLE handle, uint8 *value)
+
+This function reads from the 8 GPIO lines associated with the high byte of the MPSSE channel.
+
+Parameters:
+
+      in      Handle            Handle of the channel
+     out     *value                   If the direction of a GPIO line is set to input, then each bit
+                                     of this byte represents the input logic state of the 8
+                                   respective GPIO lines. 0 for logic low and 1 for logic high
+
+Returns:
+
+       Returns status code of type FT_STATUS
+
+Note:
+
+      The direction of the GPIO line must first be set using FT_WriteGPIO function before this
+        function is used.
+
+                                                                            11
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 12 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+3.3 Library Infrastructure Functions
+
+The two functions described in this section typically do not need to be called from the user
+applications as they are automatically called during entry/exit time. However, these functions are
+not called automatically when linking the library statically using Microsoft Visual C++. It is then
+that they need to be called explicitly from the user applications. The static linking sample provided
+with this manual uses a macro which checks if the code is compiled using Microsoft toolchain, if so
+then it automatically calls these functions.
+
+3.3.1 Init_libMPSSE
+
+void Init_libMPSSE(void)
+
+Initializes the library.
+
+Parameters:
+
+      in     None
+     out          none
+
+Returns:
+
+        void
+
+3.3.2 Cleanup_libMPSSE
+
+void Cleanup_libMPSSE(void)
+
+Cleans up resources used by the library.
+
+Parameters:
+
+      in     None
+     out    None
+
+Returns:
+
+        void
+
+3.4 Data types
+
+3.4.1 ChannelConfig
+
+ChannelConfig  is a structure that holds the parameters used for  initializing a channel. The
+following are members of the structure:
+
+•   uint32 ClockRate
+
+This parameter takes the value of the clock rate of the SPI bus in hertz. Valid range for ClockRate
+is 0 to 30MHz.
+
+                                                                            12
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 13 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+•   uint8 LatencyTimer
+
+Required value,  in milliseconds, of latency timer.   Valid range  is 0 – 255. However, FTDI
+recommend the following ranges of values for the latency timer:
+Range for full speed devices (FT2232D):                  Range 2 – 255
+Range for Hi-speed devices (FT232H, FT2232H, FT4232H):    Range 1 - 255
+
+•   uint32 configOptions
+
+    Bits of this member are used in the way described below:
+
+    Bit         Description          Valu   Meaning of      Defined macro (if any)
+   number                      e      value
+    BIT1-     These bits specify   00     SPI MODE0    SPI_CONFIG_OPTION_MODE0
+   BIT0       to which of the     01     SPI MODE1    SPI_CONFIG_OPTION_MODE1
+              standard SPI                                 (Please refer to the release notes within the
+            modes should the                            release package zip file for revision history
+              SPI master be                          and known limitations of this version)
+               configured to       10     SPI MODE2    SPI_CONFIG_OPTION_MODE2
+                             11     SPI MODE3    SPI_CONFIG_OPTION_MODE3
+                                                            (Please refer to the release notes within the
+                                                             release package zip file for revision history
+                                                  and known limitations of this version)
+    BIT4-     These bits specify   000   xDBUS3 of     SPI_CONFIG_OPTION_CS_DBUS3
+   BIT2      which of the             MPSSE is chip
+                available lines                select
+              should be used as   001   xDBUS4 of     SPI_CONFIG_OPTION_CS_DBUS4
+               chip select              MPSSE is chip
+                                               select
+                             010   xDBUS5 of     SPI_CONFIG_OPTION_CS_DBUS5
+                                 MPSSE is chip
+                                               select
+                             011   xDBUS6 of     SPI_CONFIG_OPTION_CS_DBUS6
+                                 MPSSE is chip
+                                               select
+                             100   xDBUS7 of     SPI_CONFIG_OPTION_CS_DBUS7
+                                 MPSSE is chip
+                                               select
+   BIT5       This bit specifies if   0      Chip select is
+              the chip select line           active high
+              should be active    1      Chip select is   SPI_CONFIG_OPTION_CS_ACTIVELOW
+              low                           active low
+    BIT6-     Reserved
+   BIT31
+
+   Note: The terms xDBUS0 – xDBUS7 corresponds to lines ADBUS0 – ADBUS7 if the first MPSSE
+    channel is used, otherwise  it corresponds to lines BDBUS0 – BDBUS7  if the second MPSSE
+    channel (i.e., if available in the chip) is used.
+
+   The SPI modes are:
+
+       SPI MODE0 - data are captured on rising edge and propagated on falling edge
+       SPI MODE1 - data are captured on falling edge and propagated on rising edge
+       SPI MODE2 - data are captured on falling edge and propagated on rising edge
+       SPI MODE3 - data are captured on rising edge and propagated on falling edge
+
+                                                                            13
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 14 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+•   uint32 Pins
+
+    This member specifies the directions and values of the lines associated with the lower byte of
+    the MPSSE channel after SPI_InitChannel and SPI_CloseChannel functions are called.
+
+    Bit number                    Description                Comment
+   BIT7-BIT0                      Direction of the lines after      A 1 corresponds to output
+                                 SPI_InitChannel is called       and a 0 corresponds to input
+   BIT15-BIT8                  Value of the lines after        A 1 corresponds to logic high
+                                 SPI_InitChannel is called       and a 0 corresponds to logic
+                                                             low
+   BIT23-BIT16                   Direction of the lines after      A 1 corresponds to output
+                                SPI_CloseChannel is called      and a 0 corresponds to input
+   BIT31-BIT24                 Value of the lines after        A 1 corresponds to logic high
+                                SPI_CloseChannel is called      and a 0 corresponds to logic
+                                                             low
+
+   Note that the directions of the SCLK, MOSI and the specified chip select line will be overwritten
+    to 1 and the direction of the MISO like will be overwritten to 0 irrespective of the values
+   passed by the user application. Other than these 4 lines, the rest of the lines will be on a state
+    that is specified via this parameter.
+
+•   uint16 reserved
+
+    This parameter is reserved and should not be used.
+
+3.4.2 Typedefs
+
+Following are the typedefs that have been defined keeping cross platform portability in view:
+
+•   typedef unsigned char uint8
+•   typedef unsigned short uint16
+•   typedef unsigned long uint32
+•   typedef signed char int8
+•   typedef signed short int16
+•   typedef signed long int32
+•   typedef unsigned char bool
+
+                                                                            14
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 15 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+4 Example Circuit
+
+This example  will demonstrate how to connect an MPSSE chip (FT2232H) to an SPI device
+(93LC56B – EEPROM) and program it using libMPSSE-SPI library.
+
+    Figure 3 - Schematics for connecting FT2232H to SPI EEPROM device (93LC56B)
+
+The above schematic shows how to connect a FT2232H chip to an SPI EEPROM. Please note that
+the FT2232H chip is also available as a module which contains all the components shown in the
+above schematic (except the 93LC56B and the pull-up resistors connected to it). This module is
+called FT2232H Mini Module and details about  it can be found in the device datasheet. The
+FT2232H chip acts as the SPI master here and is connected to a PC running using USB interface.
+
+                                                                            15
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 16 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+5 Example Program
+
+The required D2XX driver should be installed into the system depending on the OS that is already
+installed in the PC/host. If a Linux PC is used, then the default drivers usbserial and ftdi_sio must
+be removed (using rmmod command).
+
+Once the hardware shown above is connected to a PC and the drivers are installed, we can place
+the following sample code (sample-static.c), D2XX.h, libMPSSE_spi.h and libMPSSE.a into one
+folder, compile the sample and run it.
+
+/*!
+* \file sample-static.c
+*
+* \author FTDI
+* \date 20131002
+*
+* Copyright © 2013 Future Technology Devices International Limited
+* Company Confidential
+*
+* Project: libMPSSE
+* Module: SPI Sample Application - Interfacing 94LC56B SPI EEPROM
+*
+* Rivision History:
+* 0.1 - 20110512 - Initial version
+* 0.2 - 20110801 - Changed LatencyTimer to 255
+*                                    Attempt to open channel only if available
+*                                 Added & modified macros
+*                                         Included stdlib.h
+* 0.3 - 20111212 - Added comments
+* 0.4 - 20131002 - Added comments
+ */
+
+/******************************************************************************/
+/*                                                                         Include files
+                                                               */
+/******************************************************************************/
+/* Standard C libraries */
+#include<stdio.h>
+#include<stdlib.h>
+/* OS specific libraries */
+#ifdef _WIN32
+#include<windows.h>
+#endif
+
+/* Include D2XX header*/
+#include "ftd2xx.h"
+
+/* Include libMPSSE header */
+#include "libMPSSE_spi.h"
+
+/******************************************************************************/
+/*                                                                   Macro and type defines
+                                                     */
+/******************************************************************************/
+/* Helper macros */
+
+#define APP_CHECK_STATUS(exp) {if(exp!=FT_OK){printf("%s:%d:%s(): status(0x%x) \
+!= FT_OK\n",__FILE__, __LINE__, __FUNCTION__,exp);exit(1);}else{;}};
+#define CHECK_NULL(exp){if(exp==NULL){printf("%s:%d:%s(): NULL expression \
+encountered \n",__FILE__, __LINE__, __FUNCTION__);exit(1);}else{;}};
+
+/* Application specific macro definations */
+#define SPI_DEVICE_BUFFER_SIZE                 256
+#define SPI_WRITE_COMPLETION_RETRY           10
+
+                                                                            16
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 17 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+#define START_ADDRESS_EEPROM        0x00 /*read/write start address inside the EEPROM*/
+#define END_ADDRESS_EEPROM         0x10
+#define RETRY_COUNT_EEPROM         10        /* number of retries if read/write fails */
+#define CHANNEL_TO_OPEN                     0         /*0 for first available channel, 1 for next... */
+#define SPI_SLAVE_0                           0
+#define SPI_SLAVE_1                           1
+#define SPI_SLAVE_2                           2
+#define DATA_OFFSET                                   3
+
+/******************************************************************************/
+/*                                                                                 Global variables
+                                                     */
+/******************************************************************************/
+uint32 channels;
+FT_HANDLE ftHandle;
+ChannelConfig channelConf;
+uint8 buffer[SPI_DEVICE_BUFFER_SIZE];
+
+/******************************************************************************/
+/*                                                                Public function definitions
+                                          */
+/******************************************************************************/
+/*!
+* \brief Writes to EEPROM
+*
+* This function writes a byte to a specified address within the 93LC56B EEPROM
+*
+* \param[in] slaveAddress Address of the I2C slave (EEPROM)
+* \param[in] registerAddress Address of the memory location inside the slave to where the byte
+*                                         is to be written
+* \param[in] data The byte that is to be written
+* \return Returns status code of type FT_STATUS(see D2XX Programmer's Guide)
+* \sa Datasheet of 93LC56B http://ww1.microchip.com/downloads/en/DeviceDoc/21794F.pdf
+* \note
+* \warning
+ */
+FT_STATUS read_byte(uint8 slaveAddress, uint8 address, uint16 *data)
+{
+          uint32 sizeToTransfer = 0;
+          uint32 sizeTransfered;
+          bool writeComplete=0;
+          uint32 retry=0;
+          bool state;
+         FT_STATUS status;
+
+          /* CS_High + Write command + Address */
+           sizeToTransfer=1;
+           sizeTransfered=0;
+           buffer[0] = 0xC0;/* Write command (3bits)*/
+           buffer[0] = buffer[0] | ( ( address >> 3) & 0x0F );/*5 most significant add bits*/
+           status = SPI_Write(ftHandle, buffer, sizeToTransfer, &sizeTransfered,
+                  SPI_TRANSFER_OPTIONS_SIZE_IN_BYTES|
+                  SPI_TRANSFER_OPTIONS_CHIPSELECT_ENABLE);
+          APP_CHECK_STATUS(status);
+
+          /*Write partial address bits */
+           sizeToTransfer=4;
+           sizeTransfered=0;
+           buffer[0] = ( address & 0x07 ) << 5; /* least significant 3 address bits */
+           status = SPI_Write(ftHandle, buffer, sizeToTransfer, &sizeTransfered,
+                   SPI_TRANSFER_OPTIONS_SIZE_IN_BITS);
+          APP_CHECK_STATUS(status);
+
+         /*Read 2 bytes*/
+           sizeToTransfer=2;
+           sizeTransfered=0;
+
+                                                                            17
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 18 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+           status = SPI_Read(ftHandle, buffer, sizeToTransfer, &sizeTransfered,
+                  SPI_TRANSFER_OPTIONS_SIZE_IN_BYTES|
+                   SPI_TRANSFER_OPTIONS_CHIPSELECT_DISABLE);
+          APP_CHECK_STATUS(status);
+
+          *data = (uint16)(buffer[1]<<8);
+          *data = (*data & 0xFF00) | (0x00FF & (uint16)buffer[0]);
+
+           return status;
+}
+
+/*!
+* \brief Reads from EEPROM
+*
+* This function reads a byte from a specified address within the 93LC56B EEPROM
+*
+* \param[in] slaveAddress Address of the I2C slave (EEPROM)
+* \param[in] registerAddress Address of the memory location inside the slave from where the
+*                            byte is to be read
+* \param[in] *data Address to where the byte is to be read
+* \return Returns status code of type FT_STATUS(see D2XX Programmer's Guide)
+* \sa Datasheet of 93LC56B http://ww1.microchip.com/downloads/en/DeviceDoc/21794F.pdf
+* \note
+* \warning
+ */
+FT_STATUS write_byte(uint8 slaveAddress, uint8 address, uint16 data)
+{
+          uint32 sizeToTransfer = 0;
+          uint32 sizeTransfered=0;
+          bool writeComplete=0;
+          uint32 retry=0;
+          bool state;
+         FT_STATUS status;
+
+          /* Write command EWEN(with CS_High -> CS_Low) */
+           sizeToTransfer=11;
+           sizeTransfered=0;
+           buffer[0]=0x9F;/* SPI_EWEN -> binary 10011xxxxxx (11bits) */
+           buffer[1]=0xFF;
+           status = SPI_Write(ftHandle, buffer, sizeToTransfer, &sizeTransfered,
+                   SPI_TRANSFER_OPTIONS_SIZE_IN_BITS|
+                  SPI_TRANSFER_OPTIONS_CHIPSELECT_ENABLE|
+                   SPI_TRANSFER_OPTIONS_CHIPSELECT_DISABLE);
+          APP_CHECK_STATUS(status);
+
+          /* CS_High + Write command + Address */
+           sizeToTransfer=1;
+           sizeTransfered=0;
+           buffer[0] = 0xA0;/* Write command (3bits) */
+           buffer[0] = buffer[0] | ( ( address >> 3) & 0x0F );/*5 most significant add bits*/
+           status = SPI_Write(ftHandle, buffer, sizeToTransfer, &sizeTransfered,
+                  SPI_TRANSFER_OPTIONS_SIZE_IN_BYTES|
+                  SPI_TRANSFER_OPTIONS_CHIPSELECT_ENABLE);
+          APP_CHECK_STATUS(status);
+
+          /*Write 3 least sig address bits */
+           sizeToTransfer=3;
+           sizeTransfered=0;
+           buffer[0] = ( address & 0x07 ) << 5; /* least significant 3 address bits */
+           status = SPI_Write(ftHandle, buffer, sizeToTransfer, &sizeTransfered,
+                   SPI_TRANSFER_OPTIONS_SIZE_IN_BITS);
+          APP_CHECK_STATUS(status);
+
+          /* Write 2 byte data + CS_Low */
+           sizeToTransfer=2;
+           sizeTransfered=0;
+
+                                                                            18
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 19 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+           buffer[0] = (uint8)(data & 0xFF);
+           buffer[1] = (uint8)((data & 0xFF00)>>8);
+           status = SPI_Write(ftHandle, buffer, sizeToTransfer, &sizeTransfered,
+                  SPI_TRANSFER_OPTIONS_SIZE_IN_BYTES|
+                   SPI_TRANSFER_OPTIONS_CHIPSELECT_DISABLE);
+          APP_CHECK_STATUS(status);
+
+          /* Wait until D0 is high */
+#if 1
+          /* Strobe Chip Select */
+           sizeToTransfer=0;
+           sizeTransfered=0;
+           status = SPI_Write(ftHandle, buffer, sizeToTransfer, &sizeTransfered,
+                   SPI_TRANSFER_OPTIONS_SIZE_IN_BITS|
+                  SPI_TRANSFER_OPTIONS_CHIPSELECT_ENABLE);
+          APP_CHECK_STATUS(status);
+#ifndef __linux__
+           Sleep(10);
+#endif
+           sizeToTransfer=0;
+           sizeTransfered=0;
+           status = SPI_Write(ftHandle, buffer, sizeToTransfer, &sizeTransfered,
+                   SPI_TRANSFER_OPTIONS_SIZE_IN_BITS|
+                   SPI_TRANSFER_OPTIONS_CHIPSELECT_DISABLE);
+          APP_CHECK_STATUS(status);
+#else
+           retry=0;
+          state=FALSE;
+           SPI_IsBusy(ftHandle,&state);
+           while((FALSE==state) && (retry<SPI_WRITE_COMPLETION_RETRY))
+              {
+                        printf("SPI device is busy(%u)\n",(unsigned)retry);
+                      SPI_IsBusy(ftHandle,&state);
+                      retry++;
+              }
+#endif
+          /* Write command EWEN(with CS_High -> CS_Low) */
+           sizeToTransfer=11;
+           sizeTransfered=0;
+           buffer[0]=0x8F;/* SPI_EWEN -> binary 10011xxxxxx (11bits) */
+           buffer[1]=0xFF;
+           status = SPI_Write(ftHandle, buffer, sizeToTransfer, &sizeTransfered,
+                   SPI_TRANSFER_OPTIONS_SIZE_IN_BITS|
+                  SPI_TRANSFER_OPTIONS_CHIPSELECT_ENABLE|
+                   SPI_TRANSFER_OPTIONS_CHIPSELECT_DISABLE);
+          APP_CHECK_STATUS(status);
+           return status;
+}
+
+/*!
+* \brief Main function / Entry point to the sample application
+*
+* This function is the entry point to the sample application. It opens the channel, writes to the
+* EEPROM and reads back.
+*
+* \param[in] none
+* \return Returns 0 for success
+* \sa
+* \note
+* \warning
+ */
+int main()
+{
+         FT_STATUS status;
+         FT_DEVICE_LIST_INFO_NODE devList;
+           uint8 address=0;
+
+                                                                            19
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 20 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+          uint16 data;
+            int i,j;
+#ifdef _MSC_VER
+           Init_libMPSSE();
+#endif
+          channelConf.ClockRate = 5000;
+          channelConf.LatencyTimer= 255;
+          channelConf.configOptions = \
+                 SPI_CONFIG_OPTION_MODE0 | SPI_CONFIG_OPTION_CS_DBUS3;
+          channelConf.Pin = 0x00000000;/*FinalVal-FinalDir-InitVal-InitDir (for dir 0=in, 1=out)*/
+
+           status = SPI_GetNumChannels(&channels);
+          APP_CHECK_STATUS(status);
+          printf("Number of available SPI channels = %d\n",channels);
+
+           if(channels>0)
+              {
+                       for(i=0;i<channels;i++)
+                             {
+                                 status = SPI_GetChannelInfo(i,&devList);
+                             APP_CHECK_STATUS(status);
+                                 printf("Information on channel number %d:\n",i);
+                              /* print the dev info */
+                                     printf("               Flags=0x%x\n",devList.Flags);
+                                     printf("              Type=0x%x\n",devList.Type);
+                                     printf("               ID=0x%x\n",devList.ID);
+                                     printf("              LocId=0x%x\n",devList.LocId);
+                                     printf("              SerialNumber=%s\n",devList.SerialNumber);
+                                     printf("               Description=%s\n",devList.Description);
+                                     printf("              ftHandle=0x%x\n",devList.ftHandle);/*is 0 unless open*/
+                             }
+
+                    /* Open the first available channel */
+                      status = SPI_OpenChannel(CHANNEL_TO_OPEN,&ftHandle);
+                   APP_CHECK_STATUS(status);
+                    printf("\nhandle=0x%x status=0x%x\n",ftHandle,status);
+                      status = SPI_InitChannel(ftHandle,&channelConf);
+                   APP_CHECK_STATUS(status);
+
+                  for(address=START_ADDRESS_EEPROM;address<END_ADDRESS_EEPROM;address++)
+                             {
+                                   printf("writing address = %d data = %d\n", address, \
+                                      address+DATA_OFFSET);
+                              write_byte(SPI_SLAVE_0, address, (uint16)address+DATA_OFFSET);
+                             }
+
+                  for(address=START_ADDRESS_EEPROM;address<END_ADDRESS_EEPROM;address++)
+                             {
+                              read_byte(SPI_SLAVE_0, address,&data);
+                              read_byte(SPI_SLAVE_0, address,&data);
+                                  printf("reading address=%d data=%d\n",address,data);
+                             }
+
+                      status = SPI_CloseChannel(ftHandle);
+              }
+
+#ifdef _MSC_VER
+          Cleanup_libMPSSE();
+#endif
+
+           return 0;
+}
+
+The sample program shown above writes to address 0 through 15 in the EEPROM chip. The value
+that is written is address+3, i.e., if the address is 5 then a value 8 is written to that address. When
+this sample program is compiled and run, we should see an output like the one shown below:
+
+                                                                            20
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 21 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+                        Figure 4 - Sample Output on Windows
+
+                                                                            21
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 22 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+                          Figure 5 - Sample Output on Linux
+
+                                                                            22
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 23 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+6 Contact Information
+
+Head Office – Glasgow, UK                Branch Office – Tigard, Oregon, USA
+
+Future Technology Devices International Limited        Future Technology Devices International Limited
+Unit 1, 2 Seaward Place, Centurion Business Park      (USA)
+Glasgow G41 1HH                               7130 SW Fir Loop
+United Kingdom                                         Tigard, OR 97223-8160
+Tel: +44 (0) 141 429 2777                     USA
+Fax: +44 (0) 141 429 2758                               Tel: +1 (503) 547 0988
+                                                   Fax: +1 (503) 547 0987
+
+E-mail (Sales)            sales1@ftdichip.com         E-mail (Sales)             us.sales@ftdichip.com
+E-mail (Support)          support1@ftdichip.com      E-mail (Support)          us.support@ftdichip.com
+E-mail (General          admin1@ftdichip.com        E-mail (General
+                                                                            us.admin@ftdichip.comEnquiries)                                               Enquiries)
+
+Branch Office – Taipei, Taiwan             Branch Office – Shanghai, China
+
+Future Technology Devices International Limited        Future Technology Devices International Limited
+(Taiwan)                                              (China)
+2F, No. 516, Sec. 1, NeiHu Road                 Room 1103, No. 666 West Huaihai Road,
+Taipei 114                                          Shanghai, 200052
+Taiwan, R.O.C.                                      China
+Tel: +886 (0) 2 8791 3570                               Tel: +86 21 62351596
+Fax: +886 (0) 2 8791 3576                           Fax: +86 21 62351595
+
+E-mail (Sales)            tw.sales1@ftdichip.com      E-mail (Sales)            cn.sales@ftdichip.com
+E-mail (Support)         tw.support1@ftdichip.com    E-mail (Support)          cn.support@ftdichip.com
+E-mail (General                                        E-mail (General
+                        tw.admin1@ftdichip.com                             cn.admin@ftdichip.comEnquiries)                                               Enquiries)
+
+Web Site
+
+http://ftdichip.com
+
+Distributor and Sales Representatives
+
+Please visit the Sales Network page of the FTDI Web site for the contact details of our distributor(s) and sales
+representative(s) in your country.
+
+System and equipment manufacturers and designers are responsible to ensure that their systems, and any Future Technology
+Devices International Ltd (FTDI) devices incorporated in their systems, meet all applicable safety, regulatory and system-level
+performance requirements. All application-related information in this document (including application descriptions, suggested
+FTDI devices and other materials) is provided for reference only. While FTDI has taken care to assure  it is accurate, this
+information is subject to customer confirmation, and FTDI disclaims all liability for system designs and for any applications
+assistance provided by FTDI. Use of FTDI devices in life support and/or safety applications is entirely at the user’s risk, and the
+user agrees to defend, indemnify and hold harmless FTDI from any and all damages, claims, suits or expense resulting from
+such use. This document is subject to change without notice. No freedom to use patents or other intellectual property rights is
+implied by the publication of this document. Neither the whole nor any part of the information contained in, or the product
+described in this document, may be adapted or reproduced in any material or electronic form without the prior written consent
+of the copyright holder. Future Technology Devices International Ltd, Unit 1, 2 Seaward Place, Centurion Business Park,
+Glasgow G41 1HH, United Kingdom. Scotland Registered Company Number: SC136640
+
+                                                                            23
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 24 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+Appendix A – References
+
+Document References
+
+MPSSE Basics
+
+Command Processor For MPSSE and MCU Host Bus Emulation Modes
+
+D2XX Programmers Guide
+
+D2XX Drivers
+
+FT2232 – Dual Channel MPSSE IC
+
+MPSSE cables
+
+Acronyms and Abbreviations
+
+      Terms         Description
+
+       GPIO          General Purpose Input/output
+
+      MPSSE           Multi-Protocol Synchronous Serial Engine
+
+         SPI             Serial Peripheral Interconnect
+
+       USB           Universal Serial Bus
+
+                                                                            24
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 25 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+Appendix B – List of Tables & Figures
+
+List of Tables
+
+NA
+
+List of Figures
+
+Figure 1 - The Software & Hardware Stack through which legacy protocol data flows ................... 4
+
+Figure 2 - System Organization............................................................................................. 5
+
+Figure 3 - Schematics for connecting FT2232H to SPI EEPROM device (93LC56B) ..................... 15
+
+Figure 4 - Sample Output on Windows ................................................................................. 21
+
+Figure 5 - Sample Output on Linux ...................................................................................... 22
+
+                                                                            25
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 26 =====
+Application Note
+                               AN_178 User Guide For libMPSSE - SPI
+                                                                                                              Version 1.2
+
+                                                Document Reference No.: FT_000492   Clearance No.: FTDI# 215
+
+Appendix C – Revision History
+
+Document Title:            AN_178 User Guide For libMPSSE - SPI
+
+Document Reference No.:     FT_000492
+
+Clearance No.:             FTDI# 215
+
+Product Page:                http://www.ftdichip.com/FTProducts.htm
+
+Document Feedback:        Send Feedback
+
+  Revision                    Changes                           Date
+
+     1.0                                 First release                         01-08-2011
+
+             New function SPI_ReadWrite clocks data in and out
+                                  simultaneously
+     1.1                                                            12-12-2011
+                  Read/Write multiple bytes per USB frame when
+              SPI_TRANSFER_OPTION_SIZE_IN_BYTES is enabled
+
+     1.2              Updated US and CN office addresses               19-05-2020
+
+     1.2                     Reviewed for release                      18-08-2023
+
+                                                                            26
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited

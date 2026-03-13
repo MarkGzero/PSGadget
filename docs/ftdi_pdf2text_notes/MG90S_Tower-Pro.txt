@@ -1,0 +1,25 @@
+===== PAGE 1 =====
+MG90S servo, Metal gear with one bearing
+
+Tiny and lightweight with high output power, this tiny servo is perfecct for RC Airplane,
+Helicopter, Quadcopter or Robbot. This servo has metal gears  for addeda      strength and
+durability.
+
+Servo can rotate approximately 180 degrees (90 in each direction), and works just like the
+standard kinds but smaller. You can use any servo code, hardware or librrary to control these
+servos. Good for beginners who wwant to make stuff move without building a motor controller
+with feedback & gear box, espec ially since it will fit in small places. It coomes with a 3 horns
+(arms) and hardware.
+
+Specifications
+
+   •      Weight: 13.4 g
+   •      Dimension: 22.5 x 12 x 35 .5 mm approx.
+   •       Stall torque: 1.8 kgf·cm (4..8V ), 2.2 kgf·cm (6 V)
+   •      Operating speed: 0.1 s/60 ddegree (4.8 V), 0.08 s/60 degree (6 V)
+   •      Operating voltage: 4.8 V - 6.0 V
+   •     Dead band width: 5 µs
+
+===== PAGE 2 =====
+Position "0" (1.5 ms pulse) is midddle, "90" (~2 ms pulse) is all the way too the right, "-90" (~1
+ms pulse) is all the way to the leftt.

@@ -1,0 +1,2716 @@
+===== PAGE 1 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                   UART/FIFO IC Datasheet
+                                                                         Version 2.0
+
+                                                                      Document No.: FT_000288 Clearance No.: FTDI #199
+
+   Future Technology
+Devices International Ltd
+FT232H Single Channel Hi-
+Speed USB to Multipurpose
+      UART/FIFO IC
+
+   The FT232H is a single channel USB 2.0 Hi-Speed                                                                  Option  for  transmit and  receive LED  drive
+   (480Mb/s) to UART/FIFO IC. It has the capability of                                                                 signals.
+   being configured in a variety of industry standard                                                                  Bit-bang Mode interface option with RD# and
+   serial or parallel interfaces.  The FT232H has the                                     WR# strobes
+   following advanced features:                                                                  Highly  integrated  design  includes  5V  to
+      Single channel USB to serial / parallel ports      3.3/+1.8V LDO regulator for VCORE, integrated
+       with a variety of configurations.                POR function
+      Entire USB protocol handled on the chip. No      Asynchronous serial UART interface option with
+     USB specific firmware programming required.           full   hardware   handshaking  and  modem
+     USB 2.0 Hi-Speed (480Mbits/Second) and Full       interface signals.
+      Speed (12Mbits/Second) compatible.                  Fully  assisted  hardware  or  X-On  /  X-Off
+      Multi-Protocol   Synchronous   Serial   Engine      software handshaking.
+      (MPSSE) to simplify synchronous serial protocol     UART Interface supports 7/8 bit data, 1/2 stop
+      (USB to JTAG, I2C, SPI (MASTER) or bit-bang)       bits, and Odd/Even/Mark/Space/No Parity.
+       design.                                                  Auto transmit enable control for RS485 serial
+     UART  transfer  data  rate  up  to  12Mbaud.       applications using the TXDEN pin.
+      (RS232 Data Rate  limited by  external  level      Operational  mode  configuration  and  USB
+        shifter).                                             Description  strings  configurable  in  external
+     USB  to  asynchronous  245  FIFO mode  for     EEPROM over the USB interface.
+       transfer data rate up to 8 Mbyte/Sec.                 Configurable I/O drives strength (4, 8, 12 or
+     USB to synchronous 245 parallel FIFO mode for     16mA) and slew rate.
+       transfers up to 40 Mbytes/Sec                        Low operating and USB suspend current.
+      Supports  a  proprietary  half  duplex FT1248      Supports self-powered, bus powered and high-
+       interface  with  a  configurable  width,   bi-     power bus powered USB configurations.
+        directional data bus (1, 2, 4 or 8 bits wide).         UHCI/OHCI/EHCI host controller compatible.
+      CPU-style FIFO interface mode simplifies CPU     USB Bulk data transfer mode (512 byte packets
+       interface design.                                          in Hi-Speed mode).
+      Fast serial interface option.                           +1.8V (chip core) and +3.3V I/O interfacing
+      FTDI’s royalty-free Virtual Com Port (VCP) and     (+5V Tolerant).
+       Direct   (D2XX)    drivers    eliminate    the      Extended -40°C to 85°C  industrial operating
+      requirement  for USB  driver development  in      temperature range.
+      most cases.                                            Compact  48-pin  Lead  Free  LQFP  or QFN
+      Adjustable receive buffer timeout.                 package
+                                                                  Configurable ACBUS I/O pins.
+
+    Neither the whole nor any part of the information contained in, or the product described in this manual, may be adapted or reproduced
+     in any material or electronic form without the prior written consent of the copyright holder. This product and its documentation are
+    supplied on an as-is basis and no warranty as to their suitability for any particular purpose is either made or implied. Future Technology
+    Devices International Ltd will not accept any claim for damages howsoever arising as a result of use or failure of this product. Your
+    statutory rights are not affected. This product or any variant of it is not intended for use in any medical appliance, device or system in
+    which the failure of the product might reasonably be expected to result in personal injury. This document provides preliminary
+    information that may be subject to change without notice. No freedom to use patents or other intellectual property rights is implied by
+    the publication of this document. Future Technology Devices International Ltd, Unit 1, 2 Seaward Place, Centurion Business Park,
+   Glasgow G41 1HH United Kingdom. Scotland Registered Company Number: SC136640
+
+   Copyright © Future Technology Devices International Limited                                            1
+
+===== PAGE 2 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+1 Typical Applications
+
+   Single chip USB to UART (RS232, RS422 or     USB Instrumentation
+   RS485)
+                                                              USB Industrial Control
+  USB to FIFO
+                                                              USB EPOS Control
+  USB to FT1248
+                                                              USB MP3 Player Interface
+  USB to JTAG
+                                                              USB FLASH Card Reader / Writers
+  USB to SPI
+                                                               Set Top Box - USB interface
+  USB to I2C
+                                                              USB Digital Camera Interface
+  USB to Bit-Bang
+                                                              USB Bar Code Readers
+  USB to Fast Serial Interface
+
+  USB to CPU target interface (as memory)
+
+1.1  Driver Support
+
+The FT232H requires USB device drivers (listed below), available free from http://www.ftdichip.com, to
+operate. The VCP version of the driver creates a Virtual COM Port allowing legacy serial port applications
+to operate over USB e.g. serial emulator application TTY. Another FTDI USB driver, the D2XX driver, can
+also be used with application software to directly access the FT232H through a DLL.
+
+Royalty free VIRTUAL COM PORT          Royalty free D2XX Direct Drivers
+(VCP) DRIVERS for...                  (USB Drivers + DLL S/W Interface)
+
+  Windows 10 and Windows 10 64-bit                  Windows 10 and Windows 10 64-bit
+
+  Windows 8 and Windows 8 64-bit                     Windows 8 and Windows 8 64-bit
+
+  Windows 7 and Windows 7 64-bit                     Windows 7 and Windows 7 64-bit
+
+  Windows Vista and Vista 64-bit                       Windows Vista and Vista 64-bit
+
+  Windows XP and XP 64-bit                            Windows XP and XP 64-bit
+
+  Windows XP Embedded                                Windows XP Embedded
+
+  Windows 2000, Server 2003, Server 2008           Windows 2000, Server 2003, Server 2008
+
+  Windows CE 4.2, 5.0, 5.2 and 6.0                    Windows CE 4.2, 5.0, 5.2 and 6.0
+
+  Mac OS-X                                              Mac OS-X
+
+   Linux (2.6.39 or later)                                  Linux (2.6.32 or later)
+
+Copyright © Future Technology Devices International Limited                                            2
+
+===== PAGE 3 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+1.2  Part Numbers
+
+Part Number                              Package
+FT232HL -xxxx                               48 Pin LQFP
+FT232HQ-xxxx                               48 Pin QFN
+
+Note: Packaging codes for xxxx is:
+-
+        Reel: Taped and Reel (LQFP = 1500 pieces per reel, QFN = 3000 pieces per reel) -
+       Tray: Tray packing, (LQFP =   250 pieces per tray, QFN =260 pieces per tray)
+
+Please refer to section 8 for all package mechanical parameters.
+
+1.3 USB Compliant
+
+The FT232H is fully compliant with the USB 2.0 specification and has been given the USB-IF Test-ID
+(TID) 40770005.
+
+The timing of the rise/fall time of the USB signals is not only dependant on the USB signal drivers, it is
+also dependant system and is affected by factors such as PCB layout, external components and any
+transient protection present on the USB  signals. For USB compliance these may require a  slight
+adjustment.  This timing can be modified through a programmable setting stored in the same external
+EEPROM that is used for the USB descriptors. Timing can also be changed by adding appropriate passive
+components to the USB signals.
+
+Copyright © Future Technology Devices International Limited                                            3
+
+===== PAGE 4 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+2 FT232H Block Diagram
+
+                             Figure 2.1 FT232H Block Diagram
+
+A full description of each function is available in section 4.
+
+Copyright © Future Technology Devices International Limited                                            4
+
+===== PAGE 5 =====
+a7                       FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+|         FTDI                                                    UART/FIFO IC Datasheet
+AN      Chie                                                                Version 2.0
+
+Document No.: FT_000288 Clearance No.: FTDI #199
+
+Table of Contents
+
+1 = Typical Applications........ccccesesccsceeesneseeeeeenseeneeenseeneesnseens 2
+
+1.1 Driver SUPPOFt ......ccceeceeeseeeeeeeeeeseeeeseeeeeeeseeeeeeeeeeseesneesaeeeseeeeesenens 2
+1.2 Part NUMDE‘SS..,.....cccceeceeeseeeeeeeeeeeeeeseeseeesneeeseeeeeneeeeeeesaeeeeneeeasenens 3
+1.3 USB Compliant ......ccccccceescceesseeeeseeeeseeseeeesneeeseeeeeseeseeeesaeeeseeeessenens 3
+
+2 FT232H BIOCK Diagram ....cccssecceeesneseeeesneseeeeesnseeseesneeesean &
+3 Device Pin Out and Signal DeSCriptions .........ccccsssseeeerees 8
+
+3.1 Schematic SyMDOIl........ccccescceeseceeeseeeeseeeeeeeseeeeseeeeeseeeeeeesaeeeseeeeenee 8
+3.2 FT232H Pin DeSCYriptiOns ........ccccscceeeseeeeseeseeeeseeeeeneeeesenseeenseeeeanes 9
+3.3 Signal DeSCriptiONn ......ccccccescceesseeeeseeeeeeeseeeesneeeenensasensaeeeeneeeeneneas 10
+3.4 ACBUS Signal Option.......ccccccesscceecseescseeseeeeseeeeeneesasenseeeesneeeeseneas 12
+3.5 Pin CONFIQUIATIONS. .....ccccceeeeeeeeeeeeeseeeeeeeseeeeeneeeenensanensaeeeenensenenens 13
+3.5.1     FT232H pins used in an UART interface ..........cccc ccc eece eee eeceeeaeeeaeeeaeeeaeeeaeeeaeeeas 13
+3.5.2     FT232H Pins used in an FT245 Synchronous FIFO Interface .........cccceceeeeaeeneeaes 13
+3.5.3     FT232H Pins used in an FT245 Style Aynchronous FIFO Interface ...........ccceeeaes 14
+3.5.4     FT232H Configured as a Synchronous or Asynchronous Bit-Bang Interface....... 15
+3.5.5    FT232H Pins used in an MPSSE ..........:cceee cece eee e ee eee eee eee eee ne aes eae ee eae eeaed 15
+3.5.6     FT232H Pins used as a Fast Serial Interface................:cceeeee ee eee eset estates ee eeeeaee 16
+3.5.7     FT232H Pins Configured as a CPU-style FIFO Interface.........ccccssceseeseeeeeeeeaeeaes 17
+3.5.8     FT232H Pins Configured as a FT1248 Interface ........ccececeeseeseeeeeeeeeeaeeaeeaeeaes 17
+4 Function DeSCriptioOn ......cccccesecesceeeeenseesesnseessesnseesssssses LO
+4.1 Key Features. ......ccsscccccceeee eee e eee ee eee eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeoeneees 18
+4.2 Functional Block DeSCriptiOns .......cccccceceseeseeeeseeeeeseeseeeeeneeeeneneas 19
+4.3. FT232 UART Interface Mode DeSCriptiOn.....ccssccccsseeseceeseeesssenens 20
+4.3.1     RS232 CONFIQGUIATION......ccec ccc c ee EERE EEE EEE EERE EEE EERE EEE EEE EEE 20
+4.3.2     RS422 CONFIGUIATION......cecc cet EERE EERE EEE EEE SEES ESSE EERE EEE EEE EEE 21
+4.3.3     RS485 CONFIGUIATION..... cece EEE EERE EEE EERE EERE EEE E EEE EEE EEE 22
+4.4 FT245 Synchronous FIFO Interface Mode Description..........0..: 23
+4.4.1     FT245 Synchronous FIFO Read Operation............cccccceceeeeeeeseeeeeeaeeeaeeeaeeeaeeeas 24
+4.4.2     FT245 Synchronous FIFO Write Operation ............cccccecceeseeeseeeaeeeaeeeaeeeaeeeaeeeas 24
+4.5 FT245 Style Asynchronous FIFO Interface Mode Description... 25
+4.6 FT1248 Interface Mode DeSCription .......cccsccessceeenseesneeseeeeenenens 26
+4.6.1    Bus Width Protocol DeCOde..........::ccceceee eee e eee ee eee eee eee eee e teens eae e eae ee eae e ead 27
+4.6.2    FT1248: 1-bit interface ........ ice eee eee eee eee nena eee tees eats ea eee ed 28
+4.7 Synchronous and Asynchronous Bit-Bang Interface Mode....... 29
+
+Copyright © Future Technology Devices International Limited                                              5
+
+===== PAGE 6 =====
+sy       FTDI         FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+
+|                                                                   UART/FIFO IC Datasheet
+
+AN      Chie                                                                Version 2.0
+
+Document No.: FT_000288 Clearance No.: FTDI #199
+4.7.1    ASYNCHFONOUS Bit-BANG MOE.... ce ceccec ee EEE E EEE EEE EEE EEE Ea 29
+4.7.2    SYNCHrONOUS Bit-BaANgG MOE .....cceecccee ete ee EEE EEE EEE EEE EEE EEE EEE EES 29
+4.8 MPSSE Interface Mode DeSCriptiOn .......ccccssceescceenseesnseeseeeeenenens 31
+4.8.1     MPSSE Adaptive CIOCKING ....ccceccecee cece tener een e EEE EEE n EE EEE EEE EEE EEE EEE EEE EEE 32
+4.9 Fast Serial Interface Mode DeSCriptiOn .......cccsscessseeseeeeseeeeeenens 33
+4.9.1    Outgoing Fast Serial Data wo... ccc cece eee eee e ene e eee EE EE eae EEE aE Enea 34
+4.9.2    Incoming Fast Serial Data oo... cece eee eee nen EEE EEE EEE Enea 34
+4.9.3     Fast Serial Data Interface ExXample...........ccccccceccseceee cues eeaeeeaeeeaeeeaeeeaeeeaeeeaeeeas 35
+4.10 CPU-style FIFO Interface Mode DeSCription.......cccssscssenesseeeens 35
+4.11 RS232 UART Mode LDE Interface DeScription.........ccssseessseeens 37
+4.12 Send Immediate/Wake Up (SIWU) ....cccscccsscceesseesnseeseeeeeneneas 38
+4.13 FT232H Mode Selection .....ccccccsscceesceeecseesceeesceeeasenseeeesneeeenenens 39
+4.14 Modes Configuration .......ccccccceescceesceeeeseeseeeeeceeeesenseseeseeeesseneas 39
+5 Devices Characteristics and RatingGS.....ccccssssseesssseseessss 40
+5.1 Absolute Maximum RatinGS.....ccccccsscceeccceecseesceeesceeeeseeeesensneeeenes 40
+5.2 DC Characteristics....ccccccccscceecceescceesceeeeceeenseeseeeeseeeeesensasensaeeeaaee 40
+5.3 ESD Tolerance ......cccccccescceesceeecseeseeeeeeeeeeeeeaseesaeeeseeeeasensasensneeeanen 42
+6 FT232H Configurations .....cccsccceseceeesnseeseceessesenseseesssseres 4S
+6.1 USB Bus Powered Configuration ......cccssscesscceesseeenseeseeeeseeeeeneneas 43
+6.2 USB Self Powered Configuration .......cccssccsscceeeseescseeseeeeseeesesenens 44
+6.2.1    Self-Powered Application Example 1 ..........cccccccceceeeeeeeeeeeeeeeeeeaeeeaeeeaeeeaneeanees 44
+6.2.2     Self-Powered Application Example 2 ....cccccccccceceese este neces eee eea teas eae eae eae eaeeaeeaeas 45
+6.3 Oscillator CONFIQUIATION ......cccccceeeeeeeeeeeseeeeeceeeeneesenenseeeeneeeenenens 46
+7 EEPROM Con figuration......cccscccssscccssnseeseccessesesseseesssseses 47
+7.1 EEPROM Interface ......cccccccscceecceesceeesceeeeneeenseeseeesneeeesensasensneeeanes 47
+7.2 Default EEPROM Configuration.,....ccsccccscceecseescceesceeeeseesesensneeeenes 47
+8 Package Parameters. ....sccccesesneseeeesneseeeeeneseenssanseesssansens 4D
+8.1 FT232HQ, QFN-48 Package DIMENSIONS ......cccscceeseeeseeeeseeeeeenens 49
+8.2 FT232HL, LQFP-48 Package DIMENSIONS ......cssccesseeeseneeseeeeeeenens 50
+8.3 Solder Reflow Profile .......ccscccscceescceesseeeeceesceeesceeeesensesenseeesenenens 51
+
+9    Contact InfOrmatiOn .....ccscccescccnscccnucccnuceueuceueuseeesesesssss DO
+
+Appendix A — References BERBER BRR RRR RRR RRR RRR RRR RRR RRR RRR Ree Re eee eee eee eee eee 54
+Document ReEfEreNn Ces .....ccccsceeseeeesceeeeceeeeseeeneeeeaeeeeneeeeneeeasensaneeeneeeanee 54
+Acronyms and AbbreviatiOns.......cccccecesscceeseceesceeeesensneeeseeeeeneesasensanens 54
+
+Copyright © Future Technology Devices International Limited                                              6
+
+===== PAGE 7 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+Appendix B – List of Figures and Tables ............................. 55
+ List of Tables .................................................................................... 55
+ List of Figures .................................................................................. 56
+Appendix C – Revision History ........................................... 57
+
+Copyright © Future Technology Devices International Limited                                            7
+
+===== PAGE 8 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+3 Device Pin Out and Signal Descriptions
+
+The 48-pin LQFP and 48-pin QFN have the same pin numbering for specific functions. This pin numbering
+is illustrated in the schematic symbol shown in Figure 3.1.
+
+3.1  Schematic Symbol
+
+                            Figure 3.1 FT232H Schematic Symbol
+
+Copyright © Future Technology Devices International Limited                                            8
+
+===== PAGE 9 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+3.2 FT232H Pin Descriptions
+
+This section describes the operation of the FT232H pins. Both the LQFP and the QFN packages have the
+same function on each pin. The function of many pins is determined by the configuration of the FT232H.
+The following table details the function of each pin dependent on the configuration of the interface. Each
+of the functions is described in the following table (Note: The convention used throughout this document
+for active low signals is the signal name followed by #).
+
+                                    FT232H
+    Pin                          Pin functions (depends on configuration)
+                            STYLE                                         FT1248
+           ASYNC   SYNC   ASYNC                               Fast    CPU
+Pin   Pin     Serial    245     245   ASYNC   SYNC              Serial    Style
+ #  Name  (RS232)   FIFO    FIFO   Bit-bang Bit-bang MPSSE  interface  FIFO
+    ADBUS
+ 13          TXD     D0      D0      D0      D0    TCK/SK    FSDI     D0    MIOSI0       0
+    ADBUS
+ 14          RXD     D1      D1      D1      D1    TDI/DO   FSCLK     D1    MIOSI1
+       1
+    ADBUS 15          RTS#     D2      D2      D2      D2    TDO/DI   FSDO     D2    MIOSI2
+       2
+    ADBUS
+ 16          CTS#     D3      D3      D3      D3    TMS/CS   FSCTS     D3    MIOSI3       3
+    ADBUS                                                       ** 17         DTR#     D4      D4      D4      D4    GPIOL0            D4    MIOSI4
+       4                                                                    TriSt-UP
+    ADBUS                                                       **
+ 18         DSR#     D5      D5      D5      D5    GPIOL1            D5    MIOSI5       5                                                                    TriSt-UP
+    ADBUS                                                       ** 19         DCD#     D6      D6      D6      D6    GPIOL2            D6    MIOSI6
+       6                                                                    TriSt-UP
+    ADBUS                                                       **
+ 20           RI#     D7      D7      D7      D7    GPIOL3            D7    MIOSI7       7                                                                    TriSt-UP
+    ACBUS     *                                                  ** 21                  RXF#    RXF#   ACBUS0  ACBUS0  GPIOH0           CS#    SCLK
+       0    TXDEN                                          ACBUS0
+    ACBUS    **                                                 **
+ 25                  TXE#    TXE#   WRSTB# WRSTB# GPIOH1             A0     SS_n       1    ACBUS1                                          ACBUS1
+    ACBUS    **                                                 ** 26                RD#    RD#   RDSTB#  RDSTB#  GPIOH2          RD#    MISO
+       2    ACBUS2                                          ACBUS2
+    ACBUS     *                                                  **
+ 27               WR#    WR#   ACBUS3  ACBUS3  GPIOH3         WR#   ACBUS3       3    RXLED#                                          ACBUS3
+    ACBUS     * 28                SIWU#   SIWU#   SIWU#   SIWU#  GPIOH4  SIWU#   SIWU#  ACBUS4
+       4    TXLED#
+                                                                          **
+    ACBUS    **                        **       **               ** 29                 CLKOUT  ACBUS5                  GPIOH5           ACBUS  ACBUS5
+       5    ACBUS5                  ACBUS5  ACBUS5          ACBUS5                                                                           5
+                                                                          **    ACBUS    **                                                 **
+ 30                 OE#   ACBUS6  ACBUS6  ACBUS6  GPIOH6           ACBUS  ACBUS6       6    ACBUS6                                          ACBUS6
+                                                                           6
+    ACBUS         PWRSAV  PWRSAV  PWRSAV  PWRSAV   ***           PWRSA  PWRSAV
+ 31                                                    PWRSAV#       7   WRSAV#   #      #      #      #    GPIOH7           V#     #
+                                                         **               **    ACBUS    **       **       **       **       **               **
+ 32                                                ACBUS           ACBUS  ACBUS8       8    ACBUS8  ACBUS8  ACBUS8  ACBUS8  ACBUS8          ACBUS8
+                                                          8                8
+                                                         **               **
+    ACBUS    **       **       **       **       **               ** 33                                                ACBUS           ACBUS  ACBUS9
+       9    ACBUS9  ACBUS9  ACBUS9  ACBUS9  ACBUS9          ACBUS9
+                                                          9                9
+
+Pins marked * require an EEPROM for assignment to these functions. Default is Tristate, Pull-Up
+
+Pins marked ** default to tri-stated inputs with an internal 75KΩ (approx.) pull up resistor to VCCIO.
+
+Pin marked *** default to GPIO line with an internal 75KΩ pull down resistor to GND. Using the EEPROM
+this pin can be enabled USBVCC mode instead of GPIO mode.
+
+Copyright © Future Technology Devices International Limited                                            9
+
+===== PAGE 10 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+3.3  Signal Description
+
+The operation of the following FT232H pins are the same regardless of the configured mode:-
+
+       Pin No.       Name    Type                       Description
+                        **    POWER
+         40                            +5.0V or 3V3 power supply input.                     VREGIN    input
+                          POWER   +1.8V output. Should not be used. Terminate with         37           VCCA
+                                    output   0.1uF capacitor to GND
+                          POWER   +1.8V output. Should not be used. Terminate with a
+         38          VCORE                                    output   0.1uF capacitor to GND
+                          POWER                        **
+         39                       output   +3.3V output or input.
+                    VCCD                                     or input
+                          POWER       12, 24, 46        VCCIO            +3.3V input. I/O interface power supply input
+                                       input
+                                        +3.3V input. Internal PLL power supply input. It is
+                          POWER          8             VPLL            recommended that this supply is filtered using an LC
+                                     Input
+                                                                filter. (See figure 6.1)
+                                        +3.3V input. Internal USB PHY power supply input. Note
+                                                 that this cannot be connected directly to the USB
+                          POWER          3            VPHY               supply. A +3.3V regulator must be used. It is
+                                     Input
+                                      recommended that this supply is filtered using an LC
+                                                      filter.(See figure 6.1)
+                          POWER
+         4,9,41         AGND           0V Ground input.                                     Input
+                          POWER10,11,22,23,35,36,47,48   GND            0V Ground input.
+                                     Input
+                               Table 3.1 Power and Ground
+
+** If pin 40 (VREGIN) is +5.0V, pin 39 becomes an output and If pin 40 (VREGIN) is 3V3 pin 39 becomes
+an input.
+
+   Pin No.      Name      Type                         Description
+     1           OSCI       INPUT    Oscillator input.
+     2         OSCO     OUTPUT   Oscillator output.
+                                         Current reference – connect via a 12KΩ resistor @ 1% to
+     5           REF       INPUT                                  GND.
+     6         DM          I/O    USB Data Signal Minus.
+     7           DP          I/O    USB Data Signal Plus.
+                                        IC test pin – for normal operation must be connected to
+    42          TEST       INPUT
+                                  GND.
+    34        RESET#      INPUT   Reset input (active low).
+                                USB Power Save input. This is an EEPROM configurable
+                                           option which is set using a ’Suspend on ACBus7 Low’ bit in
+                                   FT_PROG. This option is available when the FT232H is on a
+                                         self-powered mode and is used to prevent forcing current
+                                 down the USB lines when the host or hub is powered off.
+                              PWRSAV# = 1 : Normal Operation
+    31       PWRSAV#     INPUT                              PWRSAV# = 0 : FT232H forced into SUSPEND mode.
+                              PWRSAV# can be connected to VBUS of the USB connector
+                                               (via a 39KΩ resistor). When this input goes high, then it
+                                             indicates to the FT232H that it is connected to a host PC.
+                               When the host or hub is powered down then the FT232H is
+                                          held in SUSPEND mode.
+                             Table 3.2 Common Function Pins
+
+Copyright © Future Technology Devices International Limited                                           10
+
+===== PAGE 11 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+Pin No.  Name    Type                              Description
+  45     EECS      I/O    EEPROM – Chip Select. Tri-State during device reset.
+                               Clock signal to EEPROM. Tri-State during device reset. When not in
+  44     EECLK   OUTPUT                                   reset, this outputs the EEPROM clock.
+                        EEPROM – Data I/O. Connect directly to Data-in of the EEPROM and to
+                              Data-out of the EEPROM via a 2.2K resistor. Also, pull Data-Out of the
+  43    EEDATA     I/O                        EEPROM to VCCD via a 10K resistor for correct operation. Tri-State
+                               during device reset.
+                            Table 3.3 EEPROM Interface Group
+
+Pin No.  Name    Type                              Description
+                               Configurable Output Pin, the default configuration is Transmit  13    ADBUS0   Output
+                            Asynchronous Data Output.
+                               Configurable Input Pin, the default configuration is Receiving
+  14    ADBUS1    Input
+                            Asynchronous Data Input.
+                               Configurable Output Pin, the default configuration is Request to Send
+  15    ADBUS2   Output                               Control Output / Handshake Signal.
+                               Configurable Input Pin, the default configuration is Clear To Send Control  16    ADBUS3    Input
+                              Input / Handshake Signal.
+                               Configurable Output Pin, the default configuration is Data Terminal Ready
+  17    ADBUS4   Output                               Control Output / Handshake Signal.
+                               Configurable Input Pin, the default configuration is Data Set Ready  18    ADBUS5    Input
+                               Control Input / Handshake Signal.
+                               Configurable Input Pin, the default configuration is Data Carrier Detect  19    ADBUS6    Input
+                               Control Input.
+                               Configurable Input Pin, the default configuration is Ring Indicator Control
+                                Input. When remote wake up is enabled in the EEPROM taking RI# low
+  20    ADBUS7    Input                            can be used to resume the PC USB host controller from suspend. (Also
+                             see note 1, 2, 3 in section 4.12)
+                               Configurable ACBUS I/O Pin. Function of this pin is configured in the
+  21    ACBUS0     I/O     device EEPROM. If the external EEPROM is not fitted the default
+                                configuration is TriSt-PU. See ACBUS Signal Options, Table 3.5.
+                               Configurable ACBUS I/O Pin. Function of this pin is configured in the
+  25    ACBUS1     I/O     device EEPROM. If the external EEPROM is not fitted the default
+                                configuration is TriSt-PU. See ACBUS Signal Options, Table 3.5.
+                               Configurable ACBUS I/O Pin. Function of this pin is configured in the
+  26    ACBUS2     I/O     device EEPROM. If the external EEPROM is not fitted the default
+                                configuration is TriSt-PU. See ACBUS Signal Options, Table 3.5.
+                               Configurable ACBUS I/O Pin. Function of this pin is configured in the
+  27    ACBUS3     I/O     device EEPROM. If the external EEPROM is not fitted the default
+                                configuration is TriSt-PU. See ACBUS Signal Options, Table 3.5.
+                               Configurable ACBUS I/O Pin. Function of this pin is configured in the
+  28    ACBUS4     I/O     device EEPROM. If the external EEPROM is not fitted the default
+                                configuration is TriSt-PU. See ACBUS Signal Options, Table 3.5.
+                               Configurable ACBUS I/O Pin. Function of this pin is configured in the
+  29    ACBUS5     I/O     device EEPROM. If the external EEPROM is not fitted the default
+                                configuration is TriSt-PU. See ACBUS Signal Options, Table 3.5.
+                               Configurable ACBUS I/O Pin. Function of this pin is configured in the
+  30    ACBUS6     I/O     device EEPROM. If the external EEPROM is not fitted the default
+                                configuration is TriSt-PU. See ACBUS Signal Options, Table 3.5.
+                               Configurable ACBUS I/O Pin. Function of this pin is configured in the
+  31    ACBUS7     I/O     device EEPROM. If the external EEPROM is not fitted the default
+                                configuration is TriSt-PD. See ACBUS Signal Options, Table 3.5.
+                               Configurable ACBUS I/O Pin. Function of this pin is configured in the
+  32    ACBUS8     I/O     device EEPROM. If the external EEPROM is not fitted the default
+                                configuration is TriSt-PU. See ACBUS Signal Options, Table 3.5.
+                               Configurable ACBUS I/O Pin. Function of this pin is configured in the
+  33    ACBUS9     I/O     device EEPROM. If the external EEPROM is not fitted the default
+                                configuration is TriSt-PU. See ACBUS Signal Options, Table 3.5.
+
+                  Table 3.4 UART Interface and ACBUS Group (see note 1)
+
+Copyright © Future Technology Devices International Limited                                           11
+
+===== PAGE 12 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+Notes:
+
+When used in Input Mode, the input pins are pulled to VCCIO via internal 75kΩ (approx.) resistors. These
+pins can be programmed to gently pull low during USB suspend (PWREN# = “1”) by setting an option in
+the EEPROM.
+
+3.4 ACBUS Signal Option
+
+If the external EEPROM is fitted, the following options can be configured on the CBUS I/O pins using the
+software utility FT_PROG which can be downloaded from the FTDI utilities page. CBUS signal options are
+common to both package versions of the FT232H. The default configuration is described in section 7.
+
+  ACBUS      Available On ACBUS Pin                       Description
+   Signal
+   Option
+
+   TXDEN     ACBUS0, ACBUS1, ACBUS2,  TXDEN = (TTL level). Used with RS485 level converters
+              ACBUS3, ACBUS4, ACBUS5,   to enable the line driver during data transmit. TXDEN is
+              ACBUS6, ACBUS8, ACBUS9    active from one bit time before the start bit is
+                                              transmitted on TXD until the end of the stop bit.
+ *PWREN#    ACBUS0, ACBUS1, ACBUS2,   Output is low after the device has been configured by
+              ACBUS3, ACBUS4, ACBUS5,   USB, then high during USB suspend mode. This output
+              ACBUS6, ACBUS8, ACBUS9   can be used to control power to external logic P-Channel
+                                                     logic level MOSFET switch. Enable the interface pull-down
+                                               option when using the PWREN# in this way.*
+  TXLED#     ACBUS0, ACBUS1, ACBUS2,  TXLED = Transmit signalling output. Pulses low when
+              ACBUS3, ACBUS4, ACBUS5,   transmitting data (TXD) to the external device. This can
+              ACBUS6, ACBUS8, ACBUS9   be connected to an LED.
+  RXLED#     ACBUS0, ACBUS1, ACBUS2,  RXLED = Receive signalling output. Pulses low when
+              ACBUS3, ACBUS4, ACBUS5,   receiving data (RXD) from the external device. This can
+              ACBUS6, ACBUS8, ACBUS9   be connected to an LED.
+ TX&RXLED#   ACBUS0, ACBUS1, ACBUS2,  LED drive – pulses low when transmitting or receiving
+              ACBUS3, ACBUS4, ACBUS5,   data from or to the external device.
+              ACBUS6, ACBUS8, ACBUS9
+  SLEEP#     ACBUS0, ACBUS1, ACBUS2,  Goes low during USB suspend mode. Typically used to
+              ACBUS3, ACBUS4, ACBUS5,   power down an external TTL to RS232 level converter IC
+              ACBUS6, ACBUS8, ACBUS9    in USB to RS232 converter designs.
+  **CLK30        ACBUS0, ACBUS5,      30MHz Clock output.
+              ACBUS6,ACBUS8, ACBUS9
+  **CLK15        ACBUS0, ACBUS5,      15MHz Clock output.
+              ACBUS6,ACBUS8, ACBUS9
+  **CLK7.5        ACBUS0, ACBUS5,      7.5MHz Clock output.
+              ACBUS6,ACBUS8, ACBUS9
+   TriSt-PU     ACBUS0, ACBUS1, ACBUS2,   Input Pull Up
+              ACBUS3, ACBUS4, ACBUS5,
+              ACBUS6, ACBUS8, ACBUS9
+  DRIVE 1         ACBUS0, ACBUS5,       Output High
+              ACBUS6,ACBUS8, ACBUS9
+  DRIVE 0     ACBUS0, ACBUS1, ACBUS2,   Output Low
+              ACBUS3, ACBUS4, ACBUS5,
+              ACBUS6, ACBUS8, ACBUS9
+  I/O mode     ACBUS5, ACBUS6,ACBUS8,   ACBUS Bit Bang
+                    ACBUS9
+                          Table 3.5 ACBUS Configuration Control
+
+* Must be used with a 10kΩ resistor pull up.
+**When in USB suspend mode the outputs clocks are also suspended.
+
+Copyright © Future Technology Devices International Limited                                           12
+
+===== PAGE 13 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+3.5  Pin Configurations
+
+The following section describes the function of the pins when the device is configured in different modes
+of operation.
+
+3.5.1   FT232H pins used in an UART interface
+
+The FT232H can be configured as a UART interface. When configured in this mode, the pins used and the
+descriptions of the signals are shown in Table 3.6.
+
+Pin
+     Name   Type                 UART Configuration DescriptionNo.
+ 13    TXD   OUTPUT  TXD = transmitter output
+ 14    RXD    INPUT  RXD = receiver input
+ 15   RTS#  OUTPUT  RTS# = Ready To send handshake output
+ 16   CTS#   INPUT  CTS# = Clear To Send handshake input
+ 17   DTR#  OUTPUT  DTR# = Data Transmit Ready modem signalling line
+ 18   DSR#   INPUT  DSR# = Data Set Ready modem signalling line
+ 19   DCD#   INPUT  DCD# = Data Carrier Detect modem signalling line
+                      RI# = Ring Indicator Control Input. When the Remote Wake up option is
+ 20    RI#    INPUT   enabled in the EEPROM, taking RI# low can be used to resume the PC USB
+                        Host controller from suspend.
+        **
+ 21          OUTPUT  TXDEN = (TTL level). Use to enable RS485 level converter
+      TXDEN
+                     RXLED = Receive signalling output. Pulses low when receiving data (RXD)
+        ** 27          OUTPUT  from the external device (UART Interface). This should be connected to an
+      RXLED                        LED.
+        **            TXLED = Transmit signalling output. Pulses low when transmitting data (TXD) 28          OUTPUT
+      TXLED             to the external device (UART Interface). This should be connected to an LED.
+                           Table 3.6 UART Configured Pin Descriptions
+
+** ACBUS I/O pins
+
+For a functional description of this mode, please refer to section 4.3
+
+Note: UART is the device default mode.
+
+3.5.2   FT232H Pins used in an FT245 Synchronous FIFO Interface
+
+The FT232H can be configured as a FT245 synchronous FIFO interface. When configured in this mode, the
+pins used and the descriptions of the signals are shown in Table 3.7. To set this mode the external
+EEPROM must be set to 245 modes. A software command (FT_SetBitMode) is then sent by the application
+to the FTDI D2XX driver to tell the chip to enter 245 synchronous FIFO mode. In this mode, data is
+written or read on the rising edge of the CLKOUT. Refer to Figure 4.4 for timing details.
+
+       Pin No.         Name     Type         FT245 Configuration Description
+13,14,15,16,17,18,19,20                    D7 to D0 bidirectional FIFO data. This bus is
+                       ADBUS[7:0]    I/O                                                 normally input unless OE# is low.
+                                     When high, do not read data from the FIFO. When
+                                                   low, there is data available in the FIFO which can be
+                                               read by driving RD# low. When in synchronous
+         21             RXF#    OUTPUT  mode, data is transferred on every clock that RXF#
+                                           and RD# are both low. Note that the OE# pin must
+                                            be driven low at least 1 clock period before asserting
+                                   RD# low.
+                                     When high, do not write data into the FIFO. When
+                                                   low, data can be written into the FIFO by driving
+         25             TXE#    OUTPUT
+                                WR# low. When in synchronous mode, data is
+                                                    transferred on every clock that TXE# and WR# are
+
+Copyright © Future Technology Devices International Limited                                           13
+
+===== PAGE 14 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+                                               both low.
+                                                Enables the current FIFO data byte to be driven onto
+                                                D0...D7 when RD# goes low. The next FIFO data
+         26            RD#      INPUT                                                byte (if available) is fetched from the receive FIFO
+                                                      buffer each CLKOUT cycle until RD# goes high.
+                                                Enables the data byte on the D0...D7 pins to be
+                                                     written into the transmit FIFO buffer when WR# is
+         27           WR#      INPUT   low. The next FIFO data byte is written to the
+                                                  transmit FIFO buffer each CLKOUT cycle until WR#
+                                             goes high.
+                                           The Send Immediate / WakeUp signal combines two
+                                                     functions on a single pin. If USB is in suspend mode
+         28                            (PWREN# = 1) and remote wakeup is enabled in the
+                                         EEPROM, strobing this pin low will cause the device
+                                                     to request a resume on the USB Bus. Normally, this
+                                              can be used to wake up the Host PC.                     SIWU#     INPUT
+                                                During normal operation (PWREN# = 0), if this pin is
+                                                 strobed low any data in the device RX buffer will be
+                                                  sent out over USB on the next Bulk-IN request from
+                                                 the drivers regardless of the pending packet size.
+                                                    This can be used to optimize USB transfer speed for
+                                       some applications. Tie this pin to VCCIO if not used.
+                                          60 MHz Clock driven from the chip. All signals should
+         29            CLKOUT   OUTPUT                                            be synchronized to this clock.
+                                              Output enable when low to drive data onto D0-7.
+                                                    This should be driven low at least 1 clock period
+         30            OE#      INPUT                                                  before driving RD# low to allow for data buffer turn-
+                                                around.
+               Table 3.7 FT245 Synchronous FIFO Configured Pin Descriptions
+
+For a functional description of this mode, please refer to section 4.4.
+
+3.5.3   FT232H Pins used in an FT245 Style aynchronous FIFO Interface
+
+The FT232H can be configured as a FT245 style asynchronous FIFO interface. When configured in this
+mode, the pins used and the descriptions of the signals are shown in Table 3.8. To enter this mode the
+external EEPROM must be set to 245 asynchronous FIFO mode. In this mode, data is written or read on
+the falling edge of the RD# or WR# signals.
+
+      Pin No.       Name     Type          FT245 Configuration Description
+ 13, 14, 15, 16, 17,                    D7 to D0 bidirectional FIFO data. This bus is normally                   ADBUS[7:0]    I/O
+      18, 19,20                                input unless RD# is low.
+                                  When high, do not read data from the FIFO. When low,
+                                              there is data available in the FIFO which can be read by
+                                                 driving RD# low. When RD# goes high again RXF# will
+        21          RXF#    OUTPUT  always go high and only become low again if there is
+                                            another byte to read. During reset this signal pin is
+                                                       tristate, but pulled up to VCCIO via an internal 200kΩ
+                                                     resistor.
+                                  When high, do not write data into the FIFO. When low,
+                                           data can be written into the FIFO by strobing WR# high,
+        25          TXE#    OUTPUT                                           then low. During reset this signal pin is tristate, but
+                                                pulled up to VCCIO via an internal 200kΩ resistor.
+                                            Enables the current FIFO data byte to be driven onto
+                                           D0...D7 when RD# goes low. Fetches the next FIFO        26          RD#      INPUT
+                                           data byte (if available) from the receive FIFO buffer
+                                    when RD# goes high.
+                                             Writes the data byte on the D0...D7 pins into the        27         WR#      INPUT
+                                              transmit FIFO buffer when WR# goes from high to low.
+                                        The Send Immediate / WakeUp signal combines two
+                  SIWU#     INPUT                                                functions on a single pin. If USB is in suspend mode
+
+Copyright © Future Technology Devices International Limited                                           14
+
+===== PAGE 15 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+        28                          (PWREN# = 1) and remote wakeup is enabled in the
+                                     EEPROM, strobing this pin low will cause the device to
+                                             request a resume on the USB Bus. Normally, this can be
+                                         used to wake up the Host PC.
+                                           During normal operation (PWREN# = 0), if this pin is
+                                             strobed low any data in the device RX buffer will be sent
+                                            out over USB on the next Bulk-IN request from the
+                                                 drivers regardless of the pending packet size. This can
+                                        be used to optimize USB transfer speed for some
+                                                  applications. Tie this pin to VCCIO if not used.
+            Table 3.8 FT245 Style Asynchronous FIFO Configured Pin Descriptions
+
+For a functional description of this mode, please refer to section 4.5.
+
+3.5.4   FT232H Configured as a Synchronous or Asynchronous Bit-Bang
+        Interface
+
+Bit-bang mode is an FTDI FT232H device mode that changes the 8 IO lines into an 8 bit bi-directional
+data bus. This mode is enabled by sending a software command (FT_SetBitMode) to the FTDI driver.
+When configured in any bit-bang mode, the pins used and the descriptions of the signals are shown in
+Table 3.9
+
+       Pin No.         Name     Type              Configuration Description
+13,14,15,16,17,18,19,20  ADBUS[7:0]    I/O   D7 to D0 bidirectional Bit-Bang parallel I/O data pins
+                                                  Write strobe, active low output indicates when new
+         25          WRSTB#   OUTPUT  data has been written to the I/O pins from the Host
+                                         PC (via the USB interface).
+                                          Read strobe, this output rising edge indicates when
+         26           RDSTB#   OUTPUT  data has been read from the parallel I/O pins and
+                                                  sent to the Host PC (via the USB interface).
+                                           The Send Immediate / WakeUp signal combines two
+                                                     functions on a single pin. If USB is in suspend mode
+                                      (PWREN# = 1) and remote wakeup is enabled in the
+                                         EEPROM, strobing this pin low will cause the device
+                                                     to request a resume on the USB Bus. Normally, this
+                                              can be used to wake up the Host PC.
+         28           SIWU#     INPUT                                                During normal operation (PWREN# = 0), if this pin is
+                                                 strobed low any data in the device RX buffer will be
+                                                  sent out over USB on the next Bulk-IN request from
+                                                 the drivers regardless of the pending packet size.
+                                                    This can be used to optimize USB transfer speed for
+                                       some applications. Tie this pin to VCCIO if not used.
+        Table 3.9 Synchronous or Asynchronous Bit-Bang Configured Pin Descriptions
+
+For functional description of this mode, please refer to section 4.6.
+
+3.5.5   FT232H Pins used in an MPSSE
+
+The FT232H has a Multi-Protocol Synchronous Serial Engine (MPSSE). This mode is enabled by sending a
+software command (FT_SetBitMode) to the FTDI D2xx driver. The MPSSE can be configured to a number
+of industry standard serial interface protocols such as JTAG, I2C or SPI (MASTER), or it can be used to
+implement a proprietary bus protocol.  For example,  it is possible to connect FT232H’s to an SRAM
+configurable FPGA such as supplied by Altera or Xilinx. The FPGA device would normally not be configured
+(i.e. have no defined function) at power-up. Application software on the PC could use the MPSSE (and
+D2XX driver) to download configuration data to the FPGA over USB. This data would define the hardware
+function on power up. The MPSSE can be used to control a number of GPIO pins. When configured in this
+mode, the pins used and the descriptions of the signals are shown in Table 3.10
+
+   Pin No.         Name          Type      MPSSE Configuration Description
+                                                    Clock Signal Output. For example:
+     13             TCK/SK         OUTPUT                                             JTAG – TCK, Test interface clock
+
+Copyright © Future Technology Devices International Limited                                           15
+
+===== PAGE 16 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+                                                 SPI (MASTER) – SK, Serial Clock
+                                                           Serial Data Output. For example:
+     14             TDI/DO         OUTPUT   JTAG – TDI, Test Data Input
+                                                 SPI (MASTER) – DO
+                                                           Serial Data Input. For example:
+     15             TDO/DI          INPUT   JTAG – TDO, Test Data output
+                                                 SPI (MASTER) – DI, Serial Data Input
+                                                 Output Signal Select. For example:
+     16             TMS/CS         OUTPUT   JTAG – TMS, Test Mode Select
+                                                 SPI (MASTER) – CS, Serial Chip Select
+     17             GPIOL0             I/O     General Purpose input/output
+     18             GPIOL1             I/O     General Purpose input/output
+     19             GPIOL2             I/O     General Purpose input/output
+     20             GPIOL3             I/O     General Purpose input/output
+     21             GPIOH0             I/O     General Purpose input/output
+     25             GPIOH1             I/O     General Purpose input/output
+     26             GPIOH2             I/O     General Purpose input/output
+     27             GPIOH3             I/O     General Purpose input/output
+     28             GPIOH4             I/O     General Purpose input/output
+     29             GPIOH5             I/O     General Purpose input/output
+     30             GPIOH6             I/O     General Purpose input/output
+     31             GPIOH7             I/O     General Purpose input/output
+                       Table 3.10 MPSSE Configured Pin Descriptions
+
+For functional description of this mode, please refer to section 4.8.
+
+3.5.6   FT232H Pins used as a Fast Serial Interface
+
+The FT232H can be configured for use with high-speed bi-directional isolated serial data. A proprietary
+FTDI protocol designed to allow galvanic isolated devices to communicate synchronously with the FT232H
+using just 4 signal wires (over two dual opto-isolators), and two power lines. The peripheral circuitry
+controls the data transfer rate in both directions, whilst maintaining full data integrity. 12 Mbps (USB full
+speed) data rates can be achieved when using the proper high speed opto-isolators (see App Note AN-
+131). When configured in this mode, the pins used and the descriptions of the signals are shown in Table
+3.11.
+
+Pin     Name   Type               Fast Serial Interface Configuration Description
+No.
+ 13    FSDI    INPUT   Fast serial data input.
+                          Fast serial clock input.
+ 14   FSCLK   INPUT
+                         Clock input to FT232H chip to clock data in or out.
+ 15   FSDO  OUTPUT  Fast serial data output.
+                          Fast serial Clear To Send signal output.
+ 16   FSCTS  OUTPUT                         Driven low to indicate that the chip is ready to send data
+                      The Send Immediate / WakeUp signal combines two functions on a single pin.
+                                    If USB is in suspend mode (PWREN# = 1) and remote wakeup is enabled in
+                         the EEPROM, strobing this pin low will cause the device to request a resume
+                      on the USB Bus. Normally, this can be used to wake up the Host PC.
+ 28  SIWU#   INPUT   During normal operation (PWREN# = 0), if this pin is strobed low any data in
+                         the device RX buffer will be sent out over USB on the next Bulk-IN request
+                       from the drivers regardless of the pending packet size. This can be used to
+                          optimize USB transfer speed for some applications. Tie this pin to VCCIO if not
+                         used.
+                Table 3.11 Fast Serial Interface Configured Pin Descriptions
+
+For a functional description of this mode, please refer to section 4.9.
+
+Copyright © Future Technology Devices International Limited                                           16
+
+===== PAGE 17 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+3.5.7   FT232H Pins Configured as a CPU-style FIFO Interface
+
+The FT232H can be configured in a CPU-style FIFO interface mode which allows a CPU to interface to USB
+via the FT232H. This mode is enabled in the external EEPROM. When configured in this mode, the pins
+used and the descriptions of the signals are shown in Table 3.12.
+
+Pin No.    Name    Type           Fast Serial Interface Configuration Description
+ 13, 14,   ADBUS[7:0]
+ 15, 16,                         I/O   D7 to D0 bidirectional data bus
+ 17, 18,
+ 19, 20
+   21       CS#     INPUT  Active low chip select input
+   25        A0      INPUT  Address bit A0
+   26      RD#     INPUT  Active Low FIFO Read input
+   27      WR#     INPUT  Active Low FIFO Write input
+                                   Tie this pin to VCCIO if not used – otherwise, for normal operation
+                             The Send Immediate / WakeUp signal combines two functions on a
+                                    single pin. If USB is in suspend mode (PWREN# = 1) and remote
+                           wakeup is enabled in the EEPROM, strobing this pin low will cause the
+                                 device to request a resume on the USB Bus. Normally, this can be
+   28      SIWU#    INPUT                              used to wake up the Host PC.
+                               During normal operation (PWREN# = 0), if this pin is strobed low any
+                               data in the device RX buffer will be sent out over USB on the next
+                                Bulk-IN request from the drivers regardless of the pending packet size.
+                                  This can be used to optimize USB transfer speed for some applications.
+              Table 3.12 CPU-style FIFO Interface Configured Pin Descriptions
+
+For a functional description of this mode, please refer to section 4.10.
+
+3.5.8   FT232H Pins Configured as a FT1248 Interface
+
+The FT232H can be configured as a proprietary FT1248 interface. This mode is enabled in the external
+EEPROM. When configured in this mode, the pins used and the descriptions of the signals are shown in
+Table 3.13.
+
+Pin
+      Name      Type                UART Configuration DescriptionNo.
+                   INPUT      Bi-directional synchronous command and data bus, bit 0 used to 13   MIOSIO0
+                 /OUTPUT    transmit and receive data from/to the master
+                   INPUT      Bi-directional synchronous command and data bus, bit 1 used to
+ 14   MIOSIO1
+                 /OUTPUT    transmit and receive data from/to the master
+                   INPUT      Bi-directional synchronous command and data bus, bit 2 used to
+ 15   MIOSIO2                 /OUTPUT    transmit and receive data from/to the master
+                   INPUT      Bi-directional synchronous command and data bus, bit 3 used to 16   MIOSIO3
+                 /OUTPUT    transmit and receive data from/to the master
+                   INPUT      Bi-directional synchronous command and data bus, bit 4 used to
+ 17   MIOSIO4                 /OUTPUT    transmit and receive data from/to the master
+                   INPUT      Bi-directional synchronous command and data bus, bit 5 used to
+ 18   MIOSIO5                 /OUTPUT    transmit and receive data from/to the master
+                   INPUT      Bi-directional synchronous command and data bus, bit 6 used to 19   MIOSIO6
+                 /OUTPUT    transmit and receive data from/to the master
+                   INPUT      Bi-directional synchronous command and data bus, bit 7 used to
+ 20   MIOSIO7                 /OUTPUT    transmit and receive data from/to the master
+ 21     SCLK      INPUT      Serial clock used to drive the slave device data
+ 25     SS_n      INPUT      Active low slave select 0 from master to slave
+                                 Slave output used to transmit the status of the transmit and receive
+ 26    MISO     OUTPUT
+                                    buffers are empty and full respectively
+                      Table 3.13 FT1248 Configured Pin Descriptions
+
+For functional description of this mode, please refer to section 4.
+
+Copyright © Future Technology Devices International Limited                                           17
+
+===== PAGE 18 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+4 Function Description
+
+The FT232H USB 2.0 Hi-Speed (480Mb/s) to UART/FIFO is an FTDI’s 6th generation of ICs. It can be
+configured in a variety of industry standard serial or parallel interfaces, such as UART, FIFO, JTAG, SPI
+(MASTER) or I2C modes. In addition to these, the FT232H introduces the FT1248 interface and supports a
+CPU-Style FIFO mode, bit-bang and a fast serial interface mode.
+
+4.1 Key Features
+
+USB Hi-Speed to UART/FIFO Interface. The FT232H provides USB 2.0 Hi-Speed (480Mbits/s) to
+flexible and configurable UART/FIFO Interfaces.
+
+Functional Integration. The FT232H integrates a USB protocol engine which controls the physical
+Universal Transceiver Macrocell Interface (UTMI) and handles  all aspects of the USB 2.0 Hi-Speed
+interface. The FT232H includes an integrated +1.8V/3.3V Low Drop-Out (LDO) regulator. It also includes
+1Kbytes Tx and Rx data buffers. The FT232H integrates the entire USB protocol on a chip with no
+firmware required.
+
+MPSSE. Multi- Protocol Synchronous Serial Engines (MPSSE), capable of speeds up to 30 Mbits/s,
+provides flexible synchronous interface configurations.
+
+FT1248 interface. The FT232H supports a new proprietary half-duplex FT1248 interface with a variable
+bi-directional data bus interface that can be configured as 1, 2, 4, or 8-bits wide and this enables the
+flexibility to expand the size of the data bus to 8 pins. For details regarding 2-bit, 4-bit and 8-bit modes,
+please refer to application note AN_167_FT1248_Serial_Parallel Interface Basics available from the FTDI
+website.
+
+Data Transfer rate. The FT232H supports a data transfer rate up to 12 Mbaud when configured as an
+RS232/RS422/RS485 UART interface up to 40 Mbytes/second over a synchronous 245 parallel FIFO
+interface or up to 8 Mbyte/Sec over an asynchronous 245 FIFO interface. Please note the FT232H does
+not support the baud rates of 7 Mbaud 9 Mbaud, 10 Mbaud and 11 Mbaud.
+
+Latency Timer. A feature of the driver used as a timeout to transmit short packets of data back to the
+PC. The default is 16ms, but it can be altered between 0ms and 255ms.
+
+Bus (ACBUS)  functionality,  signal  inversion and  drive  strength  selection.  There  are 11
+configurable ACBUS I/O pins. These configurable options are:
+
+    1. TXDEN – transmit enable for RS485 designs.
+    2. PWREN# - Power control for high power, bus powered designs.
+    3. TXLED# - for pulsing an LED upon transmission of data.
+    4. RXLED# - for pulsing an LED upon receiving data.
+    5. TX&RXLED# - which will pulse an LED upon transmission OR reception of data.
+    6. SLEEP# - indicates that the device going into USB suspend mode.
+    7. CLK30 / CLK15 / CLK7.5 – 30MHz, 15MHz and 7.5MHz clock output signal options.
+    8.  TriSt-PU – Input pulled up, not used
+    9. DRIVE 1 – Output driving high
+    10. DRIVE 0 – Output driving low
+    11. I/O mode – ACBUS Bit Bang
+
+The ACBUS pins can also be individually configured as GPIO pins, similar to asynchronous bit bang mode.
+It is possible to use this mode while the UART interface is being used, thus providing up to 4 general
+purpose I/O pins which are available during normal operation.
+
+The ACBUS lines can be configured with any one of these input/output options by setting bits in the
+external EEPROM see section 0.
+
+Copyright © Future Technology Devices International Limited                                           18
+
+===== PAGE 19 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+4.2  Functional Block Descriptions
+
+Multi-Purpose UART/FIFO Controllers. The FT232H has one independent UART/FIFO Controller. This
+controls the UART data, 245 FIFO data, Fast Serial (opto isolation) or Bit-Bang mode which can be
+selected by SETUP (FT_SetBitMode) command.  Each Multi-Purpose UART/FIFO Controller also contains
+an MPSSE (Multi-Protocol Synchronous Serial Engine). Using this MPSSE, the Multi-Purpose UART/FIFO
+Controller can be configured under software command, to have one of the MPSSE (SPI (MASTER), I2C,
+and JTAG).
+
+USB Protocol Engine and FIFO control. The USB Protocol Engine controls and manages the interface
+between the UTMI PHY and the FIFOs of the chip. It also handles power management and the USB
+protocol specification.
+
+Port FIFO TX Buffer (1Kbytes). Data from the Host PC is stored in these buffers to be used by the
+Multi-purpose UART/FIFO controllers. This is controlled by the USB Protocol Engine and FIFO control
+block.
+
+Port FIFO RX Buffer (1Kbytes). Data from the Multi-purpose UART/FIFO controllers is stored in these
+blocks to be sent back to the Host PC when requested. This is controlled by the USB Protocol Engine and
+FIFO control block.
+
+RESET Generator – The integrated Reset Generator Cell provides a reliable power-on reset to the device
+internal circuitry at power up. The RESET# input pin allows an external device to reset the FT232H.
+RESET# should be tied to VCCIO (+3.3V) if not being used.
+
+Baud Rate Generators – The Baud Rate Generators provides an x16 or an x10 clock input to the
+UART’s from a 120MHz reference clock and consists of a 14 bit pre-scaler and 4 register bits which
+provide fine tuning of the baud rate (used to divide by a number plus a fraction). This determines the
+Baud Rate of the UART which is programmable from 183 baud to 12 Mbaud. See FTDI application note
+AN_120 on the FTDI website for more details.
+
+EEPROM Interface. If the external EEPROM is fitted, the FT232H can be configured as an asynchronous
+serial UART (default mode), parallel FIFO (245) mode, FT1248, fast serial (opto isolation) or CPU-Style
+FIFO. The EEPROM should be a 16 bit wide configuration such as a 93LC56B or equivalent capable of a
+1Mbit/s clock rate at VCCIO = +2.97V to 3.63V. The EEPROM is programmable in-circuit over USB using
+a utility program called FT_Prog available from FTDI web site. Please note that the 93LC46B is not
+compatible with the FT232H device.
+
++1.8/3.3V LDO Regulator. The +3.3/+1.8V LDO regulator generates +1.8 volts for the core and the
+USB transceiver cell and +3.3V for the IO and the internal PLL and USB PHY power supply.
+
+UTMI PHY. The Universal Transceiver Macrocell Interface (UTMI) physical interface  cell. This block
+handles the Full speed / Hi-Speed SERDES (serialise – deserialise) function for the USB TX/RX data. It
+also provides the clocks for the rest of the chip. A 12 MHz crystal must be connected to the OSCI and
+OSCO pins or 12 MHz Oscillator must be connected to the OSCI, and the OSCO is left unconnected. A 12K
+Ohm resistor should be connected between REF and GND on the PCB.
+
+The UTMI PHY functions include:
+
+        Supports 480 Mbit/s “Hi-Speed” (HS)/ 12 Mbit/s “Full Speed” (FS).
+       SYNC/EOP generation and checking
+        Data and clock recovery from serial stream on the USB.
+        Bit-stuffing/unstuffing; bit stuff error detection.
+       Manages USB Resume, Wake Up and Suspend functions.
+        Single parallel data clock output with on-chip PLL to generate higher speed serial data clocks.
+
+Copyright © Future Technology Devices International Limited                                           19
+
+===== PAGE 20 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+4.3 FT232 UART Interface Mode Description
+
+The FT232H can be configured as a UART with external line drivers, similar to operation with the FTDI
+FT232R devices. The following examples illustrate how to configure the FT232H with an RS232, RS422 or
+RS485 interface.
+
+4.3.1   RS232 Configuration
+
+Figure 4.1 illustrates how the FT232H can be configured with an RS232 UART interface.
+
+                              Figure 4.1 RS232 Configuration
+
+Copyright © Future Technology Devices International Limited                                           20
+
+===== PAGE 21 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+4.3.2   RS422 Configuration
+
+Figure 4.2 illustrates how the FT232H can be configured as a RS422 interface.
+
+                            Figure 4.2 Dual RS422 Configuration
+
+In this case the FT232H is configured as UART operating at TTL levels and a level converter device (full
+duplex RS485 transceiver) is used to convert the TTL level signals from the FT232H to RS422 levels. The
+PWREN# signal is used to power down the level shifters such that they operate in a low quiescent current
+when the USB interface is in suspend mode.
+
+Copyright © Future Technology Devices International Limited                                           21
+
+===== PAGE 22 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+4.3.3   RS485 Configuration
+
+Figure 4.3 illustrates how the FT232H can be configured as a RS485 interface.
+
+                            Figure 4.3 Dual RS485 Configuration
+
+In this case the FT232H is configured as a UART operating at TTL levels and a level converter device (half
+duplex RS485 transceiver) is used to convert the TTL level signals from the FT232H to RS485 levels. With
+RS485, the transmitter is only enabled when a character is being transmitted from the UART. The TXDEN
+pin on the FT232H is provided for exactly that purpose, and so the transmitter enables are wired to the
+TXDEN. RS485 is a multi-drop network – i.e. many devices can communicate with each other over a
+single two wire cable connection. The RS485 cable requires to be terminated at each end of the cable.
+Links are provided to allow the cable to be terminated if the device is physically positioned at either end
+of the cable.
+
+Copyright © Future Technology Devices International Limited                                           22
+
+===== PAGE 23 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+4.4 FT245 Synchronous FIFO Interface Mode Description
+
+When FT232H is configured in an FT245 Synchronous FIFO interface mode the IO timing of the signals
+used are shown in Figure 4.4 which shows details for read and write accesses. The timings are shown in
+Figure 4.4.Note that only a read or a write cycle can be performed at any one time. Data is read or
+written on the rising edge of the CLKOUT clock.
+
+               Figure 4.4 FT245 Synchronous FIFO Interface Signal Waveforms
+
+Copyright © Future Technology Devices International Limited                                           23
+
+===== PAGE 24 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+ Name    Min    Nom   Max   Units                Comments
+    t1               16.67            ns                  CLKOUT period
+    t2       7.5      8.33    9.17     ns                CLKOUT high period
+    t3       7.5      8.33    9.17     ns                 CLKOUT low period
+    t4       0               9      ns                 CLKOUT to RXF#
+    t5       0               9      ns             CLKOUT to read DATA valid
+    t6       0               9      ns              OE# to read DATA valid
+    t7       7.5              16.67    ns                OE# setup time
+    t8       0                        ns                 OE# hold time
+    t9       7.5              16.67    ns    RD# setup time to CLKOUT (RD# low after OE# low)
+   t10       0                        ns                RD# hold time
+   t11       0               9      ns                 CLKOUT TO TXE#
+   t12       7.5              16.67    ns                   Write DATA setup time
+   t13       0                        ns                    Write DATA hold time
+   t14       7.5              16.67    ns   WR# setup time to CLKOUT (WR# low after TXE# low)
+   t15       0                                WR# hold time
+                Table 4.1 FT245 Synchronous FIFO Interface Signal Timings
+
+This mode uses a synchronous interface to get high data transfer speeds. The chip drives a 60 MHz
+CLKOUT clock for the external system to use.
+
+Note that Asynchronous FIFO mode must be selected in the EEPROM before selecting the Synchronous
+FIFO mode in software.
+
+4.4.1   FT245 Synchronous FIFO Read Operation
+
+A read operation is started when the chip drives RXF# low. The external system can then drive OE# low
+to turn the data bus drivers around before acknowledging the data with the RD# signal going low. The
+first data byte is on the bus after OE# is low. The external system can burst the data out of the chip by
+keeping RD# low or it can insert wait states in the RD# signal. If there is more data to be read it will
+change on the clock following RD# sampled low. Once all the data has been consumed, the chip will drive
+RXF# high. Any data that appears on the data bus, after RXF# is high, is invalid and should be ignored.
+
+4.4.2   FT245 Synchronous FIFO Write Operation
+
+A write operation can be started when TXE# is low. WR# is brought low when the data is valid. A burst
+operation can be done on every clock providing TXE# is still low. The external system must monitor TXE#
+and its own WR# to check that data has been accepted. Both TXE# and WR# must be low for data to be
+accepted.
+
+Copyright © Future Technology Devices International Limited                                           24
+
+===== PAGE 25 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+4.5 FT245 Style Asynchronous FIFO Interface Mode Description
+
+The FT232H can be configured as an asynchronous FIFO  interface.  This mode  is  similar  to the
+synchronous FIFO interface with the exception that the data is written to or read from the FIFO on the
+falling edge of the WR# or RD# signals.
+
+This mode does not provide a CLKOUT signal and it does not expect an OE# input signal. The following
+diagrams illustrate the asynchronous FIFO mode timing.
+
+           Figure 4.5 FT245 Asynchronous FIFO Interface READ Signal Waveforms
+
+           Figure 4.6 FT245 Asynchronous FIFO Interface WRITE Signal Waveforms
+
+  Time                        Description                    Min    Max       Units
+   T1     RD# inactive to RXF#                               1       14     ns
+   T2     RXF# inactive after RD# cycle                        49              ns
+   T3     RD# to DATA                                      1       14     ns
+   T4     RD# active pulse width                              30              ns
+   T5     RD# active after RXF#                               0               ns
+   T6    WR# active to TXE# inactive                          1       14     ns
+   T7     TXE# active to TXE# after WR# cycle                  49              ns
+   T8     DATA to WR# active setup time                        5               ns
+   T9     DATA hold time after WR# inactive                     5               ns
+   T10    WR# active pulse width                             30              ns
+   T11    WR# active after TXE#                              0               ns
+        Table 4.2 Asynchronous FIFO Timings (based on standard drive level outputs)
+
+Copyright © Future Technology Devices International Limited                                           25
+
+===== PAGE 26 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+4.6 FT1248 Interface Mode Description
+
+The FT232H supports a half-duplex FT1248 Interface that provides a flexible data communication and
+high performance interface between the FT232H as a FT1248 slave and an external FT1248 master. The
+FT1248 protocol is a dynamic bi-directional data bus interface that can be configured as 1, 2, 4, or 8-bits
+wide.
+
+ FPGA (FT1248 Master)                             FT232H (FT1248 Slave)
+
+                    SCLK                                                SCLK
+
+                     MIOSIO                                     [7:0]                        MIOSIO
+
+                     MISO                                                MISO
+
+                      SS#                                                  SS#
+
+                    Figure 4.7 FT1248 Bus with Single Master and Slave.
+
+In the FT1248 there are 3 distinct phases:
+
+While SS_n  is inactive, the FT1248 reflects the status of the write buffer and read buffers on the
+MIOSIO[0] and MISO wires respectively. Additionally, the FT1248 slave block supports multiple slave
+devices where a master can communicate with multiple FT1248 slave devices. When the slave is sharing
+buses with other FT1248 slave devices, the write and read buffer status cannot be reflected on the
+MIOSIO[0] and MISO wires during SS_n inactivity as this would cause bus contention. Therefore, it is
+possible for the user to select whether they wish to have the buffer status switched on or off during
+inactivity. When SS_n is active a command/bus size phase occurs first. Following the command phase is
+the data phase, for each data byte transferred the FT1248 slave drives an ACK/NAK status onto the MISO
+wire. The master can send multiple data bytes so long as SS_n is active, if a unsuccessful data transfer
+occurs, i.e. a NAK happens on the MISO wire then the master should immediately abort the transfer by
+de-asserting SS_n.
+
+             CLK
+
+             SCLK
+
+                                                             READ                                                                                                              WRITE
+              SS_n
+
+                                                                                                         WRITE DATA
+
+                                                                               BUS TURNAROUND
+
+            MIOSIO[0]       TXE#                 CMD                          RDATA0                         RDATA1                         RDATA2                            TXE#                        CMD                       WDATA 0                      WDATA 1                   TXE#
+
+             MISO       RXF#                                                  STATUS                        STATUS                         STATUS                            RXF#                                                           STATUS                        STATUS                   RXF#
+
+                        Figure 4.8 FT1248 Basic Waveform Protocol
+
+Section 4.6.2 illustrates the FT1248 write and read protocol operating in 1-bit mode. For details regarding
+2-bit, 4-bit and 8-bit modes, please refer to application note AN_167_FT1248 Parallel Serial Interface
+Basics available at http://www.ftdichip.com.
+
+Copyright © Future Technology Devices International Limited                                           26
+
+===== PAGE 27 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+4.6.1   Bus Width Protocol Decode
+
+In order for the FT1248 master to determine the bus width within the command phase the bus width is
+encoded along with the actual commands on the first active clock edge when SS_n is active and has a
+data width of 8-bits.
+
+If any of the MIOSIO [7:4] signals are low then the data transfer width equals 8-bits.
+
+If any of the MIOSIO [3:2] signals are low then the data transfer width equals 4-bits.
+
+If MIOSIO [1] signal is low then the data transfer width equals 2-bits.
+
+Else the bus width is defaulted to 1-bit.
+
+Please note that  if both of the MIOSIO bit signals are low then the data transfer width is equal to the
+width of high priority MIOSIO bit signal.  For example if both of the MIOSIO [7:3] signals are low then
+the data transfer width equals 8-bits or if both of the MIOSIO [3:1] signals are low then the data transfer
+width equals 4-bits.
+
+In order to successfully decode the bus width, all MIOSIO signals must have pull up resistors. By default,
+all MIOSIO signals shall be seen by the FT232H in FT1248 mode as logic ‘1’. This means that when a
+FT1248 master does not wish to use certain MIOSIO signals the slave (FT232H)  is  still capable of
+determining the requested bus width since any unused MIOSIO signals shall be pull up in the slave.
+
+The remaining bits used during the command phase are used to contain the command itself which means
+that it is possible to define up to 16 unique commands.
+
+           LSB                                                    MSB
+
+           CMD[3]  BWID 2-bit BWID 4-bit   CMD[2]  BWID 8-bit   CMD[1]    CMD[0]     X
+
+              0         1         2         3         4         5         6         7
+
+ 1-bit Bus
+           CMD[3]     X       X      CMD[2]     X      CMD[1]    CMD[0]     X
+  Width
+              0         1         2         3         4         5         6         7
+
+ 2-bit Bus
+           CMD[3]       0        X      CMD[2]     X      CMD[1]    CMD[0]     X
+  Width
+              0         1         2         3         4         5         6         7
+
+ 4-bit Bus
+           CMD[3]     X         0       CMD[2]     X      CMD[1]    CMD[0]     X
+  Width
+              0         1         2         3         4         5         6         7
+
+ 8-bit Bus
+           CMD[3]     X       X      CMD[2]       0       CMD[1]    CMD[0]     X
+  Width
+              0         1         2         3         4         5         6         7
+
+                           Figure 4.9 FT1248 Command Structure
+
+For more details about FT1248 Interface, please refer to application note AN_167_FT1248 Parallel Serial
+Interface Basics available at http://www.ftdichip.com.
+
+Copyright © Future Technology Devices International Limited                                           27
+
+===== PAGE 28 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+4.6.2   FT1248: 1-bit interface
+
+The FT1248 Interface transfers data over different bus widths (1-bit, 2-bit, 4-bit and 8-bit). Figure 4.21
+and Figure 4.22 illustrates the waveform detailing the FT1248 write and read protocol operating in 1-bit
+mode with flow control. Please refer to the application notes AN_167_FT1248 Parallel Serial Interface
+Basics available at http://www.ftdichip.com for more details regarding 1-bit without flow control, 2-bit, 4-
+bit and 8-bit modes.
+
+              SCLK
+
+               SS_n
+
+                                           COMMAND PHASE                                          WRITE DATA
+
+                                      BUS TURNAROUND                              BUS TURNAROUND                            BUS TURNAROUND
+
+             MIOSIO[0]       TXE#        CMD3   0      0   CMD2    0   CMD1 CMD0         B7    B6    B5    B4    B3    B2    B1   B0        TXE#
+
+             MIOSIO[7:1]                                                         PULLED HIGH
+
+               MISO      RXF#                                                     TXE#  ACK                                              RXF#
+
+                      Figure 4.10 FT1248 1-bit Mode Protocol (WRITE)
+
+              SCLK
+
+               SS_n
+
+                                           COMMAND PHASE                                       READ DATA
+
+                                      BUS TURNAROUND                              BUS TURNAROUND
+
+             MIOSIO[0]       TXE#        CMD3   0      0   CMD2    0   CMD1 CMD0         B7    B6    B5    B4    B3    B2    B1    B0       TXE#
+
+             MIOSIO[7:1]                                                         PULLED HIGH
+
+              MISO      RXF#                                                   RXF#  ACK                                              RXF#
+
+                       Figure 4.11 FT1248 1-bit Mode Protocol (READ)
+
+Copyright © Future Technology Devices International Limited                                           28
+
+===== PAGE 29 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+When SS_n is inactive the write buffer and read buffer status is reflected on the MIOSIO[0] and MISO
+signals respectively. When the master wishes to initiate a data transfer, SS_n becomes active. As soon as
+SS_n becomes active the SPI slave immediately stops driving the MIOSIO[0] signal and SPI master is not
+allowed to begin driving the MIOSIO[0] signal until the first clock edge, this ensures that bus contention
+is avoided.
+
+On the first clock edge the command is shifted out for 7 clocks, on the 8th clock cycle a bus turnaround is
+required. The bus turnaround is required as the slave may be required to drive the MIOSIO[0] bus with
+read data. The data phase occurs in response to the command and so long as SS_n remains active. The
+data phase in 1-bit mode requires 8 clock cycles where the MIOSIO[0] signal transfers the requested
+write or read data. The MISO signal indicates to the master the success of the transfer with an ACK or
+NAK.
+
+The status is reflected through the whole of the data phase and is valid from the first clock edge. If the
+master is writing data to the slave, then on the last clock edge before it de-asserts SS_n must tristate
+the MIOSIO[0] signal to enable the bus to be “turned” around as when SS_n becomes inactive the
+FT1248 slave shall begin to drive the write buffer status onto the MIOSIO[0] signal. When the SPI slave
+is driving the MIOSIO[0] (the master is reading data) no bus turnaround is required as when SS_n
+becomes inactive it is required to drive the write buffer status to the FT1248 master.
+
+4.7  Synchronous and Asynchronous Bit-Bang Interface Mode
+
+The FT232H can be configured as a bit-bang  interface. There are two types of bit-bang modes:
+synchronous and asynchronous.
+
+See application note AN2232-02 Bit Mode Functions for the FT232 for more details and examples of using
+both Synchronous and Asynchronous bit-bang modes.
+
+4.7.1   Asynchronous Bit-Bang Mode
+
+Asynchronous Bit-Bang mode is the same as BM-style Bit-Bang mode, except that the internal RD# and
+WR# strobes (RDSTB# and WRSTB#) are now brought out of the device to allow external logic to be
+clocked by accesses to the bit-bang IO bus.
+
+Any data written to the device in the normal manner will be self-clocked onto the data pins (those which
+have been configured as outputs). Each pin can be independently set as an input or an output. The rate
+that the data is clocked out at is controlled by the baud rate generator.
+
+New data must be written, and the baud rate clock should tick to change the data. If no new data is
+written to the chip, the pins configured for output will hold the last value written.
+
+Asynchronous Bit-Bang mode is enabled using the FT_SetBitMode D2xx driver command with a hex value
+of 0x01.
+
+4.7.2   Synchronous Bit-Bang Mode
+
+The synchronous Bit-Bang mode will only update the output parallel port pins whenever data is sent from
+the USB interface to the parallel interface. When this is done, the WRSTB# will activate to indicate that
+the data has been read from the USB Rx FIFO buffer and written out on the pins. Data can only be
+received from the parallel pins (to the USB Tx FIFO interface) after the parallel interface has been written
+to.
+
+With Synchronous Bit-Bang mode data will only be sent out by the FT232H  if there is space in the
+FT232H USB TXFIFO for data to be read from the parallel interface pins. This Synchronous Bit-Bang mode
+will read the data bus parallel I/O pins first, before it transmits data from the USB RxFIFO. It is therefore
+1 byte behind the output, and so to read the inputs for the byte that you have just sent, another byte
+must be sent.
+
+For example:
+
+Figure 1.   Pins start at 0xFF
+Send 0x55, 0xAA
+
+Copyright © Future Technology Devices International Limited                                           29
+
+===== PAGE 30 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+Pins go to 0x55 and then to 0xAA
+Data read = 0xFF,0x55
+
+(2) Pins start at 0xFF
+Send 0x55, 0xAA, 0xAA
+(repeat the last byte sent)
+Pins go to 0x55 and then to 0xAA
+
+Data read = 0xFF, 0x55, 0xAA
+
+Synchronous Bit-Bang Mode differs from Asynchronous Bit-Bang mode in that the device parallel output
+is only read when the parallel output is written to by the USB interface. This makes  it easier for the
+controlling program to measure the response to a USB output stimulus as the data returned to the USB
+interface is synchronous to the output data.
+
+Synchronous Bit-Bang mode is enabled using Set Bit Bang Mode driver command with a hex value of
+0x04.
+
+An example of the synchronous bit-bang mode timing is shown in Figure 4.12
+
+          WRSTB#
+
+           RDSTB#
+
+              Figure 4.12 Synchronous Bit-Bang Mode Timing Interface Example
+
+WRSTB# = this output indicates when new data has been written to the I/O pins from the Host PC (via
+the USB interface).
+
+      Name                                  Description
+           t1                                  Current pin state is read
+                    RDSTB# is set inactive and data on the parallel I/O pins is read and
+           t2                                   sent to the USB host.
+                   RDSTB# is set active again, and any pins that are output will change
+         T3                                        to their new data
+           t4                        1 clock cycle to allow for data setup
+                  WRSTB# goes active. This indicates that the host PC has written new
+           t5                             data to the I/O parallel data pins
+           t6                         WRSTB# goes inactive
+          Table 4.3 Synchronous Bit-Bang Mode Timing Interface Example Timings
+
+RDSTB# = this output rising edge indicates when data has been read from the I/O pins and sent to the
+Host PC (via the USB interface).
+
+The WRSTB# goes active in t5. The WRSTB# goes active when data is read from the USB RXFIFO (i.e.
+sent from the PC). The RDSTB# goes inactive when data is sampled from the pins and written to the USB
+TXFIFO (i.e. sent to the PC). The SETUP command to the FT232H is used to setup the bit-mode. This
+command also contains a byte wide data mask to set the direction of each bit. The direction on each pin
+doesn’t change unless a new SETUP command is used to modify the direction.
+
+The WRSTB# and RDSTB# strobes are only a guide to what may be happening depending on the
+direction of the bus. For example if all pins are configured as inputs, it is still necessary to write to these
+pins in order to get the FT232H to read those pins even though the data written will never appear on the
+pins.
+
+Copyright © Future Technology Devices International Limited                                           30
+
+===== PAGE 31 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+Signals and data-flow are illustrated in Figure 4.13
+
+                                                          WRSTB#
+
+                          USB Rx
+                                    FIFO/
+                                          Buffer
+                                                                Parallel
+          USB                                                          Parallel I/O  I/O pins
+                                                                                   data
+
+                           USB Tx
+                                     FIFO/
+                                          Buffer
+                                                             RDSTB#
+
+                  Figure 4.13- Bit-bang Mode Dataflow Illustration Diagram
+
+4.8 MPSSE Interface Mode Description
+
+MPSSE Mode is designed to allow the FT232H to interface efficiently with synchronous serial protocols
+such as JTAG, I2C and SPI (MASTER) Bus. It can also be used to program SRAM based FPGA’s over USB.
+The MPSSE interface is designed to be flexible so that  it can be configured to allow any synchronous
+serial protocol (industry standard or proprietary) to be implemented using the FT232H.
+
+MPSSE is fully configurable, and is programmed by sending commands down the data stream. These can
+be sent individually or more efficiently in packets. MPSSE is capable of a maximum sustained data rate of
+30 Mbits/s.
+
+When the FT232H is configured in MPSSE mode, the IO timing and signals used are shown in Figure 4.14
+and Table 4.4 These show timings for CLKOUT=30MHz. CLKOUT can be divided internally to be provide a
+slower clock.
+
+                           Figure 4.14 MPSSE Signal Waveforms
+
+ Name    Min     Typ    Max   Units                Comments
+    t1        32.66       33.33      33.99    ns                  CLKOUT period
+    t2         15        16.67      18.33    ns                CLKOUT high period
+    t3         15        16.67      18.33    ns                 CLKOUT low period
+    t4         0                     7.50     ns              CLKOUT to TDI/DO delay
+    t5         0                        ns                  TDI/DO hold time
+    t6         11                       ns                  TDI/DO setup time
+                             Table 4.4 MPSSE Signal Timings
+
+Copyright © Future Technology Devices International Limited                                           31
+
+===== PAGE 32 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+MPSSE mode is enabled using the FT_SetBitMode D2xx driver command with a hex value of 0x02. A hex
+value of 0x00 will reset the device. See application note AN135 – MPSSE Basics for more details and
+examples.
+
+The MPSSE command set is fully described in application note AN108 – Command Processor For MPSSE
+and MCU Host Bus Emulation Modes.
+
+4.8.1   MPSSE Adaptive Clocking
+
+The Adaptive Clock mode correlates the CLK signal with a return clock RTCK. This is a technique used by
+ARM® processors.
+
+The FT232H will assert the TCK line and wait for the RTCK to be returned from the target device to
+GPIOL3 line before changing the TDO (data out line).
+
+                         TDO
+
+                          TCK
+
+                          GPIOL3
+                                               RTCK
+
+                                                           ARM CPU
+                            FT2232H
+
+                         Figure 4.15 Adaptive Clocking Interconnect
+
+                                         TDO changes on falling
+                                                         edge of TCK
+
+ TDO
+
+ TCK
+
+ RTCK
+
+                          Figure 4.16 Adaptive Clocking Waveform
+
+Adaptive clocking is not enabled by default.
+
+For further details on MPSSE adaptive clocking please refer to AN_108 Command Processor For MPSSE
+and MCU Host Bus Emulation Modes.
+
+Copyright © Future Technology Devices International Limited                                           32
+
+===== PAGE 33 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+4.9  Fast Serial Interface Mode Description
+
+Fast Serial Interface Mode provides a method of communicating with an external device over USB using 4
+wires that can have opto-isolators in their path, thus providing galvanic isolation between systems. Fast
+serial mode is enabled by setting the appropriate bits in the external EEPROM. The fast serial mode can
+be held in reset by setting a bit value of 0x10 using the FT_SetBitMode D2XX driver command. While this
+bit is set the device is held reset – data can be sent to the device, but it will not be sent out by the device
+until the device is enabled again. This is done by sending a bit value of 0x00 using the Set Bit Mode
+command.
+
+When the FT232H is configured in Fast Serial Interface mode the IO timing of the signals used are shown
+in Figure 4.17 and the timings are shown in Table 4.5 Fast Serial Interface Signal Timings.
+
+                     Figure 4.17 Fast Serial Interface Signal Waveforms
+
+Name   Minimum Typical  Maximu  Units     Description
+
+ t1               5                     ns       FSDO/FSCTS hold time
+ t2               5                     ns       FSDO/FSCTS setup time
+
+ t3               5                     ns       FSDI hold time
+
+ t4              10                     ns       FSDI Setup Time
+
+ t5              10                     ns       FSCLK low
+ t6              10                     ns       FSCLK high
+
+ t7              20                     ns       FSCLK Period
+
+                       Table 4.5 Fast Serial Interface Signal Timings
+
+Copyright © Future Technology Devices International Limited                                           33
+
+===== PAGE 34 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+4.9.1   Outgoing Fast Serial Data
+
+To send fast serial data out of the FT232H, the external device must drive the FSCLK clock. If the FT232H
+has data ready to send, it will drive FSDO output low to indicate the start bit. It will not do this if it is
+currently receiving data from the external device. This is illustrated in Figure 4.18.
+
+    FSCLK
+
+    FSDO          0    D0    D1    D2    D3    D4    D5   D6    D7  SRCE
+                          Start                                                     Source
+                           Bit                      Data Bits - LSB first                        Bit
+
+                        Figure 4.18 Fast Serial Interface Output Data
+Notes:
+
+    1.  The first bit output (Start bit) is always 0.
+    2. FSDO is always sent LSB first.
+    3.  The last serial bit output is the source bit (SRCE) is always 0.
+    4.   If the target device is unable to accept the data when it detects the START bit, it should stop the
+      FSCLK until it can accept the data.
+
+4.9.2   Incoming Fast Serial Data
+
+An external device is allowed to send data into the FT232H if FSCTS is high. On receipt of a zero START
+bit on FSDI, the FT232H will drop FSCTS on the next positive clock edge. The data from bits 0 to 7 are
+then clocked in (LSB first). The last bit (DEST) determines where the data will be written to. This bit is
+always 0 with the FT232H. This is illustrated in Figure 4.19.
+
+ FSCTS
+
+ FSCLK
+
+  FSDI           0    D0    D1    D2    D3    D4    D5   D6    D7  DEST
+                    Start                                                            Destination
+                      Bit                      Data Bits - LSB first                        Bit
+
+                        Figure 4.19 Fast Serial Interface Input Data
+Notes:
+
+    1.  The first bit input (Start bit) is always 0.
+    2.  FSDI is always received LSB first.
+    3.  The last received serial bit is the destination bit (DEST) is always 0.
+    4.  The target device should ensure that FSCTS is high before it sends data. FSCTS goes low after
+       data bit 0 (D0) and stays low until the chip can accept more data.
+
+Copyright © Future Technology Devices International Limited                                           34
+
+===== PAGE 35 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+4.9.3   Fast Serial Data Interface Example
+
+Figure  4.20  shows  example  of  two  Agilent  HCPL-2430  (see  the  semiconductor  section  at
+www.avagotech.com) Hi-Speed opto-couplers used to optically isolate an external device which interfaced
+to USB using the FT232H. In this example VCC5V is the USB VBUS supply and VCCE is the supply to the
+external device.
+
+Care must be taken with the voltage used to power the photo-LED. It must be the same voltage as that
+which the FT232H I/Os are driving to, or the LED’s may be permanently on. Limiting resistors should be
+fitted in the lines that drive the diodes. The outputs of the opto-couplers are open-collector and require a
+pull-up resistor.
+
+                         Figure 4.20 Fast Serial Interface Example
+
+4.10 CPU-style FIFO Interface Mode Description
+
+CPU-style FIFO interface mode is designed to allow a CPU to interface to USB via the FT232H. This mode
+is enabled in the external EEPROM. The interface is achieved using a chip select bit (CS#) and address bit
+(A0). When the FT232H is in CPU-style Interface mode, the IO signal lines are configured as given in
+Table 4.6. This mode uses a combination of CS# and A0 to determine the operation to be carried out.
+The following Truth-Table 4.7 gives the decode values for particular operations.
+
+CS#               A0               RD#            WR#
+1                   X                   X                   X
+0                     0                     Read Data Pipe           Write Data Pipe
+0                     1                     Read Status            Send Immediate
+                    Table 4.6 CPU-Style FIFO Interface Operation Select
+
+Copyright © Future Technology Devices International Limited                                           35
+
+===== PAGE 36 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+The Status read is shown in Table 4.7 –
+
+            Data Bit              Data                   Status
+                  bit 0                  1                      Data available (=RXF)
+                  bit 1                  1                      Space available (=TXE)
+                  bit 2                  1                     Suspend
+                  bit 3                  1                        Configured
+                  bit 4                 X                   X
+                  bit 5                 X                   X
+                  bit 6                 X                   X
+                  bit 7                 X                   X
+            Table 4.7 CPU-Style FIFO Interface Operation Read Status Description
+
+Note that bits 7 to 4 can be arbitrary values and that X= not used.
+
+The timing of reading and writing in this mode is shown in Figure 4.21 and Table 4.8.
+
+              Figure 4.21 CPU-Style FIFO Interface Operation Signal Waveforms
+
+Data Bit     Nom    Max      Units     Comment
+t1             5                  ns        A0/CS# setup time to WR#
+t2             5                  ns        A0/CS# hold time after WR# inactive
+t3             5                  ns        A0/CS# setup time to RD#
+t4             5                  ns        A0/CS# hold time after RD# inactive
+t5             5                  ns       D to WR# 36active setup time
+t6             5                  ns       D hold time after WR# inactive
+t7             1       14        ns       RD# to D
+t8             30                 ns      WR# active pulse width
+t9             30                 ns       RD# active pulse width
+                Table 4.8 CPU-Style FIFO Interface Operation Signal Timing
+
+An example of the CPU-style FIFO interface connection is shown in Figure 4.22
+
+Copyright © Future Technology Devices International Limited                                           36
+
+===== PAGE 37 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+                       Figure 4.22 CPU-Style FIFO Interface Example
+
+4.11 RS232 UART Mode LDE Interface Description
+
+When configured  in UART mode the FT232H has two IO pins dedicated to controlling LED status
+indicators, one for transmitted data the other for received data. When data is being transmitted or
+received the respective pins drive from tristate to low in order to provide indication on the LED’s of data
+transfer. A digital one-shot timer is used so that even a small percentage of data transfer is visible to the
+end user.
+
+                          Figure 4.23 Dual LED UART Configuration
+
+Figure 4.23 shows a configuration using two individual LED’s – one for transmitted data the other for
+received data.
+
+Copyright © Future Technology Devices International Limited                                           37
+
+===== PAGE 38 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+                         Figure 4.24 Single LED UART Configuration
+
+In Figure 4.24 transmit and receive LED indicators are wire-OR’ed together to give a single LED indicator
+which indicates any transmit or receive data activity.
+
+Note that the LED’s are connected to the same supply as VCCIO.
+
+4.12 Send Immediate/Wake Up (SIWU#)
+
+The SIWU# pin is available in the FIFO modes and in bit bang mode.
+
+The Send Immediate portion is used to flush data from the chip back to the PC. This can be used to force
+short packets of data back to the PC without waiting for the latency timer to expire.
+
+To avoid overrunning, this mechanism should only be used when a process of sending data to the chip
+has been stopped.
+
+The data transfer is flagged to the USB host by the falling edge of the SIWU# signal. The USB host will
+schedule the data transfer on the next USB packet.
+
+             CLKOUT
+
+             WR#
+
+                 D7-D0
+
+               SIWU#
+
+                                 Figure 4.25 Using SIWU#
+
+When the pin is being used for a Wake Up function to wake up a sleeping PC a 20ms negative pulse on
+this pin is required. When the pin is used to immediately flush the buffer (Send Immediate) a 250ns
+negative pulse on this pin is required.
+
+Copyright © Future Technology Devices International Limited                                           38
+
+===== PAGE 39 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+Notes:
+
+1. When using remote wake-up, ensure the resistors are pulled-up in suspend. Also ensure peripheral
+designs do not allow any current sink paths that may partially power the peripheral.
+2. If remote wake-up is enabled, a peripheral is allowed to draw up to 2.5mA in suspend. If remote
+wake-up is disabled, the peripheral must draw no more than 500uA in suspend.
+3. If a Pull-down is enabled, the FT232H will not wake up from suspend when using SIWU#
+4. In UART mode the RI# pin acts as the wake up pin.
+
+4.13 FT232H Mode Selection
+
+The FT232H defaults to asynchronous serial interface (UART) mode of operation.
+
+After a reset the required mode is determined by the contents of the external EEPROM which can be
+programmed using FT_Prog.
+
+The EEPROM contents determine  if the FT232H device  is configured as FT232 asynchronous  serial
+interface, FT245 FIFO interface, CPU-style FIFO interface, FT1248 or Fast Serial Interface.
+
+Following a reset, the EEPROM is read and the FT232H configured for the selected mode. After device
+enumeration, the FT_SetBitMode command (refer to D2XX_Programmers_Guide) can be sent to the
+USB driver to switch the selected interface into other modes – asynchronous bit-bang, synchronous bit-
+bang or MPSSE – if required.
+
+When in FT245 FIFO mode, the FT_SetBitMode command can be used to select Synchronous FIFO
+(FT_SetBitMode = 0x40). Note that FT245 FIFO mode must be configured in the EEPROM before
+selecting the Synchronous FIFO mode.
+
+The drive strength selection, slew rate and Schmitt input function can also be configured in the EEPROM.
+
+The MPSSE can be configured directly using the D2XX commands. The D2XX_Programmers_Guide is
+available from the FTDI website. The application note AN_108 – Command Processor for MPSSE and MCU
+Host Bus Emulation Modes gives further explanation and examples for the MPSSE.
+
+4.14 Modes Configuration
+
+This section summarises what modes are configurable using the external EEPROM or the application
+software.
+
+          ASYNC  STYLE    SYNC    FT1248  ASYNC  SYNC  MPSSE    Fast    CPU-
+               Serial  ASYNC    245                  Bit-     Bit-              Serial    Style
+          UART   245   PARALLEL          Bang   Bang           Interface  FIFO
+                    FIFO     FIFO
+ EEPROM             YES     YES      YES       YES     NO    NO    NO      YES     YES
+configured
+Application
+ Software    NO     NO       YES      NO     YES    YES    YES     RESET    NO
+configured
+              Table 4.9 Configuration Using EEPROM and Application Software
+Note:
+
+    1.  The Synchronous 245 FIFO mode requires both the EEPROM and application software mode
+        settings
+    2.  The application software can be used to reset the fast serial interface controller
+
+Copyright © Future Technology Devices International Limited                                           39
+
+===== PAGE 40 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+5 Devices Characteristics and Ratings
+5.1  Absolute Maximum Ratings
+
+The absolute maximum ratings for the FT232H devices are as follows. These are in accordance with the
+Absolute Maximum Rating System (IEC 60134). Exceeding these values may cause permanent damage to
+the device.
+
+           Parameter                          Value                 Unit    Conditions
+                                                                       Degrees
+         Storage Temperature                   -65°C to 150°C
+                                                               C
+    Floor Life (Out of Bag) At Factory               168 Hours
+              Ambient                 (IPC/JEDEC J-STD-033A MSL Level    Hours
+    (30°C / 60% Relative Humidity)              3 Compliant)*
+Ambient Operating Temperature (Power                                    Degrees                                              -40°C to 85°C
+                Applied)                                             C
+          MTTF FT232HL                       TBD                  Hours
+          MTTF FT232HL                       TBD                  Hours
+       VCORE Supply Voltage                       -0.3 to +2.0              V
+         VCCIO IO Voltage                         -0.3 to +4.0              V
+ DC Input Voltage – USBDP and USBDM              -0.5 to +3.63             V
+  DC Input Voltage – High Impedance
+    Bi-directional (ACBUS and ADBUS                  -0.3 to +5.8              V
+        powered from VCCIO)
+    DC Output Current – Outputs                    16              mA
+                           Table 5.1 Absolute Maximum Ratings
+
+* If devices are stored out of the packaging beyond this time limit the devices should be baked before
+use. The devices should be ramped up to a temperature of +125°C and baked for up to 17 hours.
+
+5.2 DC Characteristics
+
+The I/O pins are +3.3v cells, which are +5V tolerant (except the USB PHY pins).
+
+DC Characteristics (Ambient Temperature = -40°C to +85°C)
+
+Parameter        Description      Minimum  Typical  Maximum  Units     Conditions
+             VCC Core Operating
+  VCORE                                1.62       1.8       1.98      V                 Supply Voltage
+           VCCIO Operating Supply                                                      Cells are 5V  VCCIO*                                2.97                 3.63      V
+                      Voltage                                                                tolerant
+ VREGIN   VREGIN Voltage regulator                                       5 volt input to
+                                           3.6       5         5.5      V
+  5 Volts              Input                                                VREGIN
+ VREGIN   VREGIN Voltage regulator                                             3.3 volt input to
+                                           3.3        3.3        3.6      V 3.3 Volts             Input                                                VREGIN
+    Ireg          Regulator Current                 54            mA     VREGIN +5V
+    Ireg          Regulator Current                 52            mA     VREGIN +3.3V
+              Core Operating Supply                                    VCORE = +1.8V    Icc1                                        24            mA
+                      Current                                               Normal Operation
+                                                                VCORE = +1.8V
+                Core Reset Supply   Icc1r                                              4.3            mA     Device in reset
+                      Current
+                                                                                              state
+              Core Suspend Supply                                     VCORE = +1.8V
+   Icc1s                                       330               µA                      Current                                          USB Suspend
+                   Table 5.2 Operating Voltage and Current (except PHY)
+
+Note: Failure to connect all VCCIO pins of the device will have unpredictable behaviour.
+
+Copyright © Future Technology Devices International Limited                                           40
+
+===== PAGE 41 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+The I/O pins are +3.3v cells, which are +5V tolerant (except the USB PHY pins).
+
+Parameter        Description       Minimum  Typical  Maximum  Units     Conditions
+                                                                                  Ioh = +/-2mA
+                                           2.4     VCCIO    VCCIO     V        I/O Drive
+                                                                                   strength* = 4mA
+                                                                                    I/O Drive
+                                           2.4     VCCIO    VCCIO     V
+                                                                                   strength* = 8mA
+   Voh        Output Voltage High                                                  I/O Drive
+                                           2.4     VCCIO    VCCIO     V       strength* =
+                                                                 12mA
+                                                                                    I/O Drive
+                                           2.4     VCCIO    VCCIO     V       strength* =
+                                                                 16mA
+                                                                                                         Iol = +/-2mA
+                                               0         0.4      V        I/O Drive
+                                                                                   strength* = 4mA
+                                                                                    I/O Drive
+                                               0         0.4      V
+                                                                                   strength* = 8mA
+    Vol         Output Voltage Low                                                  I/O Drive
+                                               0         0.4      V       strength* =
+                                                                 12mA
+                                                                                    I/O Drive
+                                               0         0.4      V       strength* =
+                                                                 16mA
+                 Input low Switching      Vil                                                          0.8      V         LVTTL
+                     Threshold
+                Input High Switching
+    Vih                                     2.0                       V         LVTTL                     Threshold
+    Vt          Switching Threshold                   1.5               V         LVTTL
+              Schmitt trigger negative
+    Vt-                                     0.8        1.1               V              going threshold voltage
+              Schmitt trigger positive
+   Vt+                                               1.6        2.0      V              going threshold voltage
+   Rpu       Input pull-up resistance      40       75       190     KΩ         Vin = 0
+   Rpd      Input pull-down resistance     40       75       190     KΩ       Vin =VCCIO
+     Iin         Input Leakage Current       -10      +/-1      10      μA         Vin = 0
+                 Tristate output leakage
+    Ioz                                   -10      +/-1      10      μA     Vin = 5.5V or 0                       current
+           Table 5.3 I/O Pin Characteristics VCCIO = +3.3V (except USB PHY pins)
+
+* The I/O drive strength and slow slew-rate are configurable in the EEPROM.
+
+DC Characteristics (Ambient Temperature = -40°C to +85°C)
+
+Parameter      Description     Minimum  Typical  Maximum  Units       Conditions
+  VPHY,    PHY Operating Supply
+                                       3.0        3.3        3.6      V          3.3V I/O
+   VPLL             Voltage
+           PHY Operating Supply                                           Hi-speed operation at
+  Iccphy                                      ---       30       60     mA                    Current                                                480 MHz
+  Iccphy    PHY Operating Supply                                                ---       10       50      μA      USB Suspend
+   (susp)            Current
+                       Table 5.4 PHY Operating Voltage and Current
+
+ Parameter          Description        Minimum   Typical  Maximum  Units  Conditions
+    Voh          Output Voltage High      VCORE-0.2                     V
+     Vol           Output Voltage Low                                 0.2      V
+       Vil       Input low Switching Threshold                      -         0.8      V
+     Vih      Input High Switching Threshold      2.0           -                V
+                           Table 5.5 PHY I/O Pin Characteristics
+
+Copyright © Future Technology Devices International Limited                                           41
+
+===== PAGE 42 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+5.3 ESD Tolerance
+
+ESD protection for FT232H IO’s
+
+     Parameter                Reference         Minimum   Typical  Maximum  Units
+
+  Human Body Model      JEDEC EIA/JESD22-A114-B,                                                          ±2kV               kV
+       (HBM)                        Class 2
+                        JEDEC EIA/JESD22-A115-A,
+  Machine Mode (MM)                                        ±200V              V                                       Class B
+  Charge Device Model     JEDEC EIA/ JESD22-C101-D,
+                                                         ±500V              V       (CDM)                         Class-III
+       Latch-up             JESD78, Trigger Class-II              ±200mA          mA
+                                 Table 5.6 ESD Tolerance
+
+Copyright © Future Technology Devices International Limited                                           42
+
+===== PAGE 43 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+6 FT232H Configurations
+
+The following section illustrates possible USB power configurations for the FT232H.
+
+All USB power configurations illustrated apply to both package options for the FT232H device.
+
+6.1 USB Bus Powered Configuration
+
+Bus Powered Application example 1: Bus powered configuration running on +5V.
+
+                      Figure 6.1 Bus Powered Configuration Example 1
+
+Figure 6.1 illustrates the FT232H in a typical USB bus powered design configuration. A USB bus powered
+device gets its power from the VBUS (+5V) which is connected to VREGIN.  In this application, the
+VREGIN is the +5V input to the on chip +3.3V/1.8V regulator. The output of the on chip LDO regulator
+(+1.8V) drives pin 38, (VCORE), and pin 37, (VCCA).
+
+The output of the on chip LDO regulator (3.3V) supplies 3.3V to the VCCIOs, VPLL and VPHY through pin
+39, VCCD. Please note that when the FT232H running on +5V (VREGIN), the VCCD becomes an output.
+
+Note:
+        1.  In this application, pin 40 (VREGIN) is the +5V input to the on chip +3.3V/1.8V regulator.
+           Since the VREGIN is +5.0V, pin 39 (VCCD) becomes 3V3 output and supplies 3.3V to the
+          VCCIOs, VPLL and VPHY.
+        2.  The output of the on chip LDO +3.3V/1.8V regulator (+1.8V) drives pin 38, the FT232H core
+           supply (VCORE) and pin 37, the VCCA.
+
+Copyright © Future Technology Devices International Limited                                           43
+
+===== PAGE 44 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+6.2 USB Self Powered Configuration
+
+6.2.1   Self-Powered Application Example 1
+
+Self-powered configuration running on 5V.
+
+                      Figure 6.2 Self-Powered Configuration Example 1
+
+Figure 6.2 illustrates the FT232H in a typical USB self-powered configuration. A USB self-powered device
+gets its power from its own external power supply which is connected to VREGIN. In this application the
+VREGIN is the +5V input to the on chip +3.3V/1.8V regulator. The output of the on chip LDO regulator
+(+1.8V) drives pin 38, VCORE and pin 37, VCCA. The output of the on chip LDO regulator (3.3V) supplies
+
+3.3V to the VCCIOs, VPLL and VPHY through VCCD.
+
+Please note that when the FT232H running on +5V (VREGIN), the VCCD becomes an output.
+
+Note that in this set-up, the EEPROM should be configured for self-powered operation and the option
+“suspend on ACBUS7 low” is enabled in FT_Prog. This configuration uses the ACBUS7 pin, when this
+function is enabled ACBUS7 should not be used as a GPIO in MPSSE mode.
+
+Copyright © Future Technology Devices International Limited                                           44
+
+===== PAGE 45 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+6.2.2   Self-Powered Application Example 2
+
+Self-powered configuration running on 3.3V.
+
+                      Figure 6.3 Self-Powered Configuration Example 2
+
+Figure 6.3 illustrates the FT232H in a typical USB self-powered configuration similar to Figure 6.2. The
+difference here is that the VREGIN is connected to the external 3V3 LDO regulator output which supplies
+3.3V to the VCCIOs, VCCD, VPLL and VPHY. Please note that when the FT232H running on +3V3
+(VREGIN), the VCCD becomes an input. In this application the VREGIN is the +3V3 input to the on
+chip+3.3V/1.8V regulator. The output of the on chip LDO regulator (+1.8V) drives pin 38, VCORE and pin
+37, VCCA.
+
+Note that in this set-up, the EEPROM should be configured for self-powered operation and the option
+“suspend on ACBUS7 low” selected in FT_Prog. This configuration uses the ACBUS7 pin, when this
+function is enabled ACBUS7 should not be used as a GPIO in MPSSE mode.
+
+Copyright © Future Technology Devices International Limited                                           45
+
+===== PAGE 46 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+6.3  Oscillator Configuration
+
+                  Figure 6.4 Recommended FT232H Oscillator Configuration
+
+Figure 6.4 illustrates how to connect the FT232H with a 12MHz ± 0.003% crystal. In this case loading
+capacitors should to be added between OSCI, OSCO and GND as shown. A value of 27pF is shown as the
+capacitor in the example – this will be good for many crystals but it is recommended to select the loading
+capacitor value based on the manufacturer’s recommendations wherever possible. It is recommended to
+use a fundamental mode, parallel cut type crystal.
+
+It is also possible to use a 12 MHz Oscillator with the FT232H. In this case the output of the oscillator
+would drive OSCI, and OSCO should be left unconnected. The oscillator must have a CMOS output drive
+capability.
+
+      Parameter     Description    Minimum  Typical  Maximum  Units  Conditions
+       OSCI Vin      Input Voltage       2.97      3.3V      3.63      V
+            Fin        Input Frequency             12MHz            MHz   ± 30ppm
+                 Ji       Cycle to cycle jitter            <150              pS
+                           Table 6.1 OSCI Input characteristics
+
+Copyright © Future Technology Devices International Limited                                           46
+
+===== PAGE 47 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+7 EEPROM Configuration
+7.1 EEPROM Interface
+
+The FT232H uses configuration data from an external EEPROM. The EEPROM must be 16 bits wide
+(93LC56B) and powered from the same net as the core supply of +2.97 to +3.63 volts.  Adding an
+external (93LC56B) EEPROM allows the chip to be configured as a serial UART (RS232 mode), parallel
+FIFO (245) mode, FT1248, fast serial (opto isolation) or CPU-Style FIFO.
+
+                               Figure 7.1 EEPROM Interface
+
+The external EEPROM can also be used to customise the USB VID, PID,  Serial Number, Product
+Description Strings and Power Descriptor value of the FT232H for OEM applications. Other parameters
+controlled by the EEPROM include Remote Wake Up, Soft Pull Down on Power-Off and I/O pin drive
+strength.
+
+If the FT232H is used without an external EEPROM the chip defaults to a USB to asynchronous serial
+UART (RS232 mode) port device. If no EEPROM is connected (or the EEPROM is blank), the FT232H uses
+its built-in default VID (0403), PID (6014) Product Description and Power Descriptor Value. In this case,
+the device will not have a serial number as part of the USB descriptor.
+
+7.2  Default EEPROM Configuration
+
+The external EEPROM (if it’s fitted) can be programmed over USB using FT_Prog. This allows a blank part
+to be soldered onto the PCB and programmed as part of the manufacturing and test process. Users who
+do not have their own USB Vendor ID but who would like to use a unique Product ID in their design can
+apply to FTDI for a free block of unique PIDs.
+
+ Contact FTDI support for this service.
+
+    Parameter         Value                            Notes
+USB Vendor ID (VID)     0403h    FTDI default VID (hex)
+USB Product UD (PID)    6014h    FTDI default PID (hex)
+     bcd Device         009h
+    Serial Number         Yes
+      Enabled?
+    Serial Number      See Note   None
+ Pull down I/O Pins in     Disabled    Enabling this option will make the device pull down on the UART
+   USB Suspend                      interface lines when in USB suspend mode (PWREN# is high).
+ Manufacturer Name      FTDI
+ Product Description       Single
+                    RS232-HS
+   Max Bus Power      500mA
+       Current
+
+Copyright © Future Technology Devices International Limited                                           47
+
+===== PAGE 48 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+    Parameter         Value                            Notes
+    Power Source         Bus
+                      Powered
+     Device Type        FT232H
+    USB Version         0200     Returns USB 2.0 device description to the host.
+  Remote Wake Up      Disabled    Taking RI# low will wake up the USB host controller from suspend
+                                            in approximately 20 Ms. If enabled.
+ Hardware Interface     UART     Allows the user to select the hardware mode of the device.
+                                    Options include: RS232 UART, 245 FIFO, CPU 245, OPTO Isolate
+                                and FT1248.
+  FT1248 Settings        00h     FT1248 can be configured to set: Clock Polarity High; Bit Order
+                               LSB and Flow Control Not Selected.
+Suspend ACBus7 Low    Disabled    Enters low power state on ACBus7.
+  High Current I/Os      Disabled      Enables the high drive level on the UART and ACBUS I/O pins.
+   Load VCP Driver       Enabled    Makes the device load the VCP driver interface for the device.
+     ACBUS0           TriSt-PU    Default configuration of ACBUS0 – Input pulled up
+     ACBUS1           TriSt-PU    Default configuration of ACBUS1 – Input pulled up
+     ACBUS2           TriSt-PU    Default configuration of ACBUS2 Input pulled up
+     ACBUS3           TriSt-PU    Default configuration of ACBUS3 – Input pulled up
+     ACBUS4           TriSt-PU    Default configuration of ACBUS4 – Input pulled up
+     ACBUS5           TriSt-PU    Default configuration of ACBUS5 – Input pulled up
+     ACBUS6           TriSt-PU    Default configuration of ACBUS6 – Input pulled up
+     ACBUS7           TriSt-PD    Default configuration of ACBUS7 – Input pulled down
+     ACBUS8           TriSt-PU    Default configuration of ACBUS8 – Input pulled up
+     ACBUS9           TriSt-PU    Default configuration of ACBUS9 – Input pulled up
+                     Table 7.1 Default External EEPROM Configuration
+
+Copyright © Future Technology Devices International Limited                                           48
+
+===== PAGE 49 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+8 Package Parameters
+
+The FT232H is available in two different packages. The FT232HL is the LQFP-48 option and the FT232HQ
+is the QFN-48 package option. The solder reflow profile for both packages is described in section 8.3.
+
+8.1 FT232HQ, QFN-48 Package Dimensions
+
+                           Figure 8.1 48 pin QFN Package Details
+
+Notes:
+
+    1.  All dimensions are in mm.
+    2.  The date code format is YYXX where XX = 2 digit week number, YY = 2 digit year number. This
+          is followed by the revision number.
+    3.  The code XXXXXXX is the manufacturing LOT code.
+    4.  The central soldering pad is floating. Connect it to GND.
+
+Copyright © Future Technology Devices International Limited                                           49
+
+===== PAGE 50 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+8.2  FT232HL, LQFP-48 Package Dimensions
+
+                           Figure 8.2 48 pin LQFP Package Details
+
+Notes:
+
+    1.  All dimensions are in mm.
+    2.  The date code format is YYXX where XX = 2 digit week number, YY = 2 digit year number. This
+          is followed by the revision number.
+    3.  The code XXXXXXX is the manufacturing LOT code.
+
+Copyright © Future Technology Devices International Limited                                           50
+
+===== PAGE 51 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+8.3  Solder Reflow Profile
+
+                    Figure 8.3 48 pin LQFP and QFN Reflow Solder Profile
+
+                            Pb Free Solder                                            SnPb Eutectic and Pb free (non green
+         Profile Feature              Process                                                            material) Solder Process
+                               (green material)
+
+ Average Ramp Up Rate (Ts to Tp)   3°C / second Max.              3°C / Second Max.
+
+             Preheat
+    - Temperature Min (Ts Min.)          150°C                       100°C
+   - Temperature Max (Ts Max.)          200°C                       150°C
+      - Time (ts Min to ts Max)       60 to 120 seconds              60 to 120 seconds
+
+  Time Maintained Above Critical
+        Temperature TL:                                   217°C       183°C                              60
+         - Temperature (TL)                              60 to 150 seconds                   to 150 seconds
+              - Time (tL)
+     Peak Temperature (Tp)            260°C
+
+Copyright © Future Technology Devices International Limited                                           51
+
+===== PAGE 52 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+  Time within 5°C of actual Peak                               30 to 40 seconds               20 to 40 seconds
+        Temperature (tp)
+      Ramp Down Rate         6°C / second Max.              6°C / second Max.
+    Time for T= 25°C to Peak
+                               8 minutes Max.                6 minutes Max.
+        Temperature, Tp
+                        Table 8.1 Reflow Profile Parameter Values
+
+ SnPb Eutectic and Pb free (non green material)
+
+           Package Thickness            Volume mm3 < 350        Volume mm3 >=350
+
+           < 2.5 mm                 235 +5/-0 deg C           220 +5/-0 deg C
+           ≥ 2.5 mm                 220 +5/-0 deg C           220 +5/-0 deg C
+
+ Pb Free (green material) = 260 +5/-0 deg C
+
+                       Table 8.2 Package Reflow Peak Temperature
+
+Copyright © Future Technology Devices International Limited                                           52
+
+===== PAGE 53 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+9 Contact Information
+
+                                         Branch Office – Tigard, Oregon, USA
+ Head Office – Glasgow, UK
+                                                       Future Technology Devices International Limited
+ Future Technology Devices International Limited                                                  (USA)
+  Unit 1, 2 Seaward Place, Centurion Business Park                                               7130 SW Fir Loop
+ Glasgow G41 1HH                                                           Tigard, OR 97223-8160
+ United Kingdom                                           USA
+  Tel: +44 (0) 141 429 2777                                                              Tel: +1 (503) 547 0988
+ Fax: +44 (0) 141 429 2758                                                      Fax: +1 (503) 547 0987
+
+ E-mail (Sales)              sales1@ftdichip.com                                                           E-Mail (Sales)                 us.sales@ftdichip.com
+ E-mail (Support)           support1@ftdichip.com                                                           E-Mail (Support)              us.support@ftdichip.com
+ E-mail (General Enquiries)  admin1@ftdichip.com                                                           E-Mail (General Enquiries)     us.admin@ftdichip.com
+
+                                         Branch Office – Shanghai, China
+ Branch Office – Taipei, Taiwan
+                                                       Future Technology Devices International Limited
+ Future Technology Devices International Limited                                                        (China)
+ (Taiwan)                                         Room 1103, No. 666 West Huaihai Road,
+ 2F, No. 516, Sec. 1, NeiHu Road                                                      Shanghai, 200052
+  Taipei 114                                                     China
+ Taiwan, R.O.C.                                                              Tel: +86 21 62351596
+  Tel: +886 (0) 2 8797 1330                                                      Fax: +86 21 62351595
+ Fax: +886 (0) 2 8751 9737
+                                                        E-mail (Sales)                cn.sales@ftdichip.com
+ E-mail (Sales)              tw.sales1@ftdichip.com                                                        E-mail (Support)              cn.support@ftdichip.com
+ E-mail (Support)           tw.support1@ftdichip.com                                                        E-mail (General Enquiries)    cn.admin@ftdichip.com
+ E-mail (General Enquiries)  tw.admin1@ftdichip.com
+
+ Web Site
+
+  http://ftdichip.com
+
+ Distributor and Sales Representatives
+
+ Please visit the Sales Network page of the FTDI Web site for the contact details of our distributor(s) and sales
+  representative(s) in your country.
+
+ System and equipment manufacturers and designers are responsible to ensure that their systems, and any Future Technology
+  Devices International Ltd (FTDI) devices incorporated in their systems, meet all applicable safety, regulatory and system-level
+  performance requirements. All application-related information in this document (including application descriptions, suggested
+ FTDI devices and other materials) is provided for reference only. While FTDI has taken care to assure  it is accurate, this
+  information is subject to customer confirmation, and FTDI disclaims all liability for system designs and for any applications
+  assistance provided by FTDI. Use of FTDI devices in life support and/or safety applications is entirely at the user’s risk, and the
+  user agrees to defend, indemnify and hold harmless FTDI from any and all damages, claims, suits or expense resulting from
+  such use. This document is subject to change without notice. No freedom to use patents or other intellectual property rights is
+  implied by the publication of this document. Neither the whole nor any part of the information contained in, or the product
+  described in this document, may be adapted or reproduced in any material or electronic form without the prior written consent
+  of the copyright holder. Future Technology Devices International Ltd, Unit 1, 2 Seaward Place, Centurion Business Park,
+ Glasgow G41 1HH, United Kingdom. Scotland Registered Company Number: SC136640                                                 .
+
+Copyright © Future Technology Devices International Limited                                           53
+
+===== PAGE 54 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+Appendix A – References
+
+Document References
+
+AN_108 – Command Processor for MPSSE and MCU Host Bus Emulation Modes
+
+AN_113 – Interfacing FT2232H Hi-Speed Devices to I2C Bus
+
+AN_114 – Interfacing FT2232H Hi-Speed Devices to SPI Bus
+
+AN_129 – Interfacing FT2232H Hi-Speed Devices to a JTAG TAP
+
+AN_135 – MPSSE Basics
+
+AN_167_FT1248 Parallel Serial Interface Basics
+
+Acronyms and Abbreviations
+
+      Terms         Description
+
+       CPU           Central Processing Unit
+
+     EEPROM           Electrically Erasable Programmable Read Only Memory
+
+       ESD            Electrostatic Discharge
+
+        FIFO             First In First Out
+
+        I2C            Inter-Integrated Circuit
+
+       LDO         Low Drop Out
+
+       LED            Light Emitting Diode
+
+       LSB           Least Significant Bit First
+
+       LQFP         Low Profile Quad Flat Pack
+
+      MPSSE           Multi- Protocol Synchronous Serial Engines
+
+       QFN         Quad Flat Non-leaded package
+
+         SPI             Serial Peripheral Interface
+
+        TTL            Transistor-Transistor Logic
+
+       USB           Universal Serial Bus
+
+      UART           Universal Asynchronous Receiver / Transmitter
+
+       UTMI           Universal Transceiver Macrocell Interface
+
+Copyright © Future Technology Devices International Limited                                           54
+
+===== PAGE 55 =====
+a7                       FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+|         FTDI                                                    UART/FIFO IC Datasheet
+AS      Chie                                                                Version 2.0
+
+Document No.: FT_000288 Clearance No.: FTDI #199
+Appendix B - List of Figures and Tables
+
+List of Tables
+
+Table 3.1 Power and Ground 2.00... Utne rete nene ea en ee 10
+Table 3.2 COMMON FUNCTION PINS ........c cert nent nen enna ened 10
+Table 3.3 EEPROM Interface Group .........:eeeee eterna ened 11
+Table 3.4 UART Interface and ACBUS Group (see note 1) 0.0... cece eect eee eect eee ener eee eee eee eeeneea ens 11
+Table 3.5 ACBUS Configuration Control ..........ccc cece eee eee eee eae 12
+Table 3.6 UART Configured Pin DeSCIriptions ............c cece eee eee eee eee eee ene 13
+Table 3.7 FT245 Synchronous FIFO Configured Pin DeSCriptiOns ...........:cceceeee eect eee eee eee e eee eee eeeeee ene 14
+Table 3.8 FT245 Style Asynchronous FIFO Configured Pin DeSCriptions ..............cceceeeeeeee eset eens eeeeeeeeenes 15
+Table 3.9 Synchronous or Asynchronous Bit-Bang Configured Pin DeScriptions ............:::cceeeeeeeeeeee teenie 15
+Table 3.10 MPSSE Configured Pin DeSCTiptiOns ............ccceee cece cette eee eee eeeea ene 16
+Table 3.11 Fast Serial Interface Configured Pin DeSCriptionS.............ccceeee cece ee eee eee eee e eee e eee eee eeeeeaea es 16
+Table 3.12 CPU-style FIFO Interface Configured Pin DeSCriptions ............:cceceeeeeeee tees eee eee eee eee eeeeea en es 17
+Table 3.13 FT1248 Configured Pin DeSCIriptionS ...........cccecee cece ene eee eee rete eens 17
+Table 4.1 FT245 Synchronous FIFO Interface Signal TiMindS ............ccceceeeeee este eee e tees eee e eee eee ee eeeeea ens 24
+Table 4.2 Asynchronous FIFO Timings (based on standard drive level OUtPUtS) .........cceeeeeeeeeeeeeeeeeeeeaes 25
+Table 4.3 Synchronous Bit-Bang Mode Timing Interface Example TiMingS...........:::cceceeeeeeeeeeeeeeeeeeeeenes 30
+Table 4.4 MPSSE Signal TimMingS ...........:. cette eter eee en ed 31
+Table 4.5 Fast Serial Interface Signal TIMINGS ............:cececee eee e eee nner eee eeeea ene 33
+Table 4.6 CPU-Style FIFO Interface Operation Select ..........ciceeeeeee cece e eee eee eerste eee e eaten eeeeeea ene 35
+Table 4.7 CPU-Style FIFO Interface Operation Read Status DeSCriptiOn.............ccceceeeeeeee eset ee eeeeeeeeeeeaes 36
+Table 4.8 CPU-Style FIFO Interface Operation Signal TiMing ...........:csceeeeeeee este eee e ee ee ee eee e teeta eeeeeea eae 36
+Table 4.9 Configuration Using EEPROM and Application Software ..........:cceceeeeeeee eee eee e eee eee eeeeeeeeeeaes 39
+Table 5.1 Absolute Maximum RatingS ........:. cece cee eee ene eeeea ened40
+Table 5.2 Operating Voltage and Current (except PHY) .........:eceeeee cece eee eee eee eee e eee eee eee e eee eeeeee nes40
+Table 5.3 I/O Pin Characteristics VCCIO = +3.3V (except USB PHY Pins) ...........cceceeeeeeee sees eset ee eeeeeeen es41
+Table 5.4 PHY Operating Voltage and Current........... cece teeter een eee eee eens41
+Table 5.5 PHY I/O Pin Characteristics .......ccccccccceeccecceeeceeeeceeecetesaeevaeeeceeecaeesgeeegetesutesanerauetsanesauengnes41
+Table 5.6 ESD Tolerance... 0... Utter net nena ened42
+Table 6.1 OSCI Input characteristics .......... ccc eter eee enena ened46
+Table 7.1 Default External EEPROM Configuration ............ccceeeee eee e eee eee eee ener eee e eee eeeea ene48
+Table 8.1 Reflow Profile Parameter ValUCS ..........cceee cere reer teense 52
+Table 8.2 Package Reflow Peak TEMperature........cccecceee etcetera eee eee eee ene 52
+
+Copyright © Future Technology Devices International Limited                                             55
+
+===== PAGE 56 =====
+a7                       FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+|         FTDI                                                    UART/FIFO IC Datasheet
+AS      Chie                                                                Version 2.0
+
+Document No.: FT_000288 Clearance No.: FTDI #199
+
+List of Figures
+
+Figure 2.1 FT232H Block DiaQram.........cc cee eter teense ened4
+Figure 3.1 FT232H Schematic SYMDbOI .........:. cece etre teen eneea ens8
+Figure 4.1 RS232 Configuration .......... cece cece eee enter eneneea ened 20
+Figure 4.2 Dual RS422 Configuration ...........cc cece ee eee eee teen ened 21
+Figure 4.3 Dual RS485 Configuration ...........:c cece eee ee eee e teen ea ened 22
+Figure 4.4 FT245 Synchronous FIFO Interface Signal Waveforms. ..........:::ececeeeeeeee tees ee ee eect eee eeeeeeeaeaed 23
+Figure 4.5 FT245 Asynchronous FIFO Interface READ Signal WavefOrms............:::ceeeeeeeeeeeee eens ee eeeeeaeaes 25
+Figure 4.6 FT245 Asynchronous FIFO Interface WRITE Signal Waveforms ..........::::cceeeeeeeeeeeeeeeeeeeeeeenes 25
+Figure 4.7 FT1248 Bus with Single Master and Slave. ........cccceceeee eee eee eee eee eee eee eee eee e eee ene ea ea ed 26
+Figure 4.8 FT1248 Basic Waveform Protocol .........:ccccceeee rete e eee eee enna eae eee eee ea ea ed 26
+Figure 4.9 FT1248 Command Structure .........ccccceee eee eee ee eee eee eneea ened 27
+Figure 4.10 FT1248 1-bit Mode Protocol (WRITE)........:::ceceeee sees teeter eee e ener eee eee eee etna ea ea ed 28
+Figure 4.11 FT1248 1-bit Mode Protocol (READ) .........:c:cceeeeee tees cetera eee ea ened 28
+Figure 4.12 Synchronous Bit-Bang Mode Timing Interface Example.........:.:cceceeeeeeee tees eee eeeeeeeeeeeeeeeaeaes 30
+Figure 4.13- Bit-bang Mode Dataflow Illustration Diagram ............cceceeeeee eens ee ee eens tees eee teeta eeeeeea eae 31
+Figure 4.14 MPSSE Signal WaVefOrmMs .........:cccceee eee ener eneea ened 31
+Figure 4.15 Adaptive Clocking IntercOnnect...........cceee eee e eee eee nena ea ened 32
+Figure 4.16 Adaptive Clocking WavefOrm .........:cccceee cere renee ee eaten ened 32
+Figure 4.17 Fast Serial Interface Signal WaveformS..........:cceceeeeee eee eee eee eee eee nee eee eee a teeta ee eeeeea ened 33
+Figure 4.18 Fast Serial Interface Output Data......... cece cece cece eee een rere eee eee ea ened 34
+Figure 4.19 Fast Serial Interface Input Data...........cececece eee ee eae eee eee ea ea ed 34
+Figure 4.20 Fast Serial Interface Example .........ccccececee creer eee ee eae eee eeeea ened 35
+Figure 4.21 CPU-Style FIFO Interface Operation Signal Waveforms .........:.:cccceeeeeeee teeta eee ee eens eeeeeeeaeaes 36
+Figure 4.22 CPU-Style FIFO Interface Example ..........:cccceecee cent ee eee eee eee enna eee eee teenie ea ea ed 37
+Figure 4.23 Dual LED UART Configuration .............ccccceee eee etree ened 37
+Figure 4.24 Single LED UART Configuration ..............cccceeee nent eee enn eee eee e eee ea ea ed 38
+Figure 4.25 USING SIWUF 0... rr I I I EI UE En Ent nent etna 38
+Figure 6.1 Bus Powered Configuration Example 1.........::csceceeee este eee eee eee eee neers eee eee eee e en eneea ened43
+Figure 6.2 Self-Powered Configuration Example 1 ..........ccceceeee eset eee eee eee e eee eee neee ea ea ed44
+Figure 6.3 Self-Powered Configuration Example 2 ........::csceceeee eee e eee e eee eee neers e eee a eee e ee eeeeea ened45
+Figure 6.4 Recommended FT232H Oscillator Configuration ............cccceeeeee eens ee eens eee eee eee e teeta eee eeeeea ened46
+Figure 7.1 EEPROM Interface.......... cect creer e teen eeeneea ened47
+Figure 8.1 48 pin QFN Package Details ............:cccceee eee eee ee ener eaten ened49
+Figure 8.2 48 pin LQFP Package Details ............cccceceee cere eee eee ee eee eneea ened 50
+Figure 8.3 48 pin LQFP and QFN Reflow Solder Profile ..........:.:cccceeeeeeee ee eee eee seen eee ee ease teeta eee neeeeeea ened 51
+
+Copyright © Future Technology Devices International Limited                                             56
+
+===== PAGE 57 =====
+FT232H SINGLE CHANNEL HI-SPEED USB TO MULTIPURPOSE
+                                                 UART/FIFO IC Datasheet
+                                                                      Version 2.0
+
+                                                                   Document No.: FT_000288 Clearance No.: FTDI #199
+
+Appendix C – Revision History
+
+Document Title:            FT232H Single Channel Hi-Speed USB to Multipurpose UART/FIFO IC
+                            Datasheet
+
+Document Reference No.:     FT_000288
+
+Clearance No.:              FTDI #199
+
+Product Page:                http://www.ftdichip.com/Products/ICs/FT232H.htm
+
+Document Feedback:        Send Feedback
+
+   Revision                            Changes                             Date
+
+Version 1.0         Initial Release                                                   2011-02-24
+
+               Changes made to ACBUS7 details; Updated the reset line of the
+Version 1.1                                                                     2011-04-19                 schematics; Added USB Compliance logo and TID
+
+Version 1.2       Corrected TID Number                                            2011-04-29
+
+               Changed the value of recommended capacitor on the Reset# pin;Version 1.3                                                                     2011-05-16
+               Changed signal label of WR to WR#
+
+                  Missing #(active low) on WR signal page 8 and page 40; Enhanced
+Version 1.4                                                                     2011-09-08              recommended schematics.
+
+               Added Pin 31 ACBUS7 Description (Table 0.1); Added Package
+Version 1.5      Dimension Tolerance in Section 8.2; Added a list of unsupported baud    2011-11-25
+                  rates to section 4.1 data transfer rate
+
+               Updated section 1.1, Linux Version; Updated Timing information, Figure
+Version 1.6                                                                     2012-01-25                4.21 and Table 4.8; Updated section 7.2 default descriptors
+
+               Added a note on Section 4.2, EEPROM interface; 93LC46B is notVersion 1.7                                                                     2012-06-21
+                 compatible with the FT232H
+
+                  Modified the IC mark, Figure 8.1 and Figure 8.2; Update contact
+Version 1.8                                                                     2012-12-13                  information
+
+               Added detail to QFN drawing regarding the center pad; Corrected figure
+Version 1.81      6.4; Added clarification for which signals are 5V tolerant; Clarified        2013-01-04
+             ACBUS default functions on P8
+
+               Updated ADBUS7 to ACBUS7 on page 10; Added support for Windows
+Version 1.82                                                                    2016-02-05
+                10; Removed year from the copyright information
+
+Version 1.83     Corrected the typo error in table 3.13                               2017-11-22
+
+               Updated Section 6.2.2 (Self-Powered Application Example 2- ACBUS7
+Version 1.84                                                                    2018-05-11                  pin function)
+
+Version 1.85      Correct the MPSSE timing spec in table 4.4                           2018-07-23
+
+Version 1.9      Updated Figure 8.1 and Figure 8.2 package dimensions                 2019-05-27
+
+Version 2.0      Updated Section 3.5.3 header                                      2019-11-29
+
+Copyright © Future Technology Devices International Limited                                           57

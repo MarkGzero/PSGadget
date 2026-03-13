@@ -512,7 +512,7 @@ function Send-MpsseI2CWrite {
                 [byte[]]$ackBuf = [byte[]]::new(1)
                 [uint32]$br = 0
                 Start-Sleep -Milliseconds 1
-                $rawDevice.Read($ackBuf, [uint32]1, [ref]$br)
+                $rawDevice.Read($ackBuf, [uint32]1, [ref]$br) | Out-Null
 
                 if ($br -ne 1) {
                     throw ("I2C ACK timeout at byte {0}: device 0x{1:X2} did not respond" -f $byteIdx, $Address)
@@ -696,7 +696,7 @@ function Invoke-FtdiI2CScan {
             [byte[]]$ackBuf = [byte[]]::new(1)
             [uint32]$br     = 0
             Start-Sleep -Milliseconds 1
-            $rawDevice.Read($ackBuf, [uint32]1, [ref]$br)
+            $rawDevice.Read($ackBuf, [uint32]1, [ref]$br) | Out-Null
             if ($br -eq 1) {
                 $sdaBit = ($ackBuf[0] -shr 1) -band 0x01
                 if ($sdaBit -eq 0) {
