@@ -32,6 +32,11 @@ Describe 'PsGadget Module Tests' {
             $ExportedFunctions | Should -Contain 'Test-PsGadgetEnvironment'
             $ExportedFunctions | Should -Contain 'Install-PsGadgetMpyScript'
             $ExportedFunctions | Should -Contain 'Get-PsGadgetEspNowDevices'
+            $ExportedFunctions | Should -Contain 'Connect-PsGadgetPca9685'
+            $ExportedFunctions | Should -Contain 'Invoke-PsGadgetPca9685SetChannel'
+            $ExportedFunctions | Should -Contain 'Invoke-PsGadgetPca9685SetChannels'
+            $ExportedFunctions | Should -Contain 'Get-PsGadgetPca9685Channel'
+            $ExportedFunctions | Should -Contain 'Get-PsGadgetPca9685Frequency'
         }
         
         It 'Should have the correct module version' {
@@ -195,6 +200,53 @@ Describe 'PsGadget Module Tests' {
             InModuleScope PSGadget {
                 $stubHandle = [PSCustomObject]@{ IsOpen = $true }
                 { Set-FtdiGpioPins -DeviceHandle $stubHandle -Pins @(0) -Direction HIGH } | Should -Not -Throw
+            }
+        }
+    }
+
+    Context 'PCA9685 functions (stub mode)' {
+        It 'Should initialize a PCA9685 instance in stub mode' {
+            InModuleScope PSGadget {
+                $stubHandle = [PSCustomObject]@{ IsOpen = $true; Device = $null }
+                $pca = [PsGadgetPca9685]::new($stubHandle, [byte]0x40)
+
+                $pca.Initialize() | Should -Be $true
+                $pca.IsInitialized | Should -Be $true
+                $pca.GetFrequency() | Should -Be 50
+            }
+        }
+
+        It 'Should set and cache a single PCA9685 servo channel in stub mode' {
+            InModuleScope PSGadget {
+                $stubHandle = [PSCustomObject]@{ IsOpen = $true; Device = $null }
+                $pca = [PsGadgetPca9685]::new($stubHandle, [byte]0x40)
+                $pca.Initialize() | Should -Be $true
+
+                Invoke-PsGadgetPca9685SetChannel -PsGadget $pca -Channel 0 -Degrees 135 | Should -Be $true
+                Get-PsGadgetPca9685Channel -PsGadget $pca -Channel 0 | Should -Be 135
+            }
+        }
+
+        It 'Should set multiple PCA9685 channels in stub mode' {
+            InModuleScope PSGadget {
+                $stubHandle = [PSCustomObject]@{ IsOpen = $true; Device = $null }
+                $pca = [PsGadgetPca9685]::new($stubHandle, [byte]0x40)
+                $pca.Initialize() | Should -Be $true
+
+                Invoke-PsGadgetPca9685SetChannels -PsGadget $pca -Degrees @(15, 90, 165) | Should -Be $true
+                Get-PsGadgetPca9685Channel -PsGadget $pca -Channel 0 | Should -Be 15
+                Get-PsGadgetPca9685Channel -PsGadget $pca -Channel 1 | Should -Be 90
+                Get-PsGadgetPca9685Channel -PsGadget $pca -Channel 2 | Should -Be 165
+            }
+        }
+
+        It 'Should expose PCA9685 frequency through the public cmdlet' {
+            InModuleScope PSGadget {
+                $stubHandle = [PSCustomObject]@{ IsOpen = $true; Device = $null }
+                $pca = [PsGadgetPca9685]::new($stubHandle, [byte]0x40)
+                $pca.Initialize() | Should -Be $true
+
+                Get-PsGadgetPca9685Frequency -PsGadget $pca | Should -Be 50
             }
         }
     }
