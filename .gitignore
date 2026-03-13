@@ -23,6 +23,7 @@ TestResults/
 *.swp
 *.swo
 *~
+.markdownlint.json
 
 # OS specific  
 .DS_Store
