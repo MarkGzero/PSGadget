@@ -3,13 +3,8 @@
 # Classes/PsGadgetPca9685.ps1
 # PCA9685 16-Channel PWM Controller Class
 
-class PsGadgetPca9685 {
-    [PsGadgetLogger]$Logger
-    [System.Object]$FtdiDevice
-    [System.Object]$I2cDevice          # FtdiSharp I2C instance when available; preferred over raw MPSSE
-    [byte]$I2CAddress
+class PsGadgetPca9685 : PsGadgetI2CDevice {
     [int]$Frequency                    # PWM frequency in Hz (default 50 for RC servos)
-    [bool]$IsInitialized
     [hashtable]$ChannelState           # Cache of last known degrees per channel (0-15)
 
     # PCA9685 Register Addresses
@@ -38,7 +33,6 @@ class PsGadgetPca9685 {
     [int]static hidden $DEGREE_MAX = 180
 
     PsGadgetPca9685() {
-        $this.Logger = [PsGadgetLogger]::new()
         $this.Logger.WriteInfo("Creating PsGadgetPca9685 instance")
 
         $this.I2CAddress = 0x40         # Standard PCA9685 base address
@@ -53,7 +47,6 @@ class PsGadgetPca9685 {
     }
 
     PsGadgetPca9685([System.Object]$ftdiDevice) {
-        $this.Logger = [PsGadgetLogger]::new()
         $this.Logger.WriteInfo("Creating PsGadgetPca9685 instance with FTDI device")
 
         $this.FtdiDevice = $ftdiDevice
@@ -68,7 +61,6 @@ class PsGadgetPca9685 {
     }
 
     PsGadgetPca9685([System.Object]$ftdiDevice, [byte]$address) {
-        $this.Logger = [PsGadgetLogger]::new()
         $this.Logger.WriteInfo("Creating PsGadgetPca9685 instance with FTDI device and address 0x{0:X2}" -f $address)
 
         $this.FtdiDevice = $ftdiDevice
@@ -82,48 +74,14 @@ class PsGadgetPca9685 {
         }
     }
 
-    # I2CWrite: send bytes to the device, preferring FtdiSharp when available.
-    # All internal write operations go through this single method.
-    [bool] I2CWrite([byte[]]$data) {
-        try {
-            if ($null -ne $this.I2cDevice) {
-                $this.I2cDevice.Write($this.I2CAddress, $data)
-                return $true
-            } else {
-                return (Send-MpsseI2CWrite -DeviceHandle $this.FtdiDevice -Address $this.I2CAddress -Data $data)
-            }
-        } catch {
-            $this.Logger.WriteError("I2CWrite failed: $_")
-            return $false
-        }
-    }
-
-    [bool] Initialize() {
-        return $this.Initialize($false)
-    }
-
     [bool] Initialize([bool]$force) {
-        if ($this.IsInitialized -and -not $force) {
-            $this.Logger.WriteInfo("PCA9685 already initialized")
-            return $true
+        if (-not $this.BeginInitialize($force)) {
+            return $this.IsInitialized
         }
 
         $this.Logger.WriteInfo("Initializing PCA9685 at address 0x{0:X2} with frequency {1} Hz" -f $this.I2CAddress, $this.Frequency)
 
-        if (-not $this.FtdiDevice) {
-            $this.Logger.WriteError("No FTDI device assigned to PCA9685 instance")
-            return $false
-        }
-
         try {
-            # Initialize MPSSE I2C only when using raw D2XX bit-bang path.
-            # FtdiSharp and .NET IoT backends manage their own MPSSE / I2C init.
-            if ($null -eq $this.I2cDevice) {
-                if (-not (Initialize-MpsseI2C -DeviceHandle $this.FtdiDevice -ClockFrequency 100000)) {
-                    throw "Failed to initialize MPSSE I2C"
-                }
-            }
-
             # Calculate prescaler for desired frequency
             # Formula: prescale_value = round(25MHz / (4096 * frequency)) - 1
             $prescaleValue = [math]::Round(([PsGadgetPca9685]::OSC_CLOCK / ([PsGadgetPca9685]::PWM_STEPS * $this.Frequency))) - 1
@@ -266,7 +224,7 @@ class PsGadgetPca9685 {
         # (Could be optimized with batched I2C writes if performance needed)
         for ($i = 0; $i -lt $degreesArray.Count; $i++) {
             if ($i -ge [PsGadgetPca9685]::CHANNELS) {
-                $this.Logger.WriteWarning("Ignoring degree values beyond channel 15")
+                $this.Logger.WriteDebug("Ignoring degree values beyond channel 15")
                 break
             }
 

@@ -1,19 +1,13 @@
 # Classes/PsGadgetSsd1306.ps1
 # SSD1306 OLED Display Class
 
-class PsGadgetSsd1306 {
-    [PsGadgetLogger]$Logger
-    [System.Object]$FtdiDevice
-    [System.Object]$I2cDevice   # FtdiSharp.Protocols.I2C instance when available; preferred over raw MPSSE
-    [byte]$I2CAddress
+class PsGadgetSsd1306 : PsGadgetI2CDevice {
     [int]$Width
     [int]$Height
     [int]$Pages
-    [bool]$IsInitialized
     [hashtable]$Glyphs
     
     PsGadgetSsd1306() {
-        $this.Logger = [PsGadgetLogger]::new()
         $this.Logger.WriteInfo("Creating PsGadgetSsd1306 instance")
         
         # Default SSD1306 128x64 configuration
@@ -26,7 +20,6 @@ class PsGadgetSsd1306 {
     }
     
     PsGadgetSsd1306([System.Object]$ftdiDevice) {
-        $this.Logger = [PsGadgetLogger]::new()
         $this.Logger.WriteInfo("Creating PsGadgetSsd1306 instance with FTDI device")
         
         $this.FtdiDevice = $ftdiDevice
@@ -39,7 +32,6 @@ class PsGadgetSsd1306 {
     }
     
     PsGadgetSsd1306([System.Object]$ftdiDevice, [byte]$address) {
-        $this.Logger = [PsGadgetLogger]::new()
         $this.Logger.WriteInfo("Creating PsGadgetSsd1306 instance with FTDI device and address 0x{0:X2}" -f $address)
         
         $this.FtdiDevice = $ftdiDevice
@@ -163,48 +155,14 @@ class PsGadgetSsd1306 {
         }
     }
     
-    # I2CWrite: send bytes to the display, preferring FtdiSharp when available.
-    # All internal write operations go through this single method.
-    [bool] I2CWrite([byte[]]$data) {
-        try {
-            if ($null -ne $this.I2cDevice) {
-                $this.I2cDevice.Write($this.I2CAddress, $data)
-                return $true
-            } else {
-                return (Send-MpsseI2CWrite -DeviceHandle $this.FtdiDevice -Address $this.I2CAddress -Data $data)
-            }
-        } catch {
-            $this.Logger.WriteError("I2CWrite failed: $_")
-            return $false
-        }
-    }
-
-    [bool] Initialize() {
-        return $this.Initialize($false)
-    }
-    
     [bool] Initialize([bool]$force) {
-        if ($this.IsInitialized -and -not $force) {
-            $this.Logger.WriteInfo("SSD1306 already initialized")
-            return $true
+        if (-not $this.BeginInitialize($force)) {
+            return $this.IsInitialized
         }
-        
+
         $this.Logger.WriteInfo("Initializing SSD1306 display at address 0x{0:X2}" -f $this.I2CAddress)
-        
-        if (-not $this.FtdiDevice) {
-            $this.Logger.WriteError("No FTDI device assigned to SSD1306 instance")
-            return $false
-        }
-        
+
         try {
-            # Initialize MPSSE I2C only when using raw D2XX bit-bang path.
-            # FtdiSharp and .NET IoT backends manage their own MPSSE / I2C init.
-            if ($null -eq $this.I2cDevice) {
-                if (-not (Initialize-MpsseI2C -DeviceHandle $this.FtdiDevice -ClockFrequency 100000)) {
-                    throw "Failed to initialize MPSSE I2C"
-                }
-            }
-            
             # SSD1306 initialization sequence
             $initCommands = @(
                 0xAE,       # Display OFF

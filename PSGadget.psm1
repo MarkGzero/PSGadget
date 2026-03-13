@@ -9,6 +9,7 @@ $ModuleRoot = $PSScriptRoot
 # 1. Load all Class files first (dependency order matters)
 $ClassFiles = @(
     'PsGadgetLogger.ps1',
+    'PsGadgetI2CDevice.ps1',
     'PsGadgetSsd1306.ps1',
     'PsGadgetFtdi.ps1',
     'PsGadgetMpy.ps1',

@@ -1,7 +1,7 @@
 @{
     # Module metadata
     RootModule           = 'PSGadget.psm1'
-    ModuleVersion        = '0.3.4'
+    ModuleVersion        = '0.3.5'
     CompatiblePSEditions = @('Desktop', 'Core')
     GUID                 = '72440f23-d3c6-4249-83eb-9affa6df882b'
 
@@ -55,6 +55,7 @@
     FileList = @(
         'PSGadget.psm1',
         'Classes/PsGadgetLogger.ps1',
+        'Classes/PsGadgetI2CDevice.ps1',
         'Classes/PsGadgetSsd1306.ps1',
         'Classes/PsGadgetFtdi.ps1',
         'Classes/PsGadgetMpy.ps1',
