@@ -1,4 +1,5 @@
 # Set-PsGadgetSsd1306Cursor.ps1
+# DEPRECATED - use Invoke-PsGadgetI2C -I2CModule SSD1306 instead.
 # Set cursor position on SSD1306 OLED display
 
 function Set-PsGadgetSsd1306Cursor {

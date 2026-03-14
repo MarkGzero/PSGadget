@@ -6,7 +6,8 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
     [int]$Height
     [int]$Pages
     [hashtable]$Glyphs
-    
+    [hashtable]$Symbols
+
     PsGadgetSsd1306() {
         $this.Logger.WriteInfo("Creating PsGadgetSsd1306 instance")
         
@@ -17,8 +18,9 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
         $this.Pages = 8  # 64 pixels / 8 pixels per page
         $this.IsInitialized = $false
         $this.InitializeGlyphs()
+        $this.InitializeSymbols()
     }
-    
+
     PsGadgetSsd1306([System.Object]$ftdiDevice) {
         $this.Logger.WriteInfo("Creating PsGadgetSsd1306 instance with FTDI device")
         
@@ -29,8 +31,9 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
         $this.Pages = 8
         $this.IsInitialized = $false
         $this.InitializeGlyphs()
+        $this.InitializeSymbols()
     }
-    
+
     PsGadgetSsd1306([System.Object]$ftdiDevice, [byte]$address) {
         $this.Logger.WriteInfo("Creating PsGadgetSsd1306 instance with FTDI device and address 0x$($address.ToString('X2'))")
         
@@ -41,8 +44,9 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
         $this.Pages = 8
         $this.IsInitialized = $false
         $this.InitializeGlyphs()
+        $this.InitializeSymbols()
     }
-    
+
     [void] InitializeGlyphs() {
         $this.Logger.WriteDebug("Initializing SSD1306 glyph font table")
         
@@ -308,6 +312,9 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
     }
     
     [bool] WriteText([string]$text, [int]$page, [string]$align, [int]$fontSize, [bool]$invert) {
+        if ($fontSize -eq 2) {
+            return $this.WriteTextTall($text, $page, $align, $invert)
+        }
         if (-not $this.IsInitialized) {
             $this.Logger.WriteError("SSD1306 not initialized")
             return $false
@@ -347,16 +354,6 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
                 }
             }
             
-            # Apply font scaling if requested
-            if ($fontSize -eq 2) {
-                [System.Collections.Generic.List[byte]]$scaled = @()
-                foreach ($byte in $buffer) {
-                    $scaled.Add($byte)
-                    $scaled.Add($byte)  # Duplicate each column horizontally
-                }
-                $buffer = $scaled
-            }
-            
             # Determine starting column based on alignment
             $startColumn = switch ($align.ToLower()) {
                 'center' { [math]::Max(0, [math]::Floor(($this.Width - $buffer.Count) / 2)) }
@@ -381,6 +378,235 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
             
         } catch {
             $this.Logger.WriteError("Failed to write text: $_")
+            return $false
+        }
+    }
+
+    # ---------------------------------------------------------------------------
+    # Symbols support
+    # ---------------------------------------------------------------------------
+
+    [void] InitializeSymbols() {
+        $this.Logger.WriteDebug("Initializing SSD1306 symbol table")
+        $this.Symbols = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+        # All symbols: 8-byte arrays, column-major, bit0=top pixel (row 0), bit7=bottom (row 7).
+        # 8x8 is the Small (1-page) form. DrawSymbol auto-scales to 16x16 (2-page) using
+        # ExpandNibble when page <= 6, falling back to 8x8 when page == 7.
+
+        # Warning: upward-pointing triangle with ! in center column
+        #  col:  0     1     2     3     4     5     6     7
+        #  R0:   .     .     .     *     .     .     .     .   peak
+        #  R1:   .     .     *     *     *     .     .     .
+        #  R2:   .     .     *     *     *     .     .     .
+        #  R3:   .     *     *     .     *     *     .     .
+        #  R4:   .     *     *     *     *     *     .     .
+        #  R5:   *     *     *     *     *     *     *     .   base fill
+        #  R6:   *     *     *     *     *     *     *     .   base
+        #  R7:   .     .     .     .     .     .     .     .
+        $this.Symbols['Warning'] = [byte[]]@(0x60, 0x78, 0x7E, 0x17, 0x7E, 0x78, 0x60, 0x00)
+
+        # Alert: rectangle box with ! inside
+        #  col:  0     1     2     3     4     5     6     7
+        #  R0:   *     *     *     *     *     *     *     .   top border
+        #  R1:   *     .     .     *     .     .     *     .
+        #  R2:   *     .     .     *     .     .     *     .
+        #  R3:   *     .     .     *     .     .     *     .   ! stem
+        #  R4:   *     .     .     .     .     .     *     .   ! gap
+        #  R5:   *     .     .     *     .     .     *     .   ! dot
+        #  R6:   *     *     *     *     *     *     *     .   bottom border
+        #  R7:   .     .     .     .     .     .     .     .
+        $this.Symbols['Alert'] = [byte[]]@(0x7F, 0x41, 0x41, 0x6F, 0x41, 0x41, 0x7F, 0x00)
+
+        # Checkmark: tick/check mark shape
+        #  col:  0     1     2     3     4     5     6     7
+        #  R0:   .     .     .     .     .     .     .     .
+        #  R1:   .     .     .     .     .     .     *     .
+        #  R2:   .     .     .     .     .     *     *     .
+        #  R3:   .     .     .     .     *     *     .     .
+        #  R4:   *     .     .     *     *     .     .     .
+        #  R5:   *     *     *     *     .     .     .     .
+        #  R6:   .     *     *     .     .     .     .     .
+        #  R7:   .     .     .     .     .     .     .     .
+        $this.Symbols['Checkmark'] = [byte[]]@(0x30, 0x60, 0x60, 0x30, 0x18, 0x0C, 0x06, 0x00)
+
+        # Error: X inside a circle
+        #  col:  0     1     2     3     4     5     6     7
+        #  R0:   .     .     *     *     *     *     .     .   circle top
+        #  R1:   .     *     .     .     .     .     *     .
+        #  R2:   *     .     *     .     .     *     .     *   X mark
+        #  R3:   *     .     .     *     *     .     .     *
+        #  R4:   *     .     .     *     *     .     .     *
+        #  R5:   *     .     *     .     .     *     .     *   X mark
+        #  R6:   .     *     .     .     .     .     *     .
+        #  R7:   .     .     *     *     *     *     .     .   circle bottom
+        $this.Symbols['Error'] = [byte[]]@(0x3C, 0x42, 0xA5, 0x99, 0x99, 0xA5, 0x42, 0x3C)
+
+        # Info: circle with "i" indicator (dot then bar)
+        #  Outer circle: cols 0,7=sides rows 2-5; cols 1,6=rows 1,6; cols 2,5=rows 0,7
+        #  Center (cols 3,4): circle boundary + i dot at R2 + i bar at R4-R6
+        $this.Symbols['Info'] = [byte[]]@(0x3C, 0x42, 0x81, 0xF5, 0xF5, 0x81, 0x42, 0x3C)
+
+        # Lock: closed padlock
+        #  R0-R2: arc (shackle top)
+        #  R3:    gap
+        #  R4-R7: rectangular body with keyhole
+        $this.Symbols['Lock'] = [byte[]]@(0xF0, 0x92, 0x91, 0xF1, 0x91, 0x92, 0x60, 0x00)
+
+        # Unlock: open padlock (shackle released to right side)
+        $this.Symbols['Unlock'] = [byte[]]@(0xF0, 0x90, 0x90, 0xF1, 0x91, 0x96, 0x60, 0x00)
+
+        # Network: diamond / hub shape (connected nodes)
+        #  col:  0     1     2     3     4     5     6     7
+        #  R0:   .     .     .     *     .     .     .     .
+        #  R1:   .     .     *     *     *     .     .     .
+        #  R2:   .     *     *     .     *     *     .     .
+        #  R3:   *     *     .     .     .     *     *     .
+        #  R4:   .     *     *     .     *     *     .     .
+        #  R5:   .     .     *     *     *     .     .     .
+        #  R6:   .     .     .     *     .     .     .     .
+        #  R7:   .     .     .     .     .     .     .     .
+        $this.Symbols['Network'] = [byte[]]@(0x08, 0x1C, 0x36, 0x63, 0x36, 0x1C, 0x08, 0x00)
+
+        $this.Logger.WriteDebug("Loaded $($this.Symbols.Count) symbols")
+    }
+
+    # Expand a 4-bit nibble to 8 bits by doubling each bit.
+    # Used for 2x vertical scaling: each pixel row becomes 2 consecutive rows.
+    # bit0 -> bits 0,1  (row 0 -> rows 0,1)
+    # bit1 -> bits 2,3  (row 1 -> rows 2,3)
+    # bit2 -> bits 4,5  (row 2 -> rows 4,5)
+    # bit3 -> bits 6,7  (row 3 -> rows 6,7)
+    hidden [byte] ExpandNibble([byte]$nibble) {
+        [byte]$result = 0
+        if ($nibble -band 0x01) { $result = $result -bor 0x03 }
+        if ($nibble -band 0x02) { $result = $result -bor 0x0C }
+        if ($nibble -band 0x04) { $result = $result -bor 0x30 }
+        if ($nibble -band 0x08) { $result = $result -bor 0xC0 }
+        return $result
+    }
+
+    # Draw a named symbol at the given page and column.
+    # When page <= 6: renders 16 rows tall (2-page, 8 cols wide) via ExpandNibble.
+    # When page == 7: renders 8 rows tall (1-page, 8 cols wide) as-is.
+    [bool] DrawSymbol([string]$name, [int]$page, [int]$column) {
+        if (-not $this.IsInitialized) {
+            $this.Logger.WriteError("SSD1306 not initialized")
+            return $false
+        }
+
+        if (-not $this.Symbols.ContainsKey($name)) {
+            $this.Logger.WriteError("Unknown symbol '$name'. Valid symbols: $($this.Symbols.Keys -join ', ')")
+            return $false
+        }
+
+        $sym = $this.Symbols[$name]
+
+        $this.Logger.WriteInfo("Drawing symbol '$name' at page $page, column $column")
+
+        try {
+            if ($page -le 6) {
+                # 16x16 render: expand each column byte into top (lower nibble) and bot (upper nibble)
+                [byte[]]$topBuf = New-Object byte[] $sym.Count
+                [byte[]]$botBuf = New-Object byte[] $sym.Count
+                for ($i = 0; $i -lt $sym.Count; $i++) {
+                    $b = [byte]$sym[$i]
+                    $topBuf[$i] = $this.ExpandNibble($b -band 0x0F)
+                    $botBuf[$i] = $this.ExpandNibble(($b -shr 4) -band 0x0F)
+                }
+
+                [byte[]]$topPayload = @([byte]0x40) + $topBuf
+                [byte[]]$botPayload = @([byte]0x40) + $botBuf
+
+                if (-not $this.SetCursor($column, $page)) { throw "SetCursor failed for top row" }
+                if (-not $this.I2CWrite($topPayload)) { throw "I2CWrite failed for top row" }
+                if (-not $this.SetCursor($column, $page + 1)) { throw "SetCursor failed for bottom row" }
+                if (-not $this.I2CWrite($botPayload)) { throw "I2CWrite failed for bottom row" }
+            } else {
+                # Page 7 only - render 8x8 as-is
+                [byte[]]$payload = @([byte]0x40) + ([byte[]]$sym)
+                if (-not $this.SetCursor($column, $page)) { throw "SetCursor failed" }
+                if (-not $this.I2CWrite($payload)) { throw "I2CWrite failed" }
+            }
+
+            $this.Logger.WriteDebug("Symbol '$name' drawn successfully")
+            return $true
+
+        } catch {
+            $this.Logger.WriteError("DrawSymbol '$name' failed: $_")
+            return $false
+        }
+    }
+
+    # Write text spanning 2 pages (double height, 16 px tall).
+    # Each glyph byte is vertically scaled 2x via ExpandNibble:
+    #   lower nibble (rows 0-3) -> top page,  upper nibble (rows 4-7) -> bottom page.
+    # Requires page in range 0-6 (page+1 must be valid).
+    [bool] WriteTextTall([string]$text, [int]$page, [string]$align, [bool]$invert) {
+        if (-not $this.IsInitialized) {
+            $this.Logger.WriteError("SSD1306 not initialized")
+            return $false
+        }
+
+        if ($page -lt 0 -or $page -gt 6) {
+            $this.Logger.WriteError("WriteTextTall: page must be 0-6 (needs page+1). Got: $page")
+            return $false
+        }
+
+        if ([string]::IsNullOrEmpty($text)) {
+            $this.Logger.WriteDebug("WriteTextTall: empty text, nothing to write")
+            return $true
+        }
+
+        $this.Logger.WriteInfo("WriteTextTall '$text' page $page/$($page+1) align=$align")
+
+        try {
+            # Build glyph buffer (same as WriteText, FontSize 1)
+            [System.Collections.Generic.List[byte]]$rawBuf = [System.Collections.Generic.List[byte]]::new()
+            foreach ($char in $text.ToCharArray()) {
+                $key = [string]$char
+                if ($this.Glyphs.ContainsKey($key)) {
+                    foreach ($b in $this.Glyphs[$key]) { $rawBuf.Add([byte]$b) }
+                } else {
+                    foreach ($b in $this.Glyphs[' ']) { $rawBuf.Add([byte]$b) }
+                }
+            }
+
+            # Compute start column (based on raw glyph count = rendered width at 1x)
+            $startCol = switch ($align.ToLower()) {
+                'center' { [math]::Max(0, [math]::Floor(($this.Width - $rawBuf.Count) / 2)) }
+                'right'  { [math]::Max(0, $this.Width - $rawBuf.Count) }
+                default  { 0 }
+            }
+
+            # Expand each column byte: lower nibble -> top row byte, upper nibble -> bot row byte
+            [System.Collections.Generic.List[byte]]$topBuf = [System.Collections.Generic.List[byte]]::new()
+            [System.Collections.Generic.List[byte]]$botBuf = [System.Collections.Generic.List[byte]]::new()
+            foreach ($b in $rawBuf) {
+                $bval = [byte]$b
+                $topBuf.Add($this.ExpandNibble($bval -band 0x0F))
+                $botBuf.Add($this.ExpandNibble(($bval -shr 4) -band 0x0F))
+            }
+
+            # Apply invert
+            if ($invert) {
+                for ($i = 0; $i -lt $topBuf.Count; $i++) { $topBuf[$i] = $topBuf[$i] -bxor 0xFF }
+                for ($i = 0; $i -lt $botBuf.Count; $i++) { $botBuf[$i] = $botBuf[$i] -bxor 0xFF }
+            }
+
+            [byte[]]$topPayload = @([byte]0x40) + $topBuf.ToArray()
+            [byte[]]$botPayload = @([byte]0x40) + $botBuf.ToArray()
+
+            if (-not $this.SetCursor($startCol, $page)) { throw "SetCursor failed for page $page" }
+            if (-not $this.I2CWrite($topPayload)) { throw "I2CWrite failed for page $page" }
+            if (-not $this.SetCursor($startCol, $page + 1)) { throw "SetCursor failed for page $($page+1)" }
+            if (-not $this.I2CWrite($botPayload)) { throw "I2CWrite failed for page $($page+1)" }
+
+            $this.Logger.WriteDebug("WriteTextTall: wrote $($rawBuf.Count) glyph bytes across pages $page/$($page+1)")
+            return $true
+
+        } catch {
+            $this.Logger.WriteError("WriteTextTall failed: $_")
             return $false
         }
     }

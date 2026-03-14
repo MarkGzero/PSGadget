@@ -1,4 +1,5 @@
 # Write-PsGadgetSsd1306.ps1
+# DEPRECATED - use Invoke-PsGadgetI2C -I2CModule SSD1306 -Text instead.
 # Write text to SSD1306 OLED display
 
 function Write-PsGadgetSsd1306 {

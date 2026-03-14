@@ -1,4 +1,5 @@
 # Connect-PsGadgetSsd1306.ps1
+# DEPRECATED - use Invoke-PsGadgetI2C -I2CModule SSD1306 instead.
 # Create and initialize SSD1306 OLED display connection
 
 function Connect-PsGadgetSsd1306 {

@@ -314,39 +314,40 @@ pixels wide, giving ~21 characters per row at normal size.
 
 ```powershell
 # 1. Connect FTDI device (must be FT232H with HasMpsse = True)
-$ftdi = Connect-PsGadgetFtdi -Index 0
+$ftdi = New-PsGadgetFtdi -Index 0
 
-# 2. Initialize SSD1306 (default address 0x3C)
-$display = Connect-PsGadgetSsd1306 -FtdiDevice $ftdi
-
-# Use 0x3D if your module has ADDR pin pulled high
-$display = Connect-PsGadgetSsd1306 -FtdiDevice $ftdi -Address 0x3D
-
-# 3. Clear entire display
-Clear-PsGadgetSsd1306 -Display $display
+# 2. Clear entire display
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Clear
 
 # Clear a single page (row)
-Clear-PsGadgetSsd1306 -Display $display -Page 2
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Clear -Page 2
 
-# 4. Write text
-Write-PsGadgetSsd1306 -Display $display -Text "Hello World" -Page 0
-Write-PsGadgetSsd1306 -Display $display -Text "Centered"    -Page 2 -Align center
-Write-PsGadgetSsd1306 -Display $display -Text "Right"       -Page 4 -Align right
+# 3. Write text (single row, 6x8 font, ~21 chars)
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Text "Hello World" -Page 0
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Text "Centered"    -Page 2 -Align center
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Text "Right"       -Page 4 -Align right
 
-# 5. Large text (2x font — doubles each column horizontally)
-Write-PsGadgetSsd1306 -Display $display -Text "BIG" -Page 0 -Align center -FontSize 2
+# 4. Double-height text (spans page N and page N+1, requires page <= 6)
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Text "BIG" -Page 0 -Align center -FontSize 2
 
-# 6. Inverted text (dark text on white background)
-Write-PsGadgetSsd1306 -Display $display -Text "ALARM" -Page 4 -Align center -Invert
+# 5. Inverted text (dark text on white background)
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Text "ALARM" -Page 6 -Align center -Invert
 
-# 7. Cursor positioning (for raw data or precise layout)
-Set-PsGadgetSsd1306Cursor -Display $display -Column 32 -Page 3
+# 6. Draw sysadmin symbol (16x16 at pages 0-1; auto-falls to 8x8 at page 7)
+#    Symbols: Warning, Alert, Checkmark, Error, Info, Lock, Unlock, Network
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Symbol Warning   -Page 0
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Symbol Checkmark -Page 0 -Column 20
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Symbol Error      -Page 7  # 8x8 (page 7)
+
+# 7. Non-default I2C address (ADDR pin pulled high)
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -I2CAddress 0x3D -Text "Alt addr" -Page 0
 
 # 8. Live status loop
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Text "Live Clock" -Page 0 -Align center
 for ($i = 0; $i -lt 60; $i++) {
     $time = Get-Date -Format "HH:mm:ss"
-    Clear-PsGadgetSsd1306 -Display $display -Page 1
-    Write-PsGadgetSsd1306 -Display $display -Text $time -Page 1 -Align center -FontSize 2
+    Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Clear -Page 2
+    Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Text $time -Page 2 -Align center -FontSize 2
     Start-Sleep -Seconds 1
 }
 
@@ -354,9 +355,8 @@ for ($i = 0; $i -lt 60; $i++) {
 $ftdi.Close()
 ```
 
-> **See also**: [examples/Example-Ssd1306.ps1](Example-Ssd1306.ps1) for a
-> complete runnable script including a live clock, alignment demo, and
-> scrolling status screen.
+> **See also**: [examples/Example-Ssd1306.md](Example-Ssd1306.md) for a
+> complete multi-persona walkthrough with troubleshooting and Quick Reference.
 
 ---
 
@@ -581,10 +581,8 @@ $conn.Close()
 | Set-PsGadgetFtdiEeprom      | Write EEPROM settings for FT232H or FT232R (-DisableVcp to fix VCP/MPSSE conflict; -CbusPins to configure CBUS pins; -ACDriveCurrent/-ADDriveCurrent for FT232H) |
 | Set-PsGadgetFt232rCbusMode  | Program FT232R CBUS pins to GPIO mode (legacy one-chip command; Set-PsGadgetFtdiEeprom preferred) |
 | Set-PsGadgetGpio            | Set GPIO pin state (FT232H and FT232R; -Connection supported) |
-| Connect-PsGadgetSsd1306     | Init SSD1306 OLED over I2C; returns display object (-FtdiDevice, -Address) |
-| Clear-PsGadgetSsd1306       | Clear full display or a single page (-Display, optional -Page) |
-| Write-PsGadgetSsd1306       | Write text to a page (-Text, -Page, -Align, -FontSize, -Invert) |
-| Set-PsGadgetSsd1306Cursor   | Set cursor position for raw writes (-Column, -Page)           |
+| Invoke-PsGadgetI2C          | Unified I2C dispatch (-I2CModule PCA9685 for servo control, SSD1306 for OLED); auto-opens/closes device unless -PsGadget supplied |
+| Invoke-PsGadgetI2CScan      | Scan I2C bus and report devices found (-Index, -SerialNumber) |
 | List-PsGadgetMpy            | Enumerate MicroPython serial ports                            |
 | Connect-PsGadgetMpy         | Open a MicroPython REPL connection                            |
 | Install-PsGadgetMpyScript   | Deploy bundled ESP-NOW Receiver or Transmitter main.py + config.json to an ESP32 via mpremote (-SerialPort, -Role, -ConfigPath, -Force) |

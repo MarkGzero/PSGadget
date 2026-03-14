@@ -32,15 +32,17 @@ Describe 'PsGadget Module Tests' {
             $ExportedFunctions | Should -Contain 'Test-PsGadgetEnvironment'
             $ExportedFunctions | Should -Contain 'Install-PsGadgetMpyScript'
             $ExportedFunctions | Should -Contain 'Get-PsGadgetEspNowDevices'
-            $ExportedFunctions | Should -Contain 'Connect-PsGadgetPca9685'
-            $ExportedFunctions | Should -Contain 'Invoke-PsGadgetPca9685SetChannel'
-            $ExportedFunctions | Should -Contain 'Invoke-PsGadgetPca9685SetChannels'
-            $ExportedFunctions | Should -Contain 'Get-PsGadgetPca9685Channel'
-            $ExportedFunctions | Should -Contain 'Get-PsGadgetPca9685Frequency'
+            $ExportedFunctions | Should -Contain 'Invoke-PsGadgetI2C'
+            $ExportedFunctions | Should -Contain 'Invoke-PsGadgetI2CScan'
+            $ExportedFunctions | Should -Not -Contain 'Connect-PsGadgetPca9685'
+            $ExportedFunctions | Should -Not -Contain 'Connect-PsGadgetSsd1306'
+            $ExportedFunctions | Should -Not -Contain 'Write-PsGadgetSsd1306'
+            $ExportedFunctions | Should -Not -Contain 'Clear-PsGadgetSsd1306'
+            $ExportedFunctions | Should -Not -Contain 'Set-PsGadgetSsd1306Cursor'
         }
         
         It 'Should have the correct module version' {
-            (Get-Module PSGadget).Version.ToString() | Should -Be '0.3.4'
+            (Get-Module PSGadget).Version.ToString() | Should -Be '0.3.5'
         }
     }
 

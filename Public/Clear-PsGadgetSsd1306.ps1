@@ -1,4 +1,5 @@
 # Clear-PsGadgetSsd1306.ps1
+# DEPRECATED - use Invoke-PsGadgetI2C -I2CModule SSD1306 -Clear instead.
 # Clear SSD1306 OLED display
 
 function Clear-PsGadgetSsd1306 {

@@ -18,6 +18,13 @@ function Invoke-PsGadgetI2C {
                      Single channel:    -ServoAngle @(0, 90)
                      Multiple channels: -ServoAngle @(@(0,90), @(1,180), @(2,45))
 
+        SSD1306    128x64 I2C OLED display (default address 0x3C).
+                   -Text     Write a single line of text to a page (0-7).
+                   -FontSize 2 renders double-height text spanning page and page+1.
+                   -Symbol   Draw a named 8x8/16x16 sysadmin icon.
+                   -Clear    Blank the display or a specific page.
+                   Supported symbols: Warning, Alert, Checkmark, Error, Info, Lock, Unlock, Network.
+
     .PARAMETER PsGadget
     An already-open PsGadgetFtdi object (from New-PsGadgetFtdi).
     When supplied the device is NOT closed after the call.
@@ -113,7 +120,7 @@ function Invoke-PsGadgetI2C {
         [byte]$I2CAddress = 0x40,
 
         [Parameter(Mandatory = $true)]
-        [ValidateSet('PCA9685')]
+        [ValidateSet('PCA9685','SSD1306')]
         [string]$I2CModule,
 
         [Parameter(Mandatory = $false)]
@@ -146,6 +153,77 @@ function Invoke-PsGadgetI2C {
 
         }
 
+        if ($PSBoundParameters['I2CModule'] -eq 'SSD1306') {
+            # Text
+            $attrs = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
+            $paramAttr = [System.Management.Automation.ParameterAttribute]::new()
+            $paramAttr.Mandatory = $false
+            $attrs.Add($paramAttr)
+            $rp = [System.Management.Automation.RuntimeDefinedParameter]::new('Text', [string], $attrs)
+            $dynParams.Add('Text', $rp)
+
+            # Page
+            $attrs = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
+            $paramAttr = [System.Management.Automation.ParameterAttribute]::new()
+            $paramAttr.Mandatory = $false
+            $attrs.Add($paramAttr)
+            $attrs.Add([System.Management.Automation.ValidateRangeAttribute]::new(0, 7))
+            $rp = [System.Management.Automation.RuntimeDefinedParameter]::new('Page', [int], $attrs)
+            $dynParams.Add('Page', $rp)
+
+            # Align
+            $attrs = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
+            $paramAttr = [System.Management.Automation.ParameterAttribute]::new()
+            $paramAttr.Mandatory = $false
+            $attrs.Add($paramAttr)
+            $attrs.Add([System.Management.Automation.ValidateSetAttribute]::new([string[]]@('left','center','right')))
+            $rp = [System.Management.Automation.RuntimeDefinedParameter]::new('Align', [string], $attrs)
+            $dynParams.Add('Align', $rp)
+
+            # FontSize
+            $attrs = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
+            $paramAttr = [System.Management.Automation.ParameterAttribute]::new()
+            $paramAttr.Mandatory = $false
+            $attrs.Add($paramAttr)
+            $attrs.Add([System.Management.Automation.ValidateRangeAttribute]::new(1, 2))
+            $rp = [System.Management.Automation.RuntimeDefinedParameter]::new('FontSize', [int], $attrs)
+            $dynParams.Add('FontSize', $rp)
+
+            # Invert
+            $attrs = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
+            $paramAttr = [System.Management.Automation.ParameterAttribute]::new()
+            $paramAttr.Mandatory = $false
+            $attrs.Add($paramAttr)
+            $rp = [System.Management.Automation.RuntimeDefinedParameter]::new('Invert', [switch], $attrs)
+            $dynParams.Add('Invert', $rp)
+
+            # Symbol
+            $attrs = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
+            $paramAttr = [System.Management.Automation.ParameterAttribute]::new()
+            $paramAttr.Mandatory = $false
+            $attrs.Add($paramAttr)
+            $attrs.Add([System.Management.Automation.ValidateSetAttribute]::new([string[]]@('Warning','Alert','Checkmark','Error','Info','Lock','Unlock','Network')))
+            $rp = [System.Management.Automation.RuntimeDefinedParameter]::new('Symbol', [string], $attrs)
+            $dynParams.Add('Symbol', $rp)
+
+            # Clear
+            $attrs = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
+            $paramAttr = [System.Management.Automation.ParameterAttribute]::new()
+            $paramAttr.Mandatory = $false
+            $attrs.Add($paramAttr)
+            $rp = [System.Management.Automation.RuntimeDefinedParameter]::new('Clear', [switch], $attrs)
+            $dynParams.Add('Clear', $rp)
+
+            # Column
+            $attrs = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
+            $paramAttr = [System.Management.Automation.ParameterAttribute]::new()
+            $paramAttr.Mandatory = $false
+            $attrs.Add($paramAttr)
+            $attrs.Add([System.Management.Automation.ValidateRangeAttribute]::new(0, 127))
+            $rp = [System.Management.Automation.RuntimeDefinedParameter]::new('Column', [int], $attrs)
+            $dynParams.Add('Column', $rp)
+        }
+
         return $dynParams
     }
 
@@ -171,6 +249,12 @@ function Invoke-PsGadgetI2C {
                 throw "Failed to open FTDI device"
             }
 
+            # --- apply module-specific address default if not supplied by caller ---
+            if (-not $PSBoundParameters.ContainsKey('I2CAddress')) {
+                if ($I2CModule -eq 'SSD1306') { $I2CAddress = 0x3C }
+                # PCA9685 keeps its param-block default of 0x40
+            }
+
             # --- configure MPSSE I2C (skip if already initialized this session) ---
             if ($null -eq $ftdi._connection -or $ftdi._connection.GpioMethod -ne 'MpsseI2c') {
                 Write-Verbose "Setting FTDI to MpsseI2c mode"
@@ -191,6 +275,27 @@ function Invoke-PsGadgetI2C {
                         -ServoAngle   $PSBoundParameters['ServoAngle'] `
                         -PulseMinUs   $pulseMinUs `
                         -PulseMaxUs   $pulseMaxUs
+                }
+                'SSD1306' {
+                    $text     = $PSBoundParameters['Text']
+                    $page     = if ($PSBoundParameters.ContainsKey('Page')) { $PSBoundParameters['Page'] } else { -1 }
+                    $align    = if ($PSBoundParameters['Align']) { $PSBoundParameters['Align'] } else { 'left' }
+                    $fontSize = if ($PSBoundParameters.ContainsKey('FontSize')) { $PSBoundParameters['FontSize'] } else { 1 }
+                    $invert   = [bool]$PSBoundParameters['Invert']
+                    $symbol   = $PSBoundParameters['Symbol']
+                    $clear    = [bool]$PSBoundParameters['Clear']
+                    $column   = if ($PSBoundParameters.ContainsKey('Column')) { $PSBoundParameters['Column'] } else { 0 }
+                    return Invoke-PsGadgetI2CSsd1306 `
+                        -Ftdi       $ftdi `
+                        -I2CAddress $I2CAddress `
+                        -Text       $text `
+                        -Page       $page `
+                        -Align      $align `
+                        -FontSize   $fontSize `
+                        -Invert:$invert `
+                        -Symbol     $symbol `
+                        -Clear:$clear `
+                        -Column     $column
                 }
             }
         } finally {
@@ -315,5 +420,103 @@ function Invoke-PsGadgetI2CPca9685 {
         Address     = '0x' + $I2CAddress.ToString('X2')
         Frequency   = $Frequency
         ChannelsSet = $channelsSet
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Private helper: SSD1306 dispatch
+# Not exported.  Called only by Invoke-PsGadgetI2C.
+# ---------------------------------------------------------------------------
+function Invoke-PsGadgetI2CSsd1306 {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Ftdi,
+
+        [Parameter(Mandatory = $true)]
+        [byte]$I2CAddress,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Text,
+
+        [Parameter(Mandatory = $false)]
+        [int]$Page = -1,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Align = 'left',
+
+        [Parameter(Mandatory = $false)]
+        [int]$FontSize = 1,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$Invert,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Symbol,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$Clear,
+
+        [Parameter(Mandatory = $false)]
+        [int]$Column = 0
+    )
+
+    # --- validate mutual exclusions ---
+    if ($Text -and $Symbol) {
+        throw "Specify either -Text or -Symbol, not both."
+    }
+    if (($Text -or $Symbol) -and $Page -lt 0) {
+        throw "-Page (0-7) is required when using -Text or -Symbol."
+    }
+
+    # --- get or create cached SSD1306 instance ---
+    $cacheKey = "SSD1306:$($I2CAddress.ToString('X2'))"
+    $ssd = $null
+    if ($Ftdi._i2cDevices -and $Ftdi._i2cDevices.ContainsKey($cacheKey)) {
+        $ssd = $Ftdi._i2cDevices[$cacheKey]
+        Write-Verbose "Using cached SSD1306 at 0x$($I2CAddress.ToString('X2'))"
+    } else {
+        Write-Verbose "Creating SSD1306 at I2C address 0x$($I2CAddress.ToString('X2'))"
+        $ssd = [PsGadgetSsd1306]::new($Ftdi._connection, $I2CAddress)
+        if (-not $ssd.Initialize($false)) {
+            throw "SSD1306 Initialize() failed at address 0x$($I2CAddress.ToString('X2'))"
+        }
+        if ($Ftdi._i2cDevices) { $Ftdi._i2cDevices[$cacheKey] = $ssd }
+    }
+
+    # --- dispatch ---
+    $action = 'init'
+
+    if ($Clear) {
+        if ($Page -ge 0) {
+            if (-not $ssd.ClearPage($Page)) { throw "SSD1306 ClearPage($Page) failed" }
+            $action = "clear-page-$Page"
+        } else {
+            if (-not $ssd.Clear()) { throw "SSD1306 Clear() failed" }
+            $action = 'clear'
+        }
+    } elseif ($Symbol) {
+        if (-not $ssd.DrawSymbol($Symbol, $Page, $Column)) {
+            throw "SSD1306 DrawSymbol('$Symbol', page=$Page, col=$Column) failed"
+        }
+        $action = "symbol-$Symbol"
+    } elseif ($Text) {
+        if ($FontSize -eq 2) {
+            if (-not $ssd.WriteTextTall($Text, $Page, $Align, [bool]$Invert)) {
+                throw "SSD1306 WriteTextTall('$Text', page=$Page) failed"
+            }
+        } else {
+            if (-not $ssd.WriteText($Text, $Page, $Align, 1, [bool]$Invert)) {
+                throw "SSD1306 WriteText('$Text', page=$Page) failed"
+            }
+        }
+        $action = "write-text"
+    }
+
+    return [PSCustomObject]@{
+        Module  = 'SSD1306'
+        Address = '0x{0:X2}' -f $I2CAddress
+        Action  = $action
+        Page    = $Page
     }
 }

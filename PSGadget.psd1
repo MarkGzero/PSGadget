@@ -31,10 +31,6 @@
         'Set-PsGadgetFtdiMode',
         'Get-PsGadgetConfig',
         'Set-PsGadgetConfig',
-        'Connect-PsGadgetSsd1306',
-        'Clear-PsGadgetSsd1306',
-        'Write-PsGadgetSsd1306',
-        'Set-PsGadgetSsd1306Cursor',
         'Install-PsGadgetMpyScript',
         'Get-PsGadgetEspNowDevices',
         'Send-PsGadgetI2CWrite',
@@ -111,7 +107,7 @@
             LicenseUri   = 'https://opensource.org/licenses/MIT'
             ProjectUri   = 'https://github.com/MarkGzero/PsGadget'
             IconUri      = ''
-            ReleaseNotes = 'v0.3.4: ESP-NOW wireless telemetry support (Install-PsGadgetMpyScript, Get-PsGadgetEspNowDevices). ESP32-S3 receiver/transmitter scripts bundled. v0.3.x: SSD1306 OLED display, MicroPython mpremote backend, FT232R CBUS GPIO, FT232H MPSSE GPIO.'
+            ReleaseNotes = 'v0.3.5: SSD1306 OLED integrated into Invoke-PsGadgetI2C (-I2CModule SSD1306). Double-height text (FontSize 2 = 2-page vertical scaling), 8 sysadmin symbols (Warning, Alert, Checkmark, Error, Info, Lock, Unlock, Network) auto-sized 8x8 or 16x16. Legacy SSD1306 functions removed from export. v0.3.4: ESP-NOW wireless telemetry. v0.3.x: MicroPython mpremote, FT232R CBUS GPIO, FT232H MPSSE GPIO.'
         }
     }
 }

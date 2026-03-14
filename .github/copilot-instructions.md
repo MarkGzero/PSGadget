@@ -108,7 +108,7 @@ $dev = New-PsGadgetFtdi -Index 0
 
 **FTDI Hardware**: Assembly loaded by [Initialize-FtdiAssembly.ps1](Private/Initialize-FtdiAssembly.ps1). Windows D2XX logic in [Ftdi.Windows.ps1](Private/Ftdi.Windows.ps1); Linux/macOS sysfs enumeration and stub fallback in [Ftdi.Unix.ps1](Private/Ftdi.Unix.ps1); .NET IoT backend in [Ftdi.IoT.ps1](Private/Ftdi.IoT.ps1); native P/Invoke for Linux CBUS in [Ftdi.PInvoke.ps1](Private/Ftdi.PInvoke.ps1). MPSSE helpers in [Ftdi.Mpsse.ps1](Private/Ftdi.Mpsse.ps1). CBUS helpers in [Ftdi.Cbus.ps1](Private/Ftdi.Cbus.ps1). Device class in [Classes/PsGadgetFtdi.ps1](Classes/PsGadgetFtdi.ps1).
 
-**SSD1306 OLED Display**: I2C display support via [Classes/PsGadgetSsd1306.ps1](Classes/PsGadgetSsd1306.ps1). Connected through FT232H MPSSE I2C. Public functions: `Connect-PsGadgetSsd1306`, `Write-PsGadgetSsd1306`, `Clear-PsGadgetSsd1306`, `Set-PsGadgetSsd1306Cursor`. The `PsGadgetFtdi` class exposes a `.Display()` shorthand method.
+**SSD1306 OLED Display**: I2C display support via [Classes/PsGadgetSsd1306.ps1](Classes/PsGadgetSsd1306.ps1). Connected through FT232H MPSSE I2C. Use `Invoke-PsGadgetI2C -I2CModule SSD1306` for all display operations: `-Text` (single-row, FontSize 1), `-FontSize 2` (double-height 2-page vertical scaling), `-Symbol` (8 sysadmin symbols auto-sized 8x8 or 16x16), `-Clear`. Legacy functions `Connect-PsGadgetSsd1306`, `Write-PsGadgetSsd1306`, `Clear-PsGadgetSsd1306`, `Set-PsGadgetSsd1306Cursor` are deprecated (removed from exports; kept as internal helpers). The `PsGadgetFtdi` class exposes a `.Display()` shorthand method.
 
 **MicroPython**: `mpremote` integration via [Mpy.Backend.ps1](Private/Mpy.Backend.ps1) using [Invoke-NativeProcess.ps1](Private/Invoke-NativeProcess.ps1) helper. Pattern: `mpremote connect {port} exec {code}`. The `Install-PsGadgetMpyScript` function pushes a named script (and optional `config.json`) to a device via `mpremote cp` and resets the device.
 
@@ -129,10 +129,7 @@ $dev = New-PsGadgetFtdi -Index 0
 - `Set-PsGadgetFtdiMode` - set FTDI device operating mode (async bit-bang, MPSSE, etc.)
 - `Get-PsGadgetConfig` - read a value from `~/.psgadget/config.json`
 - `Set-PsGadgetConfig` - write a value to `~/.psgadget/config.json`
-- `Connect-PsGadgetSsd1306` - initialize SSD1306 OLED over FT232H I2C
-- `Clear-PsGadgetSsd1306` - clear SSD1306 display
-- `Write-PsGadgetSsd1306` - write text to SSD1306 at current cursor
-- `Set-PsGadgetSsd1306Cursor` - set SSD1306 text cursor position
+- `Invoke-PsGadgetI2C` - unified I2C dispatch: `-I2CModule PCA9685` (servo control) or `-I2CModule SSD1306` (OLED write/clear/symbol)
 - `Install-PsGadgetMpyScript` - push MicroPython script and config to an ESP32 via mpremote
 - `Get-PsGadgetEspNowDevices` - retrieve known ESP-NOW device list from receiver flash
 

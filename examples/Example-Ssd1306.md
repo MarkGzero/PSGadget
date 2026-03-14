@@ -29,6 +29,8 @@ FtdiSharp on PS 5.1, .NET IoT on PS 7.
 - [Step 8 - Scrolling Status Display](#step-8---scrolling-status-display)
 - [Step 9 - Cursor Positioning for Raw Layout](#step-9---cursor-positioning-for-raw-layout)
 - [Step 10 - Close the Connection](#step-10---close-the-connection)
+- [Using Invoke-PsGadgetI2C (Preferred Public API)](#using-invoke-psgadgeti2c-preferred-public-api)
+  - [Symbols Reference](#symbols-reference)
 - [Complete Examples](#complete-examples)
   - [Example 1 - Standard (quiet output)](#example-1---standard-quiet-output)
   - [Example 2 - Verbose (beginner-friendly)](#example-2---verbose-beginner-friendly)
@@ -186,14 +188,20 @@ $dev.Scan() | Format-Table
 
 ---
 
+> **Note**: `Write-PsGadgetSsd1306` and `Clear-PsGadgetSsd1306` shown in this section
+> are legacy helpers kept for internal use. The preferred public API is
+> `Invoke-PsGadgetI2C -I2CModule SSD1306` (see section below).
+> The `$dev.Display()` and `$dev.ClearDisplay()` class methods still work and call the
+> same internal code paths.
+
 ## Step 4 - Write to the Display
 
 Two functions, pick based on what you need:
 
 | Need | Use |
 |---|---|
-| Just write a line of text | `$dev.Display("text", page)` |
-| Alignment, font size, or invert | `$dev.GetDisplay()` then `Write-PsGadgetSsd1306` |
+| Simple text (one line) | `$dev.Display("text", page)` |
+| Full control (align, font, symbols, clear) | `Invoke-PsGadgetI2C -I2CModule SSD1306` |
 
 ### Simple text
 
@@ -386,6 +394,73 @@ Write-Host "Device closed."
 > **Beginner**: The `.Close()` call tells Windows to release the USB device so other
 > programs can use it. If you forget and try to reconnect, you may get a "device busy"
 > error.
+
+---
+
+## Using Invoke-PsGadgetI2C (Preferred Public API)
+
+`Invoke-PsGadgetI2C -I2CModule SSD1306` is the recommended public interface for all
+SSD1306 operations. It auto-initializes the display on first use, caches the device,
+and closes the FTDI connection automatically (unless you pass `-PsGadget` to share a
+persistent handle).
+
+```powershell
+# Open once; share across calls with -PsGadget
+$ftdi = New-PsGadgetFtdi -Index 0
+
+# Clear entire display
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Clear
+
+# Clear a single page
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Clear -Page 3
+
+# Single-row text (6x8 font, approx 21 chars wide)
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Text "Hello World" -Page 0
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Text "Centered"    -Page 2 -Align center
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Text "Right"       -Page 4 -Align right
+
+# Double-height text (spans pages N and N+1; requires page in 0-6)
+# Each glyph byte is vertically scaled 2x: lower-nibble -> top page, upper-nibble -> bottom page
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Text "14:23" -Page 0 -FontSize 2 -Align center
+
+# Inverted text (white pixels become black and vice versa)
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Text "ALARM" -Page 6 -Align center -Invert
+
+# Draw a sysadmin symbol
+# page <= 6: renders 16x16 (2 pages tall), page 7: renders 8x8 (1 page)
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Symbol Warning   -Page 0
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Symbol Checkmark -Page 2 -Column 56
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -Symbol Error      -Page 7
+
+# Non-default address (ADDR pin pulled high -> 0x3D)
+Invoke-PsGadgetI2C -PsGadget $ftdi -I2CModule SSD1306 -I2CAddress 0x3D -Text "Alt" -Page 0
+
+# Without -PsGadget: device opens and closes automatically per call
+Invoke-PsGadgetI2C -Index 0 -I2CModule SSD1306 -Text "One-shot" -Page 0
+
+$ftdi.Close()
+```
+
+### Symbols Reference
+
+Eight built-in sysadmin symbols, each stored as an 8x8 column-major bitmap.
+`DrawSymbol` vertically scales to 16x16 (2 pages) when page <= 6, and renders at
+8x8 (1 page) when page == 7.
+
+| Symbol    | Description                           | Typical use                 |
+|-----------|---------------------------------------|-----------------------------|
+| Warning   | Upward triangle with ! in center      | Threshold exceeded, alerts  |
+| Alert     | Rectangle box with ! inside           | Service notifications       |
+| Checkmark | Tick mark (lower-left to upper-right) | Success, OK, passed         |
+| Error     | X inside a circle                     | Failure, critical error     |
+| Info      | Circle with i indicator               | Informational messages      |
+| Lock      | Closed padlock                        | Secured, authenticated      |
+| Unlock    | Open padlock (shackle right side)     | Unsecured, deauthorized     |
+| Network   | Diamond / hub shape                   | Network status, connected   |
+
+> **Scripter**: `-Column` controls the horizontal starting pixel (0-127). For a 16x16
+> symbol at `Column=0` the symbol occupies columns 0-7. For a centered 16x16 on a 128px
+> wide display, use `Column=60`.
 
 ---
 
@@ -593,22 +668,27 @@ $dev = New-PsGadgetFtdi -Index 0   # connected immediately
 # Scan I2C bus
 $dev.Scan() | Format-Table
 
-# Simple text -- no display object needed
+# Shorthand helpers on the device object (unchanged)
 $dev.Display("Hello World")           # page 0, default 0x3C
 $dev.Display("line 2", 2)             # specific page
 $dev.Display("alt addr", 0, 0x3D)     # alternate address
 $dev.ClearDisplay()                   # clear all pages
 $dev.ClearDisplay(2)                  # clear one page
 
-# Advanced formatting -- GetDisplay() returns the same cached object
-$d = $dev.GetDisplay()                # (or GetDisplay(0x3D) for alternate address)
-Write-PsGadgetSsd1306 -Display $d -Text "Hello"  -Page 0 -Align center
-Write-PsGadgetSsd1306 -Display $d -Text "BIG"    -Page 2 -Align center -FontSize 2
-Write-PsGadgetSsd1306 -Display $d -Text "ALERT"  -Page 4 -Align center -Invert
-Clear-PsGadgetSsd1306 -Display $d -Page 1
+# Preferred public API: Invoke-PsGadgetI2C -I2CModule SSD1306
+# Device auto-initializes on first call, is cached, address defaults to 0x3C
+Invoke-PsGadgetI2C -PsGadget $dev -I2CModule SSD1306 -Clear
+Invoke-PsGadgetI2C -PsGadget $dev -I2CModule SSD1306 -Clear -Page 3
+Invoke-PsGadgetI2C -PsGadget $dev -I2CModule SSD1306 -Text "Hello"  -Page 0 -Align center
+Invoke-PsGadgetI2C -PsGadget $dev -I2CModule SSD1306 -Text "BIG"    -Page 2 -Align center -FontSize 2
+Invoke-PsGadgetI2C -PsGadget $dev -I2CModule SSD1306 -Text "ALERT"  -Page 4 -Align center -Invert
+Invoke-PsGadgetI2C -PsGadget $dev -I2CModule SSD1306 -Text "Alt"    -Page 0 -I2CAddress 0x3D
 
-# Cursor
-Set-PsGadgetSsd1306Cursor -Display $d -Column 32 -Page 3
+# Symbols: page <= 6 renders 16x16 (2 pages); page 7 renders 8x8
+Invoke-PsGadgetI2C -PsGadget $dev -I2CModule SSD1306 -Symbol Warning   -Page 0
+Invoke-PsGadgetI2C -PsGadget $dev -I2CModule SSD1306 -Symbol Checkmark -Page 2 -Column 56
+Invoke-PsGadgetI2C -PsGadget $dev -I2CModule SSD1306 -Symbol Error     -Page 7
+# Available: Warning, Alert, Checkmark, Error, Info, Lock, Unlock, Network
 
 # Close
 $dev.Close()
