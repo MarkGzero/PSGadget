@@ -11,8 +11,11 @@ class PsGadgetFtdi : System.IDisposable {
     [string]$GpioMethod
     [bool]$IsOpen
     [PsGadgetLogger]$Logger
-    hidden [object]$_connection = $null
-    hidden [object]$_display    = $null
+    hidden [object]$_connection  = $null
+    hidden [object]$_display     = $null
+    # Keyed by "ModuleName:HexAddress" (e.g. "PCA9685:40").
+    # Stores initialized I2C device objects so re-calls skip construction + hardware init.
+    hidden [hashtable]$_i2cDevices = $null
 
     # Constructor - connect by serial number (preferred)
     PsGadgetFtdi([string]$SerialNumber) {
@@ -21,6 +24,7 @@ class PsGadgetFtdi : System.IDisposable {
         $this.Index        = -1
         $this.IsOpen       = $false
         $this.Description  = "FTDI $SerialNumber"
+        $this._i2cDevices  = @{}
         $this.Logger = [PsGadgetLogger]::new()
         $this.Logger.WriteInfo("PsGadgetFtdi created for serial: $SerialNumber")
     }
@@ -32,6 +36,7 @@ class PsGadgetFtdi : System.IDisposable {
         $this.LocationId   = ''
         $this.IsOpen       = $false
         $this.Description  = "FTDI device index $DeviceIndex"
+        $this._i2cDevices  = @{}
         $this.Logger = [PsGadgetLogger]::new()
         $this.Logger.WriteInfo("PsGadgetFtdi created for index: $DeviceIndex")
     }
@@ -93,6 +98,7 @@ class PsGadgetFtdi : System.IDisposable {
         } finally {
             $this.IsOpen      = $false
             $this._connection = $null
+            $this._i2cDevices = @{}   # drop cached I2C device objects; stale on reconnect
         }
     }
 

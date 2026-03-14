@@ -155,9 +155,13 @@ function Invoke-PsGadgetI2C {
                 throw "Failed to open FTDI device"
             }
 
-            # --- configure MPSSE I2C ---
-            Write-Verbose "Setting FTDI to MpsseI2c mode"
-            Set-PsGadgetFtdiMode -PsGadget $ftdi -Mode MpsseI2c | Out-Null
+            # --- configure MPSSE I2C (skip if already initialized this session) ---
+            if ($null -eq $ftdi._connection -or $ftdi._connection.GpioMethod -ne 'MpsseI2c') {
+                Write-Verbose "Setting FTDI to MpsseI2c mode"
+                Set-PsGadgetFtdiMode -PsGadget $ftdi -Mode MpsseI2c | Out-Null
+            } else {
+                Write-Verbose "FTDI already in MpsseI2c mode"
+            }
 
             # --- dispatch to module handler ---
             switch ($I2CModule) {
@@ -236,13 +240,28 @@ function Invoke-PsGadgetI2CPca9685 {
         }
     }
 
-    # --- construct PCA9685, set frequency, initialise ---
-    Write-Verbose "Creating PCA9685 at I2C address 0x$($I2CAddress.ToString('X2')), frequency $Frequency Hz"
-    $pca = [PsGadgetPca9685]::new($Ftdi._connection, $I2CAddress)
-    $pca.Frequency = $Frequency
-
-    if (-not $pca.Initialize($false)) {
-        throw "PCA9685 Initialize() failed at address 0x$($I2CAddress.ToString('X2'))"
+    # --- get or create PCA9685 instance (cached per FTDI device + address) ---
+    $cacheKey = "PCA9685:$($I2CAddress.ToString('X2'))"
+    $pca = $null
+    if ($Ftdi._i2cDevices -and $Ftdi._i2cDevices.ContainsKey($cacheKey)) {
+        $pca = $Ftdi._i2cDevices[$cacheKey]
+        if ($pca.Frequency -ne $Frequency) {
+            Write-Verbose "PCA9685 frequency changed ($($pca.Frequency)->$Frequency Hz), reinitializing"
+            $pca.Frequency = $Frequency
+            if (-not $pca.Initialize($true)) {
+                throw "PCA9685 reinitialize failed at address 0x$($I2CAddress.ToString('X2'))"
+            }
+        } else {
+            Write-Verbose "Using cached PCA9685 at 0x$($I2CAddress.ToString('X2')) ($($pca.Frequency) Hz)"
+        }
+    } else {
+        Write-Verbose "Creating PCA9685 at I2C address 0x$($I2CAddress.ToString('X2')), frequency $Frequency Hz"
+        $pca = [PsGadgetPca9685]::new($Ftdi._connection, $I2CAddress)
+        $pca.Frequency = $Frequency
+        if (-not $pca.Initialize($false)) {
+            throw "PCA9685 Initialize() failed at address 0x$($I2CAddress.ToString('X2'))"
+        }
+        if ($Ftdi._i2cDevices) { $Ftdi._i2cDevices[$cacheKey] = $pca }
     }
 
     # --- set channels ---

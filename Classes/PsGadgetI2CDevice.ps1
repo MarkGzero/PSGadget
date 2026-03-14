@@ -73,10 +73,13 @@ class PsGadgetI2CDevice {
         try {
             # Initialize MPSSE I2C only when using raw D2XX bit-bang path.
             # FtdiSharp and .NET IoT backends manage their own MPSSE / I2C init.
+            # Skip if Set-PsGadgetFtdiMode already ran Initialize-MpsseI2C this session.
             if ($null -eq $this.I2cDevice) {
-                if (-not (Initialize-MpsseI2C -DeviceHandle $this.FtdiDevice -ClockFrequency 100000)) {
-                    $this.Logger.WriteError("MPSSE I2C initialization failed")
-                    return $false
+                if ($this.FtdiDevice.GpioMethod -ne 'MpsseI2c') {
+                    if (-not (Initialize-MpsseI2C -DeviceHandle $this.FtdiDevice -ClockFrequency 100000)) {
+                        $this.Logger.WriteError("MPSSE I2C initialization failed")
+                        return $false
+                    }
                 }
             }
             return $true
