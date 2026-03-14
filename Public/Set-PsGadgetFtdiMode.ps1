@@ -198,6 +198,12 @@ function Set-PsGadgetFtdiMode {
             if ($Mode -eq 'MpsseI2c') {
                 Initialize-MpsseI2C -DeviceHandle $conn | Out-Null
             }
+            # For plain MPSSE (GPIO): run core MPSSE sync + clock config (no drive-zero).
+            # Matches FtdiSharp GPIO.FTDI_ConfigureMpsse() which sends the same sync
+            # handshake and base-config bytes before any ACBUS commands are issued.
+            if ($Mode -eq 'MPSSE') {
+                Initialize-MpsseGpio -DeviceHandle $conn | Out-Null
+            }
             $log.WriteInfo("SetBitMode OK: $($PsGadget.SerialNumber) is now in $Mode mode (GpioMethod=$($conn.GpioMethod))")
             return [PSCustomObject]@{
                 Success    = $true

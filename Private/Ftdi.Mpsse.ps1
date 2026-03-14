@@ -237,16 +237,22 @@ function Send-MpsseAcbusCommand {
         $rawFtdi = Get-FtdiD2xxHandle -DeviceHandle $DeviceHandle
 
         if ($script:FtdiInitialized -and $null -ne $rawFtdi) {
-            [uint32]$bytesWritten = 0
-            $status = $rawFtdi.Write($command, $command.Length, [ref]$bytesWritten)
+            # Send the command 5 times for signal reliability, matching FtdiSharp GPIO.Write().
+            # A single write can occasionally be missed on capacitive or longer traces.
+            $lastStatus = $script:FTDI_OK
+            for ($i = 0; $i -lt 5; $i++) {
+                [uint32]$bytesWritten = 0
+                $lastStatus = $rawFtdi.Write($command, $command.Length, [ref]$bytesWritten)
+                if ($lastStatus -ne $script:FTDI_OK) { break }
+            }
 
-            if ($status -eq $script:FTDI_OK -and $bytesWritten -eq $command.Length) {
-                Write-Verbose "MPSSE command sent successfully ($bytesWritten bytes)"
+            if ($lastStatus -eq $script:FTDI_OK) {
+                Write-Verbose ("MPSSE ACBUS command sent (5x): value=0x{0:X2} dir=0x{1:X2}" -f $Value, $DirectionMask)
                 # Update cached ACBUS state - eliminates USB reads from Get-FtdiGpioPins in hot loops
                 $DeviceHandle | Add-Member -MemberType NoteProperty -Name 'AcbusCachedState' -Value ([byte]$Value) -Force
                 return $true
             } else {
-                Write-Warning "MPSSE command failed: Status=$status, BytesWritten=$bytesWritten"
+                Write-Warning ("MPSSE ACBUS command failed: status={0}" -f $lastStatus)
                 return $false
             }
         } else {
@@ -297,8 +303,11 @@ function Get-FtdiGpioPins {
         # --- FTD2XX_NET path - get (or re-acquire) the raw FTD2XX_NET.FTDI handle ---
         $rawFtdi = Get-FtdiD2xxHandle -DeviceHandle $DeviceHandle
 
-        # MPSSE command 0x83: Read ACBUS pins
-        [byte[]]$command = @(0x83)
+        # MPSSE command 0x83: Read ACBUS pins.
+        # 0x87 (SEND_IMMEDIATE) must follow so the MPSSE engine flushes the
+        # result byte to the USB host buffer right away, rather than waiting
+        # for the latency timer to expire (matches FtdiSharp Read pattern).
+        [byte[]]$command = @(0x83, 0x87)
 
         if ($script:FtdiInitialized -and $null -ne $rawFtdi) {
             # Real FTDI device
@@ -330,6 +339,96 @@ function Get-FtdiGpioPins {
     } catch {
         Write-Error "Failed to read FTDI GPIO pins: $_"
         return [byte]0
+    }
+}
+
+function Initialize-MpsseGpio {
+    <#
+    .SYNOPSIS
+    Initializes FTDI device for MPSSE GPIO (ACBUS) operation.
+
+    .DESCRIPTION
+    Runs the MPSSE synchronization handshake and base clock configuration
+    required before issuing ACBUS 0x82/0x83 commands. Matches FtdiSharp
+    GPIO.FTDI_ConfigureMpsse() exactly, minus the drive-zero mode that is
+    only needed for I2C open-drain operation.
+
+    Called automatically by Set-PsGadgetFtdiMode when Mode = 'MPSSE'.
+
+    .PARAMETER DeviceHandle
+    Open connection object returned by Connect-PsGadgetFtdi.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Object]$DeviceHandle
+    )
+
+    try {
+        if (-not $DeviceHandle -or -not $DeviceHandle.IsOpen) {
+            throw "Device handle is invalid or device is not open"
+        }
+
+        $rawDevice   = Get-FtdiD2xxHandle -DeviceHandle $DeviceHandle
+        $isReal      = $script:FtdiInitialized -and ($null -ne $rawDevice)
+
+        if ($isReal) {
+            $rawDevice.SetLatency(16) | Out-Null
+
+            $writeCmd = {
+                param([byte[]]$cmd, [string]$label)
+                [uint32]$bw = 0
+                $st = $rawDevice.Write($cmd, [uint32]$cmd.Length, [ref]$bw)
+                if ([int]$st -ne 0) { throw "$label failed: status=$st" }
+            }
+
+            $rawDevice.Purge(3) | Out-Null
+            Start-Sleep -Milliseconds 30
+
+            # MPSSE sync handshake: bad commands 0xAA and 0xAB each echo back 0xFA <cmd>
+            [uint32]$sw = 0
+            $rawDevice.Write([byte[]](0xAA), 1, [ref]$sw) | Out-Null
+            Start-Sleep -Milliseconds 30
+            [byte[]]$sb = [byte[]]::new(2); [uint32]$sr = 0
+            $rawDevice.Read($sb, 2, [ref]$sr) | Out-Null
+            if ($sr -ne 2 -or $sb[0] -ne 0xFA -or $sb[1] -ne 0xAA) {
+                throw ("MPSSE GPIO sync failed (0xAA): got {0} bytes: 0x{1:X2} 0x{2:X2}" -f $sr, $sb[0], $sb[1])
+            }
+            $rawDevice.Write([byte[]](0xAB), 1, [ref]$sw) | Out-Null
+            Start-Sleep -Milliseconds 30
+            $rawDevice.Read($sb, 2, [ref]$sr) | Out-Null
+            if ($sr -ne 2 -or $sb[0] -ne 0xFA -or $sb[1] -ne 0xAB) {
+                throw ("MPSSE GPIO sync failed (0xAB): got {0} bytes: 0x{1:X2} 0x{2:X2}" -f $sr, $sb[0], $sb[1])
+            }
+            Write-Verbose "MPSSE GPIO sync OK"
+
+            # Base config (matches FtdiSharp GPIO.FTDI_ConfigureMpsse, divisor=199 = 100kHz clock):
+            #   0x8A  Disable clock divide-by-5 (60 MHz base)
+            #   0x97  Turn off adaptive clocking
+            #   0x8C  Enable 3-phase data clock
+            #   0x86  Set clock divisor (199 = 100 kHz)
+            #   0x85  Loopback off
+            [byte[]]$cfg = @(0x8A, 0x97, 0x8C, 0x86, 0xC7, 0x00, 0x85)
+            & $writeCmd $cfg 'MPSSE GPIO base config'
+            Start-Sleep -Milliseconds 30
+
+            # All ADBUS pins to output, all low (matches FtdiSharp GPIO ctor Write(0,0))
+            [byte[]]$initPins = @(0x80, 0x00, 0x00)
+            for ($i = 0; $i -lt 5; $i++) {
+                [uint32]$ibw = 0
+                $rawDevice.Write($initPins, [uint32]$initPins.Length, [ref]$ibw) | Out-Null
+            }
+
+            Write-Verbose "MPSSE GPIO initialized (all ADBUS pins low/input)"
+            return $true
+        } else {
+            Write-Verbose "MPSSE GPIO initialized (STUB MODE)"
+            return $true
+        }
+    } catch {
+        Write-Error "Failed to initialize MPSSE GPIO: $_"
+        return $false
     }
 }
 
@@ -374,7 +473,7 @@ function Initialize-MpsseI2C {
 
         if ($isRealDevice) {
             # Set latency timer small so MPSSE read-backs arrive quickly
-            $rawDevice.SetLatencyTimer(16) | Out-Null
+            $rawDevice.SetLatency(16) | Out-Null
 
             # Helper: write bytes to raw device and check status (int 0 = FT_OK)
             $writeCmd = {
