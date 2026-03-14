@@ -303,7 +303,9 @@ function Invoke-PsGadgetI2CPca9685 {
         $ch  = $pair[0]
         $deg = $pair[1]
         Write-Verbose "PCA9685 ch$ch -> $deg deg"
-        $pca.SetChannel($ch, $deg)
+        if (-not $pca.SetChannel($ch, $deg)) {
+            throw "PCA9685 SetChannel failed: channel=$ch degrees=$deg"
+        }
         $channelsSet += [PSCustomObject]@{ Channel = $ch; Degrees = $deg }
     }
 
