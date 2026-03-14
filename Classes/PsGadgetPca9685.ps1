@@ -26,9 +26,10 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
     [int]static hidden $PWM_STEPS = 4096          # 12-bit PWM resolution (0-4095)
     [int]static hidden $CHANNELS = 16             # 16 independent PWM channels
 
-    # Servo pulse mapping (1.0-2.0 ms pulse width for 0-180 degrees)
-    [int]static hidden $PULSE_MIN_MS = 1          # 1.0 ms at 0 degrees
-    [int]static hidden $PULSE_MAX_MS = 2          # 2.0 ms at 180 degrees
+    # Servo pulse mapping (standard RC: 500µs–2500µs for 0–180 degrees)
+    # Store in microseconds as integers to avoid float static member issues in PS5.1.
+    [int]static hidden $PULSE_MIN_US = 500    # 0.5 ms at 0 degrees
+    [int]static hidden $PULSE_MAX_US = 2500   # 2.5 ms at 180 degrees
     [int]static hidden $DEGREE_MIN = 0
     [int]static hidden $DEGREE_MAX = 180
 
@@ -151,28 +152,32 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
         }
     }
 
-    # Calculate PWM counts for a given servo angle in degrees
-    # Returns object with OnCount and OffCount properties
+    # Calculate PWM OFF-count for a given servo angle in degrees.
+    # Uses microsecond arithmetic throughout to avoid PS5.1 float constant issues.
+    # Returns object with OnCount (always 0) and OffCount properties.
     hidden [PSCustomObject] DegreesToCounts([int]$degrees) {
         # Clamp degrees to valid range
         if ($degrees -lt [PsGadgetPca9685]::DEGREE_MIN) { $degrees = [PsGadgetPca9685]::DEGREE_MIN }
         if ($degrees -gt [PsGadgetPca9685]::DEGREE_MAX) { $degrees = [PsGadgetPca9685]::DEGREE_MAX }
 
-        # Map degrees to pulse width in milliseconds
-        $pulseMs = [PsGadgetPca9685]::PULSE_MIN_MS + ($degrees / [PsGadgetPca9685]::DEGREE_MAX) * ([PsGadgetPca9685]::PULSE_MAX_MS - [PsGadgetPca9685]::PULSE_MIN_MS)
+        # Map degrees -> pulse width in microseconds
+        # e.g. 0° -> 500µs, 90° -> 1500µs, 180° -> 2500µs at standard RC range
+        $pulseUs = [PsGadgetPca9685]::PULSE_MIN_US + [int][math]::Round(
+            ([double]$degrees / [double][PsGadgetPca9685]::DEGREE_MAX) *
+            ([PsGadgetPca9685]::PULSE_MAX_US - [PsGadgetPca9685]::PULSE_MIN_US)
+        )
 
-        # Convert pulse width to PWM step counts
-        # At 50 Hz: period = 20 ms, steps per ms = 4096 / 20 = 204.8
-        $stepsPerMs = [PsGadgetPca9685]::PWM_STEPS / (1000 / $this.Frequency)
-        $onCount = [int][math]::Round($pulseMs * $stepsPerMs)
-
-        # OFF count is when the pulse ends
-        $offCount = $onCount
+        # Convert microseconds to 12-bit PWM step count.
+        # offCount = pulseUs * frequency * 4096 / 1_000_000
+        # e.g. at 50Hz: 2500µs -> 2500 * 50 * 4096 / 1000000 = 512
+        $offCount = [int][math]::Round(
+            [double]$pulseUs * [double]$this.Frequency * [double][PsGadgetPca9685]::PWM_STEPS / 1000000.0
+        )
 
         return [PSCustomObject]@{
-            Degrees = $degrees
-            PulseMs = $pulseMs
-            OnCount = 0        # Always start at 0
+            Degrees  = $degrees
+            PulseUs  = $pulseUs
+            OnCount  = 0          # pulse always starts at counter zero
             OffCount = $offCount
         }
     }
@@ -208,7 +213,7 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
             $offL = $counts.OffCount -band 0xFF
             $offH = ($counts.OffCount -shr 8) -band 0xFF
 
-            $this.Logger.WriteTrace("Channel ${channel}: degrees=$degrees pulse=$($counts.PulseMs)ms on=$($counts.OnCount) off=$($counts.OffCount)")
+            $this.Logger.WriteTrace("Channel ${channel}: degrees=$degrees pulse=$($counts.PulseUs)us on=$($counts.OnCount) off=$($counts.OffCount)")
 
             if (-not $this.I2CWrite(@([byte]$regBase, $onL, $onH, $offL, $offH))) {
                 throw "Failed to set channel $channel"
