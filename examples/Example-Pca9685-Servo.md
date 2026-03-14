@@ -130,18 +130,28 @@ Connect as follows:
 | D0 (ADBUS0) | SCL (clock) | SCL | SCL |
 | D1 (ADBUS1) | SDA (data) | SDA | SDA |
 | GND | Ground | GND | GND (shared with servo supply) |
-| *(separate 5V supply)* | — | VCC | 5V |
+| 3.3V or board logic rail | — | VCC / VDD | Logic power |
+| *(separate 5V servo supply)* | — | V+ / VIN / EXT_PWR | Servo power |
 | (servo power output) | — | (servo signal pins) | OUT0-OUT15 |
 
-**Critical**: Add 4.7k pull-up resistors from SCL and SDA to VCC. Most PCA9685 breakouts have these built-in; verify with a multimeter if unsure.
+**Critical**: Add 4.7k pull-up resistors from SCL and SDA to the PCA9685 logic rail (VCC / VDD). Most PCA9685 breakouts have these built-in; verify with a multimeter if unsure.
+
+Many PCA9685 servo boards have **two separate power domains**:
+
+- **VCC / VDD** = logic power for the chip and I2C pull-ups
+- **V+ / VIN / EXT_PWR** = high-current servo power rail
+
+If only the servo rail is powered, the board may move no servo and also fail to ACK on I2C because the PCA9685 logic core is still off.
 
 ```
-SCL line:  FT232H D0 -- [4.7k] -- +5V
+SCL line:  FT232H D0 -- [4.7k] -- +3.3V or logic VCC
            PCA9685 SCL
 
-SDA line:  FT232H D1 -- [4.7k] -- +5V
+SDA line:  FT232H D1 -- [4.7k] -- +3.3V or logic VCC
            PCA9685 SDA
 
+Logic:     FT232H 3.3V -- PCA9685 VCC/VDD
+Servo:     External 5V -- PCA9685 V+/VIN
 GND:       FT232H GND -- PCA9685 GND -- Servo supply GND (all connected)
 ```
 
@@ -149,10 +159,11 @@ GND:       FT232H GND -- PCA9685 GND -- Servo supply GND (all connected)
 
 ### Power Considerations
 
-- **External 5V supply (mandatory)**: At least 500 mA per servo; larger servos (MG996R) may draw 2.5 A stall current.
+- **External 5V servo supply (mandatory)**: At least 500 mA per servo; larger servos (MG996R) may draw 2.5 A stall current.
+- **Power the logic rail too**: VCC / VDD must be powered for the PCA9685 to respond on I2C. On many FT232H setups this is 3.3V from the FT232H breakout.
 - **Servo power supply GND must be connected to FTDI GND** — I2C signals have no return path otherwise.
 - **Add a 100-470 µF capacitor across the servo supply terminals** — smooths power spikes and prevents I2C glitches during servo stall.
-- **Do not power PCB 5V logic from servo rail** — can cause regulator oscillation. Keep servo power and control logic separate.
+- **Do not assume V+ also powers VCC** — many boards keep them isolated on purpose. Check the silkscreen.
 
 > **Beginner**: The servo and FTDI adapter must share the same ground reference. Without shared ground, the I2C signal (SDA) has no return path and devices cannot communicate.
 

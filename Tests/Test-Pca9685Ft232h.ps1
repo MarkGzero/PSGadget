@@ -23,6 +23,9 @@ function Test-PsGadgetPca9685Ft232h {
     .PARAMETER Frequency
     PWM frequency in Hz. Default is 50 for RC servos.
 
+    .PARAMETER ClockFrequency
+    I2C clock frequency in Hz for the FT232H bus scan. Default is 100000.
+
     .PARAMETER Degrees
     Sweep positions to test in order. Default is 0, 90, 180, 90.
 
@@ -61,6 +64,10 @@ function Test-PsGadgetPca9685Ft232h {
         [int]$Frequency = 50,
 
         [Parameter(Mandatory = $false)]
+        [ValidateRange(1000, 400000)]
+        [int]$ClockFrequency = 100000,
+
+        [Parameter(Mandatory = $false)]
         [ValidateNotNullOrEmpty()]
         [int[]]$Degrees = @(0, 90, 180, 90),
 
@@ -78,8 +85,9 @@ function Test-PsGadgetPca9685Ft232h {
     Write-Host '  1. FT232H D0 -> PCA9685 SCL' -ForegroundColor Gray
     Write-Host '  2. FT232H D1 -> PCA9685 SDA' -ForegroundColor Gray
     Write-Host '  3. FT232H GND -> PCA9685 GND -> servo supply GND' -ForegroundColor Gray
-    Write-Host '  4. PCA9685 powered from external 5V logic rail' -ForegroundColor Gray
-    Write-Host '  5. Servo powered from external 5V supply, not USB 5V' -ForegroundColor Gray
+    Write-Host '  4. PCA9685 logic rail (VCC/VDD) powered separately from the servo rail' -ForegroundColor Gray
+    Write-Host '  5. Servo rail (V+/VIN) powered from external 5V, not USB 5V' -ForegroundColor Gray
+    Write-Host '  6. SDA/SCL pull-ups go to the PCA9685 logic rail, not the servo power rail' -ForegroundColor Gray
     Write-Host ''
 
     $modulePath = Join-Path (Split-Path -Path $PSScriptRoot -Parent) 'PSGadget.psd1'
@@ -120,9 +128,21 @@ function Test-PsGadgetPca9685Ft232h {
         Set-PsGadgetFtdiMode -PsGadget $ftdi -Mode MpsseI2c | Out-Null
 
         Write-Host ''
-        Write-Host 'Scanning I2C bus...' -ForegroundColor Yellow
-        $scan = @(Invoke-PsGadgetI2CScan -PsGadget $ftdi)
+        Write-Host ("Scanning I2C bus at {0} Hz..." -f $ClockFrequency) -ForegroundColor Yellow
+        $scan = @(Invoke-PsGadgetI2CScan -PsGadget $ftdi -ClockFrequency $ClockFrequency)
+        if ($scan.Count -eq 0 -and $ClockFrequency -gt 10000) {
+            Write-Host 'No ACKs at the default scan speed. Retrying at 10 kHz...' -ForegroundColor Yellow
+            $scan = @(Invoke-PsGadgetI2CScan -PsGadget $ftdi -ClockFrequency 10000)
+        }
+
         if ($scan.Count -eq 0) {
+            Write-Host ''
+            Write-Host 'Bus-level troubleshooting:' -ForegroundColor Yellow
+            Write-Host '  - Many PCA9685 boards split logic power and servo power.' -ForegroundColor Gray
+            Write-Host '  - Ensure VCC or VDD is powered; V+ or VIN alone is not enough for I2C ACK.' -ForegroundColor Gray
+            Write-Host '  - Pull SDA and SCL up to the same logic rail as VCC or VDD.' -ForegroundColor Gray
+            Write-Host '  - Verify SCL and SDA are not swapped.' -ForegroundColor Gray
+            Write-Host '  - Check address jumpers; valid defaults are usually 0x40 through 0x47.' -ForegroundColor Gray
             throw 'No I2C devices acknowledged on the bus'
         }
 
@@ -131,6 +151,9 @@ function Test-PsGadgetPca9685Ft232h {
         $expectedHex = '0x{0:X2}' -f $Address
         $hit = $scan | Where-Object { $_.Address -eq $Address -or $_.Hex -eq $expectedHex } | Select-Object -First 1
         if (-not $hit) {
+            Write-Host ''
+            Write-Host 'Detected I2C devices did not include the requested PCA9685 address.' -ForegroundColor Yellow
+            Write-Host 'Check A0-A5 address jumpers on the board and retry with -Address.' -ForegroundColor Gray
             throw "PCA9685 address $expectedHex was not found on the I2C bus"
         }
 

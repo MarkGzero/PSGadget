@@ -373,7 +373,8 @@ function Initialize-MpsseI2C {
         $isRealDevice = $script:FtdiInitialized -and ($null -ne $rawDevice)
 
         if ($isRealDevice) {
-            [uint32]$bytesWritten = 0
+            # Set latency timer small so MPSSE read-backs arrive quickly
+            $rawDevice.SetLatencyTimer(16) | Out-Null
 
             # Helper: write bytes to raw device and check status (int 0 = FT_OK)
             $writeCmd = {
@@ -383,20 +384,59 @@ function Initialize-MpsseI2C {
                 if ([int]$st -ne 0) { throw "$label failed: status=$st" }
             }
 
-            # Disable clk divide-by-5 (=> 60 MHz base), disable loopback, disable 3-phase clk
-            & $writeCmd @(0x8A, 0x85, 0x97) 'MPSSE base config'
-            Start-Sleep -Milliseconds 20
+            # Flush stale bytes before sync
+            $rawDevice.Purge(3) | Out-Null
+            Start-Sleep -Milliseconds 30
 
-            # Set clock frequency: MPSSE clock = 60 MHz / ((1 + divisor) * 2)
-            $clockDivisor = [math]::Floor((60000000 / ($ClockFrequency * 2)) - 1)
+            # MPSSE synchronization handshake:
+            # Send two deliberately invalid commands (0xAA, 0xAB).
+            # The MPSSE echoes back 0xFA <bad-cmd> for each one.
+            # If the echo is wrong the engine is not responding correctly.
+            [uint32]$syncW = 0
+            $rawDevice.Write([byte[]](0xAA), 1, [ref]$syncW) | Out-Null
+            Start-Sleep -Milliseconds 30
+            [byte[]]$syncBuf = [byte[]]::new(2)
+            [uint32]$syncR = 0
+            $rawDevice.Read($syncBuf, 2, [ref]$syncR) | Out-Null
+            if ($syncR -ne 2 -or $syncBuf[0] -ne 0xFA -or $syncBuf[1] -ne 0xAA) {
+                throw ("MPSSE sync failed (0xAA echo): got {0} byte(s): 0x{1:X2} 0x{2:X2}" -f $syncR, $syncBuf[0], $syncBuf[1])
+            }
+            $rawDevice.Write([byte[]](0xAB), 1, [ref]$syncW) | Out-Null
+            Start-Sleep -Milliseconds 30
+            $rawDevice.Read($syncBuf, 2, [ref]$syncR) | Out-Null
+            if ($syncR -ne 2 -or $syncBuf[0] -ne 0xFA -or $syncBuf[1] -ne 0xAB) {
+                throw ("MPSSE sync failed (0xAB echo): got {0} byte(s): 0x{1:X2} 0x{2:X2}" -f $syncR, $syncBuf[0], $syncBuf[1])
+            }
+            Write-Verbose "MPSSE sync OK"
+
+            # Clock divisor formula with 3-phase clocking enabled (1.5x factor):
+            #   f = 60 MHz / ((1 + divisor) * 2 * 1.5) = 60 MHz / ((1 + divisor) * 3)
+            #   divisor = 60 MHz / (f * 3) - 1
+            # Example: 100 kHz -> divisor = 199
+            $clockDivisor = [int][math]::Floor(60000000 / ([double]$ClockFrequency * 3.0) - 1)
             $clockDivisor = [math]::Max(0, [math]::Min(65535, $clockDivisor))
-            & $writeCmd @(0x86, [byte]($clockDivisor -band 0xFF), [byte](($clockDivisor -shr 8) -band 0xFF)) 'Set clock divisor'
 
-            # Set I2C pins idle: ADBUS0=SCL=1 (output), ADBUS1=SDA=1 (output)
-            & $writeCmd @(0x80, 0x03, 0x03) 'I2C pin idle state'
-            Start-Sleep -Milliseconds 20
+            # I2C MPSSE configuration - sent as a single write for atomicity:
+            #   0x8A  Disable clock divide-by-5 (60 MHz base clock)
+            #   0x97  Turn off adaptive clocking
+            #   0x8C  Enable 3-phase data clocking (REQUIRED for I2C - data valid on both edges)
+            #   0x86  Set clock divisor (low byte, high byte follow)
+            #   0x85  Loopback off
+            #   0x9E  Drive-zero mode enable mask (open-drain on ADBUS bits 0,1,2 = SCL,SDA,DO)
+            #   0x80  Set ADBUS direction/value: SCL=1, SDA=1, both output (idle state)
+            [byte[]]$i2cConfig = @(
+                0x8A,
+                0x97,
+                0x8C,
+                0x86, [byte]($clockDivisor -band 0xFF), [byte](($clockDivisor -shr 8) -band 0xFF),
+                0x85,
+                0x9E, 0x07, 0x00,
+                0x80, 0x03, 0x03
+            )
+            & $writeCmd $i2cConfig 'I2C config'
+            Start-Sleep -Milliseconds 30
 
-            Write-Verbose "I2C initialized at $ClockFrequency Hz (divisor: $clockDivisor)"
+            Write-Verbose "I2C initialized at $ClockFrequency Hz (divisor=$clockDivisor, 3-phase+drive-zero enabled)"
             return $true
         } else {
             # Stub mode or no raw device
@@ -466,36 +506,49 @@ function Send-MpsseI2CWrite {
 
             # Assemble the ordered list of bytes to clock: address (write) then data
             $allBytes = [System.Collections.Generic.List[byte]]::new()
-            $allBytes.Add([byte](($Address -shl 1) -bor 0x00))
+            $allBytes.Add([byte](($Address -shl 1) -bor 0x00))  # 7-bit address + R/W=0 (write)
             foreach ($b in $Data) { $allBytes.Add([byte]$b) }
 
-            # I2C START condition: SDA falls while SCL is high
-            [byte[]]$startCmd = @(
-                0x80, 0x03, 0x03,   # idle:  SCL=1, SDA=1, both output
-                0x80, 0x01, 0x03,   # start: SCL=1, SDA=0
-                0x80, 0x00, 0x03    # SCL=0  (begin clocking)
-            )
+            # Pre-build START and STOP byte sequences matching FtdiSharp reference.
+            # Multiple repeated transitions ensure signal integrity on slow/capacitive buses.
+            #
+            # START: 6x idle (SDAhi_SCLhi) -> 6x SDA-falls (SDAlo_SCLhi) ->
+            #        6x clock-low (SDAlo_SCLlo) -> 1x SDAhi_SCLlo (ready to clock)
+            $startBytes = [System.Collections.Generic.List[byte]]::new()
+            for ($i = 0; $i -lt 6; $i++) { $startBytes.AddRange([byte[]](0x80, 0x03, 0x03)) }
+            for ($i = 0; $i -lt 6; $i++) { $startBytes.AddRange([byte[]](0x80, 0x01, 0x03)) }
+            for ($i = 0; $i -lt 6; $i++) { $startBytes.AddRange([byte[]](0x80, 0x00, 0x03)) }
+            $startBytes.AddRange([byte[]](0x80, 0x02, 0x03))
+            [byte[]]$startCmd = $startBytes.ToArray()
+
+            # STOP: 6x SDAlo_SCLlo -> 6x SDAlo_SCLhi -> 6x idle (SDAhi_SCLhi)
+            $stopBytes = [System.Collections.Generic.List[byte]]::new()
+            for ($i = 0; $i -lt 6; $i++) { $stopBytes.AddRange([byte[]](0x80, 0x00, 0x03)) }
+            for ($i = 0; $i -lt 6; $i++) { $stopBytes.AddRange([byte[]](0x80, 0x01, 0x03)) }
+            for ($i = 0; $i -lt 6; $i++) { $stopBytes.AddRange([byte[]](0x80, 0x03, 0x03)) }
+            [byte[]]$stopCmd = $stopBytes.ToArray()
+
+            # Send START
             [uint32]$bw = 0
             $st = $rawDevice.Write($startCmd, [uint32]$startCmd.Length, [ref]$bw)
             if ([int]$st -ne 0) { throw "I2C START failed: D2XX status=$st" }
 
             # Clock each byte out and validate ACK before proceeding to the next byte.
-            # Pattern mirrors Invoke-FtdiI2CScan which is known-good:
-            #   0x1B 0x07 $b  - clock 8 bits out on falling edge, MSB first
-            #   0x81          - queue a read of the ADBUS byte (bit 1 = SDA)
-            #   0x87          - SEND_IMMEDIATE: flush MPSSE buffer to host now
-            # Then Read(1 byte): bit 1 of result = SDA.  0=ACK, 1=NACK.
+            #
+            # Per FtdiSharp FTDI_SendByte:
+            #   0x11, 0x00, 0x00, $b  - MSB_FALLING_EDGE_CLOCK_BYTE_OUT (1 byte, length-1=0)
+            #   0x80, 0x02, 0x03      - release SDA high (SDAhi_SCLlo) ready for ACK clock
+            #   0x22, 0x00            - MSB_RISING_EDGE_CLOCK_BIT_IN (1 bit, length-1=0)
+            #   0x87                  - SEND_IMMEDIATE: flush MPSSE RX buffer to host now
+            # Read back 1 byte: bit 0 = ACK bit.  0=ACK (device held SDA low), 1=NACK.
             for ($byteIdx = 0; $byteIdx -lt $allBytes.Count; $byteIdx++) {
                 [byte]$b = $allBytes[$byteIdx]
 
                 [byte[]]$byteCmd = @(
-                    0x1B, 0x07, $b,     # clock 8 bits out on falling edge, MSB first
-                    0x80, 0x00, 0x01,   # SDA=input (dir=0x01: only SCL output), SCL=0
-                    0x80, 0x01, 0x01,   # SCL=1 (device drives ACK bit on SDA)
-                    0x81,               # read ADBUS byte into RX buffer (bit 1 = SDA)
-                    0x80, 0x00, 0x01,   # SCL=0
-                    0x80, 0x02, 0x03,   # SDA=output-high, SCL=0, both output
-                    0x87                # SEND_IMMEDIATE: flush to host now
+                    0x11, 0x00, 0x00, $b,   # clock 1 byte out, falling edge, MSB first
+                    0x80, 0x02, 0x03,        # release SDA high (SDAhi_SCLlo) before ACK
+                    0x22, 0x00,              # clock in 1 ACK bit, rising edge
+                    0x87                     # SEND_IMMEDIATE
                 )
 
                 if ($ByteDump) {
@@ -508,32 +561,32 @@ function Send-MpsseI2CWrite {
                     throw ("I2C write failed at byte {0}: D2XX status={1}" -f $byteIdx, $st)
                 }
 
-                # Read back the ADBUS pin state queued by 0x81
+                # Read the 1 ACK bit clocked in by 0x22
                 [byte[]]$ackBuf = [byte[]]::new(1)
                 [uint32]$br = 0
-                Start-Sleep -Milliseconds 1
+                Start-Sleep -Milliseconds 2
                 $rawDevice.Read($ackBuf, [uint32]1, [ref]$br) | Out-Null
 
                 if ($br -ne 1) {
-                    throw ("I2C ACK timeout at byte {0}: device 0x{1:X2} did not respond" -f $byteIdx, $Address)
+                    $nackPhase = if ($byteIdx -eq 0) { 'address phase' } else { "data byte $byteIdx" }
+                    break
                 }
 
-                # Bit 1 of ADBUS byte = SDA.  0 = ACK (device held low), 1 = NACK.
-                $sdaBit = ($ackBuf[0] -shr 1) -band 0x01
+                # Bit 0 of result = ACK bit.  0 = ACK (device held SDA low), 1 = NACK.
+                $ackBit = $ackBuf[0] -band 0x01
 
                 if ($ByteDump) {
-                    $ackLabel = if ($sdaBit -eq 0) { 'ACK' } else { 'NACK' }
-                    Write-Verbose ("I2C ACK byte[{0}]: ADBUS=0x{1:X2} SDA={2} ({3})" -f $byteIdx, $ackBuf[0], $sdaBit, $ackLabel)
+                    $ackLabel = if ($ackBit -eq 0) { 'ACK' } else { 'NACK' }
+                    Write-Verbose ("I2C ACK byte[{0}]: raw=0x{1:X2} bit0={2} ({3})" -f $byteIdx, $ackBuf[0], $ackBit, $ackLabel)
                 }
 
-                if ($sdaBit -ne 0) {
+                if ($ackBit -ne 0) {
                     $nackPhase = if ($byteIdx -eq 0) { 'address phase' } else { "data byte $byteIdx" }
                     break
                 }
             }
 
-            # I2C STOP condition: SCL=0,SDA=0 -> SCL=1 -> SDA=1 while SCL=1
-            [byte[]]$stopCmd = @(0x80, 0x00, 0x03, 0x80, 0x01, 0x03, 0x80, 0x03, 0x03)
+            # Send STOP unconditionally to release the bus
             [uint32]$bws = 0
             $rawDevice.Write($stopCmd, [uint32]$stopCmd.Length, [ref]$bws) | Out-Null
 
@@ -650,63 +703,79 @@ function Invoke-FtdiI2CScan {
         $rawDevice = Get-FtdiD2xxHandle -DeviceHandle $Connection
         if (-not $rawDevice) { throw 'Cannot resolve raw FTDI device handle for MPSSE scan' }
 
-        Write-Verbose "I2C scan via MPSSE bit-bang D2XX (0x08-0x77) at $ClockFrequency Hz..."
+        Write-Verbose "I2C scan via MPSSE D2XX (0x08-0x77) at $ClockFrequency Hz..."
         $ok = Initialize-MpsseI2C -DeviceHandle $Connection -ClockFrequency $ClockFrequency
         if (-not $ok) { throw 'Failed to initialize MPSSE I2C for scan' }
 
         # Purge any stale RX bytes before starting scan
         try { $rawDevice.Purge(2) | Out-Null } catch {}
-        Start-Sleep -Milliseconds 20
+        Start-Sleep -Milliseconds 30
+
+        # Pre-build START and STOP sequences (repeated transitions for signal integrity,
+        # matching FtdiSharp reference implementation).
+        #
+        # Constants (ADBUS low-byte set command = 0x80):
+        #   0x03 = SDAhi_SCLhi  (idle)
+        #   0x01 = SDAlo_SCLhi  (start condition - SDA falls while SCL high)
+        #   0x00 = SDAlo_SCLlo
+        #   0x02 = SDAhi_SCLlo
+        #
+        # START: 6x idle -> 6x SDA-falls -> 6x clock-low -> 1x SDAhi_SCLlo (ready to clock)
+        $startBytes = [System.Collections.Generic.List[byte]]::new()
+        for ($i = 0; $i -lt 6; $i++) { $startBytes.AddRange([byte[]](0x80, 0x03, 0x03)) }
+        for ($i = 0; $i -lt 6; $i++) { $startBytes.AddRange([byte[]](0x80, 0x01, 0x03)) }
+        for ($i = 0; $i -lt 6; $i++) { $startBytes.AddRange([byte[]](0x80, 0x00, 0x03)) }
+        $startBytes.AddRange([byte[]](0x80, 0x02, 0x03))
+        [byte[]]$startCmd = $startBytes.ToArray()
+
+        # STOP: 6x SDAlo_SCLlo -> 6x SDAlo_SCLhi -> 6x idle
+        $stopBytes = [System.Collections.Generic.List[byte]]::new()
+        for ($i = 0; $i -lt 6; $i++) { $stopBytes.AddRange([byte[]](0x80, 0x00, 0x03)) }
+        for ($i = 0; $i -lt 6; $i++) { $stopBytes.AddRange([byte[]](0x80, 0x01, 0x03)) }
+        for ($i = 0; $i -lt 6; $i++) { $stopBytes.AddRange([byte[]](0x80, 0x03, 0x03)) }
+        [byte[]]$stopCmd = $stopBytes.ToArray()
 
         for ($addr = 0x08; $addr -le 0x77; $addr++) {
-            $addrByte = [byte](($addr -shl 1) -bor 0x00)  # 7-bit address + R/W=0 (write)
+            # Use read probe (R/W=1): matches FtdiSharp Scan() which calls FTDI_CommandRead.
+            $addrByte = [byte](($addr -shl 1) -bor 0x01)
 
-            $tx = [System.Collections.Generic.List[byte]]::new()
+            # Send START
+            [uint32]$bw = 0
+            $rawDevice.Write($startCmd, [uint32]$startCmd.Length, [ref]$bw) | Out-Null
 
-            # I2C START: SDA falls while SCL is high
-            $tx.AddRange([byte[]]@(0x80, 0x03, 0x03))  # idle:  SCL=1, SDA=1, both output
-            $tx.AddRange([byte[]]@(0x80, 0x01, 0x03))  # start: SCL=1, SDA=0
-            $tx.AddRange([byte[]]@(0x80, 0x00, 0x03))  # SCL=0 (begin clocking)
+            # Clock out address byte using byte-mode falling-edge command (0x11):
+            #   0x11 = MSB_FALLING_EDGE_CLOCK_BYTE_OUT
+            #   0x00, 0x00 = length-1 (0 = 1 byte)
+            # Then release SDA high (0x80, 0x02, 0x03) before the ACK clock.
+            # Clock in 1 ACK bit on rising edge (0x22, 0x00).
+            # 0x87 = SEND_IMMEDIATE: flush MPSSE result buffer to host now.
+            [byte[]]$byteCmd = @(
+                0x11, 0x00, 0x00, $addrByte,   # clock byte out, falling edge, MSB first
+                0x80, 0x02, 0x03,               # release SDA (SDAhi_SCLlo) before ACK
+                0x22, 0x00,                     # clock in 1 ACK bit, rising edge
+                0x87                            # SEND_IMMEDIATE
+            )
+            [uint32]$bwb = 0
+            $rawDevice.Write($byteCmd, [uint32]$byteCmd.Length, [ref]$bwb) | Out-Null
 
-            # Clock 8 address bits out on falling edge, MSB first (0x1B = bit-clock-out)
-            $tx.AddRange([byte[]]@(0x1B, 0x07, $addrByte))
-
-            # ACK clock: release SDA to input, raise SCL, capture ADBUS with 0x81, lower SCL
-            $tx.AddRange([byte[]]@(0x80, 0x00, 0x01))  # SDA=input (dir=0x01: only SCL output), SCL=0
-            $tx.AddRange([byte[]]@(0x80, 0x01, 0x01))  # SCL=1 (device drives ACK bit on SDA)
-            $tx.Add([byte]0x81)                         # queue read of ADBUS byte (bit 1 = SDA)
-            $tx.AddRange([byte[]]@(0x80, 0x00, 0x01))  # SCL=0
-            $tx.AddRange([byte[]]@(0x80, 0x02, 0x03))  # SDA=1(output-high), SCL=0, both output
-
-            # I2C STOP: SDA rises while SCL is high
-            $tx.AddRange([byte[]]@(0x80, 0x00, 0x03))  # SCL=0, SDA=0
-            $tx.AddRange([byte[]]@(0x80, 0x01, 0x03))  # SCL=1
-            $tx.AddRange([byte[]]@(0x80, 0x03, 0x03))  # SCL=1, SDA=1 (stop)
-
-            # Send Immediate - flush MPSSE command buffer to host
-            $tx.Add([byte]0x87)
-
-            [uint32]$bw  = 0
-            [byte[]]$cmd = $tx.ToArray()
-            $writeStatus = $rawDevice.Write($cmd, [uint32]$cmd.Length, [ref]$bw)
-            if ([int]$writeStatus -ne 0) { continue }
-
-            # Read 1 byte: ADBUS pin state queued by 0x81.  Bit 1 = SDA.
-            # SDA=0 means device held it low => ACK => device present.
+            # Read back the 1 ACK bit clocked in by 0x22.
+            # Bit 0 of the byte = 0 -> ACK (device held SDA low) -> device present.
             [byte[]]$ackBuf = [byte[]]::new(1)
             [uint32]$br     = 0
-            Start-Sleep -Milliseconds 1
+            Start-Sleep -Milliseconds 2
             $rawDevice.Read($ackBuf, [uint32]1, [ref]$br) | Out-Null
-            if ($br -eq 1) {
-                $sdaBit = ($ackBuf[0] -shr 1) -band 0x01
-                if ($sdaBit -eq 0) {
-                    $found.Add([PSCustomObject]@{
-                        PSTypeName = 'PsGadget.I2cDevice'
-                        Address    = $addr
-                        Hex        = ('0x{0:X2}' -f $addr)
-                    })
-                    Write-Verbose ('I2C device found: 0x{0:X2}' -f $addr)
-                }
+
+            # Send STOP unconditionally to release the bus
+            [uint32]$bws = 0
+            $rawDevice.Write($stopCmd, [uint32]$stopCmd.Length, [ref]$bws) | Out-Null
+
+            if ($br -eq 1 -and (($ackBuf[0] -band 0x01) -eq 0)) {
+                $found.Add([PSCustomObject]@{
+                    PSTypeName = 'PsGadget.I2cDevice'
+                    Address    = $addr
+                    Hex        = ('0x{0:X2}' -f $addr)
+                })
+                Write-Verbose ('I2C device found: 0x{0:X2}' -f $addr)
             }
         }
 
