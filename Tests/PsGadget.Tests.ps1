@@ -34,6 +34,7 @@ Describe 'PsGadget Module Tests' {
             $ExportedFunctions | Should -Contain 'Get-PsGadgetEspNowDevices'
             $ExportedFunctions | Should -Contain 'Invoke-PsGadgetI2C'
             $ExportedFunctions | Should -Contain 'Invoke-PsGadgetI2CScan'
+            $ExportedFunctions | Should -Contain 'Invoke-PsGadgetStepper'
             $ExportedFunctions | Should -Not -Contain 'Connect-PsGadgetPca9685'
             $ExportedFunctions | Should -Not -Contain 'Connect-PsGadgetSsd1306'
             $ExportedFunctions | Should -Not -Contain 'Write-PsGadgetSsd1306'
@@ -42,7 +43,7 @@ Describe 'PsGadget Module Tests' {
         }
         
         It 'Should have the correct module version' {
-            (Get-Module PSGadget).Version.ToString() | Should -Be '0.3.5'
+            (Get-Module PSGadget).Version.ToString() | Should -Be '0.3.6'
         }
     }
 
@@ -293,6 +294,100 @@ Describe 'PsGadget Module Tests' {
         It 'bundled config.json should exist in mpy/scripts/' {
             $configPath = Join-Path $PSScriptRoot '..' 'mpy' 'scripts' 'config.json'
             Test-Path -Path $configPath | Should -Be $true
+        }
+    }
+
+    Context 'Stepper motor backend (stub mode)' {
+        It 'Get-PsGadgetStepSequence Half should return 8 bytes' {
+            InModuleScope PSGadget {
+                $seq = Get-PsGadgetStepSequence -StepMode Half -Direction Forward
+                $seq.Count | Should -Be 8
+            }
+        }
+
+        It 'Get-PsGadgetStepSequence Full should return 4 bytes' {
+            InModuleScope PSGadget {
+                $seq = Get-PsGadgetStepSequence -StepMode Full -Direction Forward
+                $seq.Count | Should -Be 4
+            }
+        }
+
+        It 'Reverse sequence should differ from Forward' {
+            InModuleScope PSGadget {
+                $fwd = Get-PsGadgetStepSequence -StepMode Half -Direction Forward
+                $rev = Get-PsGadgetStepSequence -StepMode Half -Direction Reverse
+                ($fwd -join ',') | Should -Not -Be ($rev -join ',')
+            }
+        }
+
+        It 'Get-PsGadgetStepperDefaultStepsPerRev Half should not be 4096' {
+            InModuleScope PSGadget {
+                $spr = Get-PsGadgetStepperDefaultStepsPerRev -StepMode Half
+                $spr | Should -Not -Be 4096
+                $spr | Should -BeGreaterThan 4000
+                $spr | Should -BeLessThan 4100
+            }
+        }
+
+        It 'Get-PsGadgetStepperDefaultStepsPerRev Full should be approx half of Half' {
+            InModuleScope PSGadget {
+                $half = Get-PsGadgetStepperDefaultStepsPerRev -StepMode Half
+                $full = Get-PsGadgetStepperDefaultStepsPerRev -StepMode Full
+                [Math]::Abs($half / 2.0 - $full) | Should -BeLessThan 1
+            }
+        }
+
+        It 'Invoke-PsGadgetStepperMove should not throw in stub mode' {
+            InModuleScope PSGadget {
+                # Use a real PsGadgetFtdi so Set-PsGadgetFtdiMode type check passes.
+                # Pre-set ActiveMode = AsyncBitBang so the mode-switch call is skipped.
+                $dev = [PsGadgetFtdi]::new(0)
+                $stubConn = [PSCustomObject]@{
+                    IsOpen     = $true
+                    Device     = $null
+                    GpioMethod = 'AsyncBitBang'
+                    ActiveMode = 'AsyncBitBang'
+                }
+                $dev._connection = $stubConn
+                $dev.IsOpen = $true
+                { Invoke-PsGadgetStepperMove -Ftdi $dev -Steps 8 -StepMode Half -Direction Forward -DelayMs 2 } |
+                    Should -Not -Throw
+            }
+        }
+
+        It 'Invoke-PsGadgetStepper -Steps should require a positive value' {
+            { Invoke-PsGadgetStepper -Index 99 -Steps 0 } | Should -Throw
+        }
+
+        It 'Invoke-PsGadgetStepper should reject both -Steps and -Degrees' {
+            { Invoke-PsGadgetStepper -Index 0 -Steps 100 -Degrees 90 } | Should -Throw
+        }
+
+        It 'PsGadgetFtdi should expose StepsPerRevolution and DefaultStepMode properties' {
+            InModuleScope PSGadget {
+                $dev = [PsGadgetFtdi]::new(0)
+                $dev.PSObject.Properties.Name | Should -Contain 'StepsPerRevolution'
+                $dev.PSObject.Properties.Name | Should -Contain 'DefaultStepMode'
+                $dev.StepsPerRevolution | Should -Be 0.0
+                $dev.DefaultStepMode    | Should -Be 'Half'
+            }
+        }
+
+        It 'StepDegrees calibration: 90 degrees at default spr should be ~1019 half-steps' {
+            InModuleScope PSGadget {
+                $spr   = Get-PsGadgetStepperDefaultStepsPerRev -StepMode Half
+                $steps = [Math]::Max(1, [int][Math]::Round(90.0 / 360.0 * $spr))
+                $steps | Should -BeGreaterOrEqual 1018
+                $steps | Should -BeLessOrEqual 1020
+            }
+        }
+
+        It 'StepDegrees with custom StepsPerRevolution uses the supplied value' {
+            InModuleScope PSGadget {
+                $customSpr = 4082.5
+                $steps     = [Math]::Max(1, [int][Math]::Round(90.0 / 360.0 * $customSpr))
+                $steps     | Should -Be ([int][Math]::Round(90.0 / 360.0 * 4082.5))
+            }
         }
     }
 }

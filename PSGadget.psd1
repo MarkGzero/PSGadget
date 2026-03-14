@@ -1,7 +1,7 @@
 @{
     # Module metadata
     RootModule           = 'PSGadget.psm1'
-    ModuleVersion        = '0.3.5'
+    ModuleVersion        = '0.3.6'
     CompatiblePSEditions = @('Desktop', 'Core')
     GUID                 = '72440f23-d3c6-4249-83eb-9affa6df882b'
 
@@ -35,7 +35,8 @@
         'Get-PsGadgetEspNowDevices',
         'Send-PsGadgetI2CWrite',
         'Invoke-PsGadgetI2CScan',
-        'Invoke-PsGadgetI2C'
+        'Invoke-PsGadgetI2C',
+        'Invoke-PsGadgetStepper'
     )
     
     # No cmdlets, variables, or aliases exported
@@ -52,6 +53,7 @@
         'Classes/PsGadgetFtdi.ps1',
         'Classes/PsGadgetMpy.ps1',
         'Classes/PsGadgetPca9685.ps1',
+        'Private/Stepper.Backend.ps1',
         'Private/Ftdi.Backend.ps1',
         'Private/Ftdi.Cbus.ps1',
         'Private/Ftdi.IoT.ps1',
@@ -74,6 +76,7 @@
         'Public/Get-PsGadgetPca9685Channel.ps1',
         'Public/Get-PsGadgetPca9685Frequency.ps1',
         'Public/Install-PsGadgetMpyScript.ps1',
+        'Public/Invoke-PsGadgetStepper.ps1',
         'Public/Invoke-PsGadgetI2CScan.ps1',
         'Public/Invoke-PsGadgetPca9685SetChannel.ps1',
         'Public/Invoke-PsGadgetPca9685SetChannels.ps1',
@@ -107,7 +110,7 @@
             LicenseUri   = 'https://opensource.org/licenses/MIT'
             ProjectUri   = 'https://github.com/MarkGzero/PsGadget'
             IconUri      = ''
-            ReleaseNotes = 'v0.3.5: SSD1306 OLED integrated into Invoke-PsGadgetI2C (-I2CModule SSD1306). Double-height text (FontSize 2 = 2-page vertical scaling), 8 sysadmin symbols (Warning, Alert, Checkmark, Error, Info, Lock, Unlock, Network) auto-sized 8x8 or 16x16. Legacy SSD1306 functions removed from export. v0.3.4: ESP-NOW wireless telemetry. v0.3.x: MicroPython mpremote, FT232R CBUS GPIO, FT232H MPSSE GPIO.'
+            ReleaseNotes = 'v0.3.6: Invoke-PsGadgetStepper - unified stepper motor cmdlet for FT232R/FT232H via async bit-bang. Bulk USB write for jitter-free step timing. Calibrated StepsPerRevolution (28BYJ-48: ~4075.77 half-steps, NOT 4096). Angle-based moves via -Degrees. PsGadgetFtdi.Step() and .StepDegrees() shorthand methods. v0.3.5: SSD1306 OLED integrated into Invoke-PsGadgetI2C. v0.3.4: ESP-NOW wireless telemetry.'
         }
     }
 }

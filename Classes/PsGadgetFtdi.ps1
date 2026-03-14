@@ -17,6 +17,14 @@ class PsGadgetFtdi : System.IDisposable {
     # Stores initialized I2C device objects so re-calls skip construction + hardware init.
     hidden [hashtable]$_i2cDevices = $null
 
+    # Stepper motor calibration.
+    # 0.0 = use mode-appropriate default from Get-PsGadgetStepperDefaultStepsPerRev:
+    #   Half: ~4075.77  Full: ~2037.89  (28BYJ-48 empirical, NOT 2048/4096)
+    # Set to your measured value:  $dev.StepsPerRevolution = 4082.5
+    [double]$StepsPerRevolution = 0.0
+    # Default step mode for .Step() and .StepDegrees() shorthand calls.
+    [string]$DefaultStepMode    = 'Half'
+
     # Constructor - connect by serial number (preferred)
     PsGadgetFtdi([string]$SerialNumber) {
         $this.SerialNumber = $SerialNumber
@@ -311,5 +319,74 @@ class PsGadgetFtdi : System.IDisposable {
             throw "CyclePort failed: $status"
         }
         $this.Logger.WriteInfo("USB port cycled - device will re-enumerate. Call Connect() to reopen.")
+    }
+
+    # ---------------------------------------------------------------------------
+    # Stepper motor shorthand methods.
+    # Delegates to Invoke-PsGadgetStepperMove (Private/Stepper.Backend.ps1).
+    #
+    # StepsPerRevolution and DefaultStepMode are instance properties so the
+    # same device object can be calibrated once and reused across many calls:
+    #   $dev.StepsPerRevolution = 4082.5
+    #   $dev.DefaultStepMode    = 'Half'
+    #   $dev.StepDegrees(90)
+    # ---------------------------------------------------------------------------
+
+    # Step() - move N individual step pulses.
+    [void] Step([int]$Steps) {
+        $this._Step($Steps, 'Forward', $this.DefaultStepMode, 2, 0x0F)
+    }
+    [void] Step([int]$Steps, [string]$Direction) {
+        $this._Step($Steps, $Direction, $this.DefaultStepMode, 2, 0x0F)
+    }
+    [void] Step([int]$Steps, [string]$Direction, [string]$StepMode) {
+        $this._Step($Steps, $Direction, $StepMode, 2, 0x0F)
+    }
+    [void] Step([int]$Steps, [string]$Direction, [string]$StepMode, [int]$DelayMs) {
+        $this._Step($Steps, $Direction, $StepMode, $DelayMs, 0x0F)
+    }
+    # Full overload: explicit PinMask.
+    [void] Step([int]$Steps, [string]$Direction, [string]$StepMode, [int]$DelayMs, [byte]$PinMask) {
+        $this._Step($Steps, $Direction, $StepMode, $DelayMs, $PinMask)
+    }
+    hidden [void] _Step([int]$Steps, [string]$Direction, [string]$StepMode, [int]$DelayMs, [byte]$PinMask) {
+        $this.Logger.WriteTrace("Step($Steps, $Direction, $StepMode, delay=${DelayMs}ms)")
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new("Device not open. Call Connect() first.")
+        }
+        Invoke-PsGadgetStepperMove -Ftdi $this -Steps $Steps -Direction $Direction `
+            -StepMode $StepMode -DelayMs $DelayMs -PinMask $PinMask
+    }
+
+    # StepDegrees() - rotate by angle using StepsPerRevolution calibration.
+    # Uses $this.StepsPerRevolution if set (>0); otherwise falls back to
+    # Get-PsGadgetStepperDefaultStepsPerRev for the active step mode.
+    [void] StepDegrees([double]$Degrees) {
+        $this._StepDegrees($Degrees, 'Forward', $this.DefaultStepMode, 2, 0x0F, $this.StepsPerRevolution)
+    }
+    [void] StepDegrees([double]$Degrees, [string]$Direction) {
+        $this._StepDegrees($Degrees, $Direction, $this.DefaultStepMode, 2, 0x0F, $this.StepsPerRevolution)
+    }
+    [void] StepDegrees([double]$Degrees, [string]$Direction, [string]$StepMode) {
+        $this._StepDegrees($Degrees, $Direction, $StepMode, 2, 0x0F, $this.StepsPerRevolution)
+    }
+    # Full overload: explicit calibration override.
+    [void] StepDegrees([double]$Degrees, [string]$Direction, [string]$StepMode, [double]$StepsPerRevolution) {
+        $this._StepDegrees($Degrees, $Direction, $StepMode, 2, 0x0F, $StepsPerRevolution)
+    }
+    hidden [void] _StepDegrees([double]$Degrees, [string]$Direction, [string]$StepMode, [int]$DelayMs, [byte]$PinMask, [double]$StepsPerRevolution) {
+        $this.Logger.WriteTrace("StepDegrees($Degrees, $Direction, $StepMode, spr=$StepsPerRevolution)")
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new("Device not open. Call Connect() first.")
+        }
+        $spr = if ($StepsPerRevolution -gt 0.0) {
+            $StepsPerRevolution
+        } else {
+            Get-PsGadgetStepperDefaultStepsPerRev -StepMode $StepMode
+        }
+        $steps = [Math]::Max(1, [int][Math]::Round($Degrees / 360.0 * $spr))
+        $this.Logger.WriteInfo("StepDegrees: $Degrees deg -> $steps steps (spr=$spr, mode=$StepMode)")
+        Invoke-PsGadgetStepperMove -Ftdi $this -Steps $steps -Direction $Direction `
+            -StepMode $StepMode -DelayMs $DelayMs -PinMask $PinMask
     }
 }

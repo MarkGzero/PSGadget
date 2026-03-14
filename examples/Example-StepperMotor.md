@@ -26,7 +26,8 @@ Both paths use the same `Set-PsGadgetGpio` cmdlet at runtime.
 - [Step 4 - Smoke Test](#step-4---smoke-test)
   - [FT232H / MPSSE path](#ft232h--mpsse-path)
   - [FT232R / CBUS path](#ft232r--cbus-path)
-- [Step 5 - Precise Motion Script](#step-5---precise-motion-script)
+- [Step 5 - Invoke-PsGadgetStepper (Recommended)](#step-5---invoke-psgadgetstepper-recommended)
+- [Step 6 - Precise Motion Script (Manual API)](#step-6---precise-motion-script-manual-api)
   - [Half-step function](#half-step-function)
   - [Rotate by degrees](#rotate-by-degrees)
 - [Timing and Debugging](#timing-and-debugging)
@@ -114,9 +115,19 @@ Connect ACBUS0-3 directly to ULN2003 IN1-IN4. No EEPROM programming needed.
 
 ### Coil sequencing
 
-The 28BYJ‑48 is a unipolar stepper with a 64‑step internal cycle and a 64:1
-gearbox (4096 half-steps per output revolution in half-step mode). We will use the standard
-half‑step sequence:
+The 28BYJ-48 is a unipolar stepper with a 64-step internal cycle and an
+approximate 64:1 gearbox. **Important**: the motor is NOT exactly 2048
+full-steps or 4096 half-steps per output revolution. Empirical measurements
+yield approximately 4075.77 half-steps per revolution (not 4096). The
+underlying gear ratio is not a clean integer.
+
+> **Engineer**: The cited gear ratio gives 4075.7728/8 = ~509.47 "groups"
+> per revolution. Source: http://www.jangeox.be/2013/10/stepper-motor-28byj-48_25.html
+> Units vary slightly across production batches (measured range: 508-509 rev-steps).
+> Never hardcode 4096. Use `Invoke-PsGadgetStepper -StepsPerRevolution` for
+> angle-based motion, or calibrate your specific unit.
+
+We use the standard half-step sequence:
 
 ```powershell
 $seq = @(
@@ -125,7 +136,7 @@ $seq = @(
 )
 ```
 
-Each sub-array corresponds to the four CBUS pins IN1–IN4; 1 energizes the coil.
+Each sub-array corresponds to the four pins IN1-IN4; 1 energizes the coil.
 
 ### Power considerations
 
@@ -257,7 +268,85 @@ $conn.Close()
 
 ---
 
-## Step 5 - Precise Motion Script
+## Step 5 - Invoke-PsGadgetStepper (Recommended)
+
+`Invoke-PsGadgetStepper` is the unified stepper cmdlet, modelled after
+`Invoke-PsGadgetI2C`. It handles mode setup, bulk-write buffering, and
+device lifecycle automatically.
+
+**Jitter note**: the entire step sequence is pre-computed as a `byte[]` and
+sent in a single USB transfer. The FTDI chip's baud-rate timer paces each
+coil transition at the requested interval - no per-step USB round trips.
+
+**Calibration note**: the 28BYJ-48 is NOT exactly 4096 half-steps per
+revolution. The default `StepsPerRevolution` is ~4075.77 (empirical). To use
+your measured value pass `-StepsPerRevolution` or set `$dev.StepsPerRevolution`.
+
+> **Beginner**: use this function. Supply `-Steps` for a fixed count or
+> `-Degrees` to rotate by angle. You do not need to set up bitbang mode or
+> build byte buffers yourself.
+
+> **Scripter**: wire `ADBUS0-3` (D0-D3 on the FT232R/FT232H breakout board)
+> to `IN1-IN4` on the ULN2003 board. These are the UART data lines in normal
+> use, not the CBUS pins. No EEPROM step is needed.
+
+```powershell
+Import-Module ./PSGadget.psd1 -Force
+
+# --- One-shot with auto open/close ---
+
+# Move forward 2000 half-steps
+Invoke-PsGadgetStepper -Index 0 -Steps 2000
+
+# Rotate 90 degrees using default calibration (~4075.77 half-steps/rev)
+Invoke-PsGadgetStepper -Index 0 -Degrees 90
+
+# Rotate 180 degrees reverse, full-step mode
+Invoke-PsGadgetStepper -Index 0 -Degrees 180 -Direction Reverse -StepMode Full
+
+# Use your measured calibration value
+Invoke-PsGadgetStepper -Index 0 -Degrees 360 -StepsPerRevolution 4082.5
+
+# Check the summary object returned
+$result = Invoke-PsGadgetStepper -Index 0 -Degrees 90
+$result.Steps             # computed step count
+$result.StepsPerRevolution  # calibration value used
+$result.Degrees           # degrees requested
+
+# --- Reuse an open device object ---
+$dev = New-PsGadgetFtdi -Index 0
+
+# Cmdlet style (device stays open)
+Invoke-PsGadgetStepper -PsGadget $dev -Steps 1000 -DelayMs 3
+
+# Method shorthand
+$dev.Step(1000)                          # 1000 half-steps forward
+$dev.Step(1000, 'Reverse')               # 1000 half-steps reverse
+$dev.StepDegrees(90)                     # ~90 deg using default calibration
+$dev.StepDegrees(90, 'Reverse')          # reverse
+$dev.StepDegrees(90, 'Forward', 'Full')  # full-step mode
+
+# Store calibration on the device object - persists across calls
+$dev.StepsPerRevolution = 4082.5
+$dev.StepDegrees(180)    # uses 4082.5 instead of the default 4075.77
+
+$dev.Close()
+```
+
+> **Engineer**: `Invoke-PsGadgetStepper` calls `Set-PsGadgetFtdiMode
+> -Mode AsyncBitBang` then bulk-writes the precomputed buffer with one
+> `FT_Write()`. Baud rate = 16000 / DelayMs so the D2XX timer paces byte
+> output without host-CPU involvement. The device is left in AsyncBitBang
+> mode after the call; call `Set-PsGadgetFtdiMode -Mode UART` to restore.
+
+> **Pro**: `$dev.StepsPerRevolution = 0` (the initial default) tells the
+> method to call `Get-PsGadgetStepperDefaultStepsPerRev` at runtime, which
+> returns 4075.7728395061727 for Half mode and half that for Full. Set it to
+> your measured value to disable the runtime lookup.
+
+---
+
+## Step 6 - Precise Motion Script (Manual API)
 
 Below is a reusable script that wraps the sequencing logic in functions.
 
@@ -387,8 +476,10 @@ function Invoke-StepperRotate {
         [double]$Degrees,
         [int]$Direction = 1
     )
-    # 4096 half-steps per 360° (half-step mode)
-    $steps = [math]::Round(4096 * ($Degrees / 360))
+    # 4096 is approximate; empirical 28BYJ-48 value is ~4075.77 half-steps/rev.
+    # Pass -StepsPerRevolution with your measured value for accurate angles.
+    $defaultSpr = 4075.7728395061727
+    $steps = [math]::Round($defaultSpr * ($Degrees / 360))
     for ($i=0; $i -lt $steps; $i++) {
         Invoke-StepperHalfStep -Connection $Connection -Direction $Direction
     }
@@ -695,15 +786,39 @@ wires if necessary. The ULN2003 board outputs are labeled IN1–IN4.
 ## Quick Reference (Pro)
 
 ```powershell
-# FT232H / MPSSE path - ACBUS0-3 to ULN2003 IN1-IN4 - no EEPROM step required
-Import-Module G:\PSSummit2026\psgadget\PSGadget.psm1
+# Unified API - recommended path (FT232R or FT232H, ADBUS0-3 to ULN2003 IN1-IN4)
+Import-Module ./PSGadget.psd1 -Force
+
+# Step count
+Invoke-PsGadgetStepper -Index 0 -Steps 4076 -DelayMs 2
+
+# Angle-based (default calibration: ~4075.77 half-steps/rev)
+Invoke-PsGadgetStepper -Index 0 -Degrees 90
+Invoke-PsGadgetStepper -Index 0 -Degrees 180 -Direction Reverse
+
+# Custom calibration
+Invoke-PsGadgetStepper -Index 0 -Degrees 360 -StepsPerRevolution 4082.5
+
+# OOP method shorthand
+$dev = New-PsGadgetFtdi -Index 0
+$dev.StepsPerRevolution = 4082.5  # calibrate once
+$dev.Step(2000)
+$dev.StepDegrees(90)
+$dev.StepDegrees(180, 'Reverse')
+$dev.Close()
+```
+
+```powershell
+# Manual MPSSE path (FT232H, ACBUS0-3, higher-level Set-PsGadgetGpio API)
+Import-Module ./PSGadget.psd1 -Force
 $dev   = New-PsGadgetFtdi -Index 0
+# pre-computed high/low pin pairs for ACBUS half-step sequence
 $steps = @(
     @(@(0),@(1,2,3)), @(@(0,1),@(2,3)), @(@(1),@(0,2,3)), @(@(1,2),@(0,3)),
     @(@(2),@(0,1,3)), @(@(2,3),@(0,1)), @(@(3),@(0,1,2)), @(@(0,3),@(1,2))
 )
 try {
-    for ($i=0;$i -lt 4096;$i++) {
+    for ($i=0;$i -lt 4076;$i++) {
         $s=$steps[$i%8]
         Set-PsGadgetGpio -PsGadget $dev -Pins $s[0] -State HIGH
         Set-PsGadgetGpio -PsGadget $dev -Pins $s[1] -State LOW
@@ -716,35 +831,19 @@ try {
 ```
 
 ```powershell
-# FT232H - measure timing
-$sw=[System.Diagnostics.Stopwatch]::StartNew()
-# ... loop ...
-$sw.Stop(); Write-Host ("{0:F2}ms/step avg" -f ($sw.ElapsedMilliseconds/4096.0))
-```
-
-```powershell
-# FT232R / CBUS path - one-time EEPROM setup
+# FT232R CBUS path (CBUS0-3) - one-time EEPROM setup
 Set-PsGadgetFt232rCbusMode -Index 0   # run once per device; replug USB after
-
-$seq=@(@(1,0,0,0),@(1,1,0,0),@(0,1,0,0),@(0,1,1,0),@(0,0,1,0),@(0,0,1,1),@(0,0,0,1),@(1,0,0,1))
-$conn=Connect-PsGadgetFtdi -Index 0
-for($i=0;$i -lt 4096;$i++){ $p=$seq[$i%8];for($pin=0;$pin -lt 4;$pin++){$st=if($p[$pin]){'HIGH'}else{'LOW'};Set-PsGadgetGpio -Connection $conn -Pins @($pin) -State $st};Start-Sleep -Milliseconds 3}
-Set-PsGadgetGpio -Connection $conn -Pins @(0..3) -State LOW
-$conn.Close()
+# Note: use Invoke-PsGadgetStepper (ADBUS) for stepper - preferred over CBUS
 ```
 
 ```powershell
-# Async bit-bang path (FT232R, no EEPROM change) - highest throughput
-# Wire ADBUS0-3 (TX/RX/RTS/CTS pins) to ULN2003 IN1-IN4 instead of CBUS pins
-$dev = New-PsGadgetFtdi -Index 0
-Set-PsGadgetFtdiMode -PsGadget $dev -Mode AsyncBitBang -Mask 0x0F
-$dev.SetBaudRate(9600)   # 9600 half-steps/sec
-$seq=[byte[]](0x01,0x03,0x02,0x06,0x04,0x0C,0x08,0x09)
-$buf=[System.Collections.Generic.List[byte]]::new(); for($i=0;$i -lt 4096;$i++){$buf.Add($seq[$i%8])}
-$w=0; $dev._connection.Write($buf.ToArray(),$buf.Count,[ref]$w)
-$dev._connection.Write([byte[]](0x00),1,[ref]$w)   # de-energize
-Set-PsGadgetFtdiMode -PsGadget $dev -Mode UART
-$dev.Close()
+# Windows timer precision fix (reduces 15ms -> 1ms sleep granularity)
+Add-Type -MemberDefinition '
+    [DllImport("winmm.dll")] public static extern int timeBeginPeriod(int t);
+    [DllImport("winmm.dll")] public static extern int timeEndPeriod(int t);
+' -Name 'WinTimer' -Namespace 'Win32'
+[Win32.WinTimer]::timeBeginPeriod(1)
+try { <stepper loop here> } finally { [Win32.WinTimer]::timeEndPeriod(1) }
 ```
 
 ---

@@ -11,6 +11,7 @@ public functions are added.
 - [Module Setup](#module-setup)
 - [FT232H Workflow (MPSSE - ACBUS0-7)](#ft232h-workflow-mpsse---acbus0-7)
 - [FT232R Workflow (CBUS bit-bang - CBUS0-3)](#ft232r-workflow-cbus-bit-bang---cbus0-3)
+- [Stepper Motor Workflow (Async Bit-Bang, FT232R or FT232H)](#stepper-motor-workflow-async-bit-bang-ft232r-or-ft232h)
 - [SSD1306 OLED Display (FT232H via MPSSE I2C)](#ssd1306-oled-display-ft232h-via-mpsse-i2c)
 - [ESP-NOW Wireless Telemetry (MicroPython + FT232H UART)](#esp-now-wireless-telemetry-micropython--ft232h-uart)
 - [Device Capability Comparison](#device-capability-comparison)
@@ -275,6 +276,69 @@ See: https://markgzero.github.io/2025/11/09/ft232rnl-sigrok-pulseview-windows.ht
 
 ---
 
+## Stepper Motor Workflow (Async Bit-Bang, FT232R or FT232H)
+
+Drive a 28BYJ-48 (or similar 4-wire unipolar stepper) via a ULN2003 driver
+board using ADBUS0-3 pins in async bit-bang mode. Supported on both FT232R
+and FT232H - no EEPROM programming required.
+
+**Wiring**: connect ADBUS0-3 (D0-D3 on the breakout) to ULN2003 IN1-IN4.
+ADBUS corresponds to the UART data lines in normal use (not CBUS).
+
+**Calibration**: 28BYJ-48 is NOT exactly 4096 half-steps per revolution.
+Empirical value: ~4075.77 half-steps/rev. Always use `-StepsPerRevolution`
+or `$dev.StepsPerRevolution` rather than hardcoding 2048/4096.
+
+### Pin Map (ADBUS - async bit-bang)
+
+| ADBUS pin | Signal | ULN2003 input | Coil |
+|-----------|--------|---------------|------|
+| ADBUS0    | D0     | IN1           | A    |
+| ADBUS1    | D1     | IN2           | A'   |
+| ADBUS2    | D2     | IN3           | B    |
+| ADBUS3    | D3     | IN4           | B'   |
+
+### Commands
+
+```powershell
+# Enumerate devices - FT232R or FT232H work equally
+List-PsGadgetFtdi | Format-Table Index, Type, SerialNumber, GpioMethod
+
+# Step count (one-shot - auto opens and closes device)
+Invoke-PsGadgetStepper -Index 0 -Steps 4076             # ~1 revolution
+Invoke-PsGadgetStepper -Index 0 -Steps 2000 -DelayMs 3  # slower / higher torque
+
+# Angle-based - uses default calibration (~4075.77 half-steps/rev)
+Invoke-PsGadgetStepper -Index 0 -Degrees 90
+Invoke-PsGadgetStepper -Index 0 -Degrees 180 -Direction Reverse
+
+# Full-step mode (higher torque, ~2037.89 steps/rev default)
+Invoke-PsGadgetStepper -Index 0 -Degrees 90 -StepMode Full
+
+# Custom calibration (use your measured value)
+Invoke-PsGadgetStepper -Index 0 -Degrees 360 -StepsPerRevolution 4082.5
+
+# Stable device identification by serial number
+Invoke-PsGadgetStepper -SerialNumber "FTAXBFCQ" -Steps 1000
+
+# OOP interface - calibrate once, call many times
+$dev = New-PsGadgetFtdi -Index 0
+$dev.StepsPerRevolution = 4082.5   # measured value for this specific motor
+$dev.Step(2000)                    # 2000 half-steps forward
+$dev.Step(2000, 'Reverse')         # 2000 half-steps reverse
+$dev.StepDegrees(90)               # ~90 degrees using calibrated SPR
+$dev.StepDegrees(180, 'Reverse')   # 180 degrees reverse
+$dev.Close()
+
+# Return value inspection
+$r = Invoke-PsGadgetStepper -Index 0 -Degrees 90
+$r.Steps              # actual step count computed from calibration
+$r.StepsPerRevolution # value used (default or supplied)
+$r.Degrees            # degrees requested
+```
+
+---
+
 ## SSD1306 OLED Display (FT232H via MPSSE I2C)
 
 The SSD1306 is a 128x64 monochrome OLED controller, commonly used on
@@ -467,7 +531,8 @@ All fields are optional; omitted keys use built-in defaults.
 | HasMpsse             | True            | False                |
 | SPI / I2C / JTAG     | Yes (MPSSE)     | No                   |
 | SSD1306 OLED display | Yes             | No                   |
-| Async bit-bang ADBUS | Yes             | Supported via Set-PsGadgetFtdiMode (AsyncBitBang) |
+| Async bit-bang ADBUS | Yes             | Yes (stepper motor primary path) |
+| Stepper motor        | Yes (Invoke-PsGadgetStepper) | Yes (Invoke-PsGadgetStepper) |
 | Windows GPIO support | Yes             | Yes                  |
 | Linux GPIO support   | Yes (IoT .NET)  | Yes (native P/Invoke, requires libftd2xx.so) |
 | macOS GPIO support   | Yes (IoT .NET)  | Yes (native P/Invoke, requires libftd2xx.dylib) |
@@ -553,6 +618,14 @@ $dev.Close()
 | `PulsePin(int pin, string state, int ms)`| Hold state for ms then invert              |
 | `Write(byte[] data)`                     | Write raw bytes to device                  |
 | `Read(int count)`                        | Read raw bytes from device                 |
+| `Step(int steps)`                        | Move N half-steps forward (uses DefaultStepMode) |
+| `Step(int steps, string direction)`      | Move N steps in given direction            |
+| `Step(int steps, string dir, string mode)` | Explicit step mode (Half/Full)           |
+| `Step(int steps, string dir, string mode, int delayMs)` | With custom delay      |
+| `StepDegrees(double degrees)`            | Rotate by angle using StepsPerRevolution calibration |
+| `StepDegrees(double degrees, string direction)` | Rotate in given direction           |
+| `StepDegrees(double degrees, string dir, string mode)` | Explicit step mode       |
+| `StepDegrees(double degrees, string dir, string mode, double spr)` | Override calibration |
 
 ### Set-PsGadgetGpio -Connection
 
@@ -583,6 +656,7 @@ $conn.Close()
 | Set-PsGadgetGpio            | Set GPIO pin state (FT232H and FT232R; -Connection supported) |
 | Invoke-PsGadgetI2C          | Unified I2C dispatch (-I2CModule PCA9685 for servo control, SSD1306 for OLED); auto-opens/closes device unless -PsGadget supplied |
 | Invoke-PsGadgetI2CScan      | Scan I2C bus and report devices found (-Index, -SerialNumber) |
+| Invoke-PsGadgetStepper      | Drive a stepper motor via async bit-bang ADBUS0-3 (FT232R or FT232H); -Steps or -Degrees; -StepsPerRevolution for calibrated angles (28BYJ-48 default ~4075.77 half-steps/rev, NOT 4096) |
 | List-PsGadgetMpy            | Enumerate MicroPython serial ports                            |
 | Connect-PsGadgetMpy         | Open a MicroPython REPL connection                            |
 | Install-PsGadgetMpyScript   | Deploy bundled ESP-NOW Receiver or Transmitter main.py + config.json to an ESP32 via mpremote (-SerialPort, -Role, -ConfigPath, -Force) |
