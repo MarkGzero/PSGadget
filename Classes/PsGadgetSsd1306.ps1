@@ -2,20 +2,26 @@
 # SSD1306 OLED Display Class
 
 class PsGadgetSsd1306 : PsGadgetI2CDevice {
-    [int]$Width
-    [int]$Height
-    [int]$Pages
+    [int]$Width          # Physical pixel width  (always 128)
+    [int]$Height         # Physical pixel height (32 or 64)
+    [int]$Pages          # Physical pages = Height/8
+    [int]$Rotation       # 0, 90, 180, or 270 degrees
+    [int]$LogicalWidth   # Canvas width  seen by callers (swapped for 90/270)
+    [int]$LogicalHeight  # Canvas height seen by callers (swapped for 90/270)
+    [int]$LogicalPages   # LogicalHeight / 8
+    [byte[]]$FrameBuffer # Width * Pages bytes; index = page*Width + col; bit0 = top of page
     [hashtable]$Glyphs
     [hashtable]$Symbols
 
     PsGadgetSsd1306() {
         $this.Logger.WriteInfo("Creating PsGadgetSsd1306 instance")
-        
-        # Default SSD1306 128x64 configuration
         $this.I2CAddress = 0x3C
         $this.Width = 128
         $this.Height = 64
-        $this.Pages = 8  # 64 pixels / 8 pixels per page
+        $this.Pages = 8
+        $this.Rotation = 0
+        $this.UpdateLogicalDimensions()
+        $this.FrameBuffer = New-Object byte[] ($this.Width * $this.Pages)
         $this.IsInitialized = $false
         $this.InitializeGlyphs()
         $this.InitializeSymbols()
@@ -23,12 +29,14 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
 
     PsGadgetSsd1306([System.Object]$ftdiDevice) {
         $this.Logger.WriteInfo("Creating PsGadgetSsd1306 instance with FTDI device")
-        
         $this.FtdiDevice = $ftdiDevice
         $this.I2CAddress = 0x3C
         $this.Width = 128
         $this.Height = 64
         $this.Pages = 8
+        $this.Rotation = 0
+        $this.UpdateLogicalDimensions()
+        $this.FrameBuffer = New-Object byte[] ($this.Width * $this.Pages)
         $this.IsInitialized = $false
         $this.InitializeGlyphs()
         $this.InitializeSymbols()
@@ -36,25 +44,44 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
 
     PsGadgetSsd1306([System.Object]$ftdiDevice, [byte]$address) {
         $this.Logger.WriteInfo("Creating PsGadgetSsd1306 instance with FTDI device and address 0x$($address.ToString('X2'))")
-        
         $this.FtdiDevice = $ftdiDevice
         $this.I2CAddress = $address
         $this.Width = 128
         $this.Height = 64
         $this.Pages = 8
+        $this.Rotation = 0
+        $this.UpdateLogicalDimensions()
+        $this.FrameBuffer = New-Object byte[] ($this.Width * $this.Pages)
         $this.IsInitialized = $false
         $this.InitializeGlyphs()
         $this.InitializeSymbols()
     }
 
     PsGadgetSsd1306([System.Object]$ftdiDevice, [byte]$address, [int]$height) {
-        $this.Logger.WriteInfo("Creating PsGadgetSsd1306 instance with FTDI device, address 0x$($address.ToString('X2')), height $height")
-        
+        $this.Logger.WriteInfo("Creating PsGadgetSsd1306 instance: address 0x$($address.ToString('X2')), height $height")
         $this.FtdiDevice = $ftdiDevice
         $this.I2CAddress = $address
         $this.Width = 128
         $this.Height = $height
-        $this.Pages = $height / 8
+        $this.Pages = [int]($height / 8)
+        $this.Rotation = 0
+        $this.UpdateLogicalDimensions()
+        $this.FrameBuffer = New-Object byte[] ($this.Width * $this.Pages)
+        $this.IsInitialized = $false
+        $this.InitializeGlyphs()
+        $this.InitializeSymbols()
+    }
+
+    PsGadgetSsd1306([System.Object]$ftdiDevice, [byte]$address, [int]$height, [int]$rotation) {
+        $this.Logger.WriteInfo("Creating PsGadgetSsd1306 instance: address 0x$($address.ToString('X2')), height $height, rotation $rotation")
+        $this.FtdiDevice = $ftdiDevice
+        $this.I2CAddress = $address
+        $this.Width = 128
+        $this.Height = $height
+        $this.Pages = [int]($height / 8)
+        $this.Rotation = $rotation
+        $this.UpdateLogicalDimensions()
+        $this.FrameBuffer = New-Object byte[] ($this.Width * $this.Pages)
         $this.IsInitialized = $false
         $this.InitializeGlyphs()
         $this.InitializeSymbols()
@@ -195,8 +222,9 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
                 0x40,          # Set Display Start Line = 0
                 0x8D, 0x14,    # Charge Pump Setting (Enable)
                 0x20, 0x00,    # Memory Addressing Mode = Horizontal
-                0xA1,          # Set Segment Re-map (column address 127 is SEG0)
-                0xC8,          # Set COM Output Scan Direction (remapped mode)
+                # Segment remap and COM scan: 0deg/90deg/270deg = standard; 180deg = both flipped
+                $(if ($this.Rotation -eq 180) { [byte]0xA0 } else { [byte]0xA1 }),
+                $(if ($this.Rotation -eq 180) { [byte]0xC0 } else { [byte]0xC8 }),
                 0xDA, $comPins, # Set COM Pins Hardware Configuration (height-dependent)
                 0x81, 0xCF,    # Set Contrast Control (0xCF = high)
                 0xD9, 0xF1,    # Set Pre-charge Period
@@ -216,6 +244,7 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
             }
             
             $this.IsInitialized = $true
+            $this.FrameBuffer = New-Object byte[] ($this.Width * $this.Pages)
             $this.Logger.WriteInfo("SSD1306 initialization completed successfully")
             return $true
             
@@ -231,20 +260,10 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
             $this.Logger.WriteError("SSD1306 not initialized")
             return $false
         }
-        
         $this.Logger.WriteInfo("Clearing SSD1306 display")
-        
         try {
-            # Clear all pages
-            for ($page = 0; $page -lt $this.Pages; $page++) {
-                if (-not $this.ClearPage($page)) {
-                    throw "Failed to clear page $page"
-                }
-            }
-            
-            $this.Logger.WriteDebug("Display cleared successfully")
-            return $true
-            
+            [System.Array]::Clear($this.FrameBuffer, 0, $this.FrameBuffer.Length)
+            return $this.FlushAll()
         } catch {
             $this.Logger.WriteError("Failed to clear display: $_")
             return $false
@@ -256,28 +275,16 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
             $this.Logger.WriteError("SSD1306 not initialized")
             return $false
         }
-        
-        if ($page -lt 0 -or $page -ge $this.Pages) {
-            $this.Logger.WriteError("Invalid page number: $page (valid range: 0-$($this.Pages - 1))")
+        if ($page -lt 0 -or $page -ge $this.LogicalPages) {
+            $this.Logger.WriteError("Invalid page: $page (valid: 0-$($this.LogicalPages - 1))")
             return $false
         }
-        
         try {
-            # Set cursor to beginning of page
-            if (-not $this.SetCursor(0, $page)) {
-                throw "Failed to set cursor"
-            }
-            
-            # Send empty data to fill the page
-            [byte[]]$emptyData = @(0x40) + (@(0x00) * $this.Width)
-
-            if (-not $this.I2CWrite($emptyData)) {
-                throw "Failed to send clear data"
-            }
-            
-            $this.Logger.WriteTrace("Cleared page $page")
-            return $true
-            
+            [int]$yStart = $page * 8
+            $this.ClearLogicalRows($yStart, $yStart + 7)
+            $result = $this.FlushLogicalRows($yStart, $yStart + 7)
+            $this.Logger.WriteTrace("Cleared logical page $page")
+            return $result
         } catch {
             $this.Logger.WriteError("Failed to clear page $page : $_")
             return $false
@@ -332,71 +339,73 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
     
     [bool] WriteText([string]$text, [int]$page, [string]$align, [int]$fontSize, [bool]$invert) {
         if ($fontSize -eq 2) {
+            if ($this.Rotation -eq 90 -or $this.Rotation -eq 270) {
+                $this.Logger.WriteError("FontSize 2 is not supported in portrait (90/270) orientation")
+                return $false
+            }
             return $this.WriteTextTall($text, $page, $align, $invert)
         }
+
         if (-not $this.IsInitialized) {
             $this.Logger.WriteError("SSD1306 not initialized")
             return $false
         }
-        
+
+        if ($page -lt 0 -or $page -ge $this.LogicalPages) {
+            $this.Logger.WriteError("Invalid page: $page (valid: 0-$($this.LogicalPages - 1))")
+            return $false
+        }
+
         if ([string]::IsNullOrEmpty($text)) {
             $this.Logger.WriteDebug("Empty text string, nothing to write")
             return $true
         }
-        
-        $this.Logger.WriteInfo("Writing text '$text' to page $page (align: $align, size: ${fontSize}x)")
-        
+
+        $this.Logger.WriteInfo("WriteText '$text' -> logical page $page (align: $align, rotation: $($this.Rotation))")
+
         try {
-            # Convert text to glyph data
-            [System.Collections.Generic.List[byte]]$buffer = @()
-            
+            # Build per-character glyph list and total pixel width
+            [System.Collections.Generic.List[byte[]]]$glyphList = [System.Collections.Generic.List[byte[]]]::new()
+            [int]$totalWidth = 0
             foreach ($char in $text.ToCharArray()) {
-                if ($this.Glyphs.ContainsKey([string]$char)) {
-                    $glyph = $this.Glyphs[[string]$char]
-                    foreach ($byte in $glyph) {
-                        $buffer.Add([byte]$byte)
-                    }
-                } else {
-                    # Unknown character - use space
-                    $space = $this.Glyphs[' ']
-                    foreach ($byte in $space) {
-                        $buffer.Add([byte]$byte)
-                    }
-                    $this.Logger.WriteTrace("Unknown character '$char' replaced with space")
-                }
+                $key = [string]$char
+                [byte[]]$g = if ($this.Glyphs.ContainsKey($key)) { [byte[]]$this.Glyphs[$key] } else { [byte[]]$this.Glyphs[' '] }
+                $glyphList.Add($g)
+                $totalWidth += $g.Count
             }
-            
-            # Apply inversion if requested
-            if ($invert) {
-                for ($i = 0; $i -lt $buffer.Count; $i++) {
-                    $buffer[$i] = $buffer[$i] -bxor 0xFF
-                }
-            }
-            
-            # Determine starting column based on alignment
-            $startColumn = switch ($align.ToLower()) {
-                'center' { [math]::Max(0, [math]::Floor(($this.Width - $buffer.Count) / 2)) }
-                'right'  { [math]::Max(0, $this.Width - $buffer.Count) }
+
+            # Compute logical start X based on alignment
+            [int]$startX = switch ($align.ToLower()) {
+                'center' { [math]::Max(0, [math]::Floor(($this.LogicalWidth - $totalWidth) / 2)) }
+                'right'  { [math]::Max(0, $this.LogicalWidth - $totalWidth) }
                 default  { 0 }
             }
-            
-            # Set cursor position
-            if (-not $this.SetCursor($startColumn, $page)) {
-                throw "Failed to set cursor position"
-            }
-            
-            # Send data with control byte 0x40
-            [byte[]]$payload = @(0x40) + $buffer.ToArray()
+            [int]$startY = $page * 8
 
-            if (-not $this.I2CWrite($payload)) {
-                throw "Failed to send text data"
+            # Clear target logical rows before rendering (eliminates stray pixels)
+            $this.ClearLogicalRows($startY, $startY + 7)
+
+            # Render each glyph column-by-column into the framebuffer via SetLogicalPixel
+            [int]$lx = $startX
+            foreach ($g in $glyphList) {
+                if ($lx -ge $this.LogicalWidth) { break }
+                for ($col = 0; $col -lt $g.Count; $col++) {
+                    [byte]$colByte = $g[$col]
+                    if ($invert) { $colByte = [byte]($colByte -bxor 0xFF) }
+                    for ($bit = 0; $bit -lt 8; $bit++) {
+                        if ($colByte -band (1 -shl $bit)) {
+                            $this.SetLogicalPixel($lx + $col, $startY + $bit, $true)
+                        }
+                    }
+                }
+                $lx += $g.Count
             }
-            
-            $this.Logger.WriteDebug("Text written successfully ($($buffer.Count) bytes)")
-            return $true
-            
+
+            # Flush modified physical pages to the display
+            return $this.FlushLogicalRows($startY, $startY + 7)
+
         } catch {
-            $this.Logger.WriteError("Failed to write text: $_")
+            $this.Logger.WriteError("WriteText failed: $_")
             return $false
         }
     }
@@ -505,9 +514,9 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
         return $result
     }
 
-    # Draw a named symbol at the given page and column.
-    # When page <= (Pages-2): renders 16 rows tall (2-page, 8 cols wide) via ExpandNibble.
-    # When page == (Pages-1): renders 8 rows tall (1-page, 8 cols wide) as-is.
+    # Draw a named symbol at the given logical page and column.
+    # page < (LogicalPages-1): renders 16x16 (2-page) via ExpandNibble.
+    # page == (LogicalPages-1): renders 8x8 (1-page) as-is.
     [bool] DrawSymbol([string]$name, [int]$page, [int]$column) {
         if (-not $this.IsInitialized) {
             $this.Logger.WriteError("SSD1306 not initialized")
@@ -519,37 +528,40 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
             return $false
         }
 
-        $sym = $this.Symbols[$name]
+        if ($page -lt 0 -or $page -ge $this.LogicalPages) {
+            $this.Logger.WriteError("Invalid page: $page (valid: 0-$($this.LogicalPages - 1))")
+            return $false
+        }
 
-        $this.Logger.WriteInfo("Drawing symbol '$name' at page $page, column $column")
+        $sym = [byte[]]$this.Symbols[$name]
+        $this.Logger.WriteInfo("Drawing symbol '$name' at logical page $page, col $column (rotation: $($this.Rotation))")
 
         try {
-            if ($page -le ($this.Pages - 2)) {
-                # 16x16 render: expand each column byte into top (lower nibble) and bot (upper nibble)
-                [byte[]]$topBuf = New-Object byte[] $sym.Count
-                [byte[]]$botBuf = New-Object byte[] $sym.Count
-                for ($i = 0; $i -lt $sym.Count; $i++) {
-                    $b = [byte]$sym[$i]
-                    $topBuf[$i] = $this.ExpandNibble($b -band 0x0F)
-                    $botBuf[$i] = $this.ExpandNibble(($b -shr 4) -band 0x0F)
+            [int]$startY = $page * 8
+            [bool]$use16x16 = ($page -lt ($this.LogicalPages - 1))
+
+            if ($use16x16) {
+                $this.ClearLogicalRows($startY, $startY + 15)
+                for ($col = 0; $col -lt $sym.Count; $col++) {
+                    [byte]$b = $sym[$col]
+                    [byte]$topByte = $this.ExpandNibble($b -band 0x0F)
+                    [byte]$botByte = $this.ExpandNibble(($b -shr 4) -band 0x0F)
+                    for ($bit = 0; $bit -lt 8; $bit++) {
+                        if ($topByte -band (1 -shl $bit)) { $this.SetLogicalPixel($column + $col, $startY + $bit, $true) }
+                        if ($botByte -band (1 -shl $bit)) { $this.SetLogicalPixel($column + $col, $startY + 8 + $bit, $true) }
+                    }
                 }
-
-                [byte[]]$topPayload = @([byte]0x40) + $topBuf
-                [byte[]]$botPayload = @([byte]0x40) + $botBuf
-
-                if (-not $this.SetCursor($column, $page)) { throw "SetCursor failed for top row" }
-                if (-not $this.I2CWrite($topPayload)) { throw "I2CWrite failed for top row" }
-                if (-not $this.SetCursor($column, $page + 1)) { throw "SetCursor failed for bottom row" }
-                if (-not $this.I2CWrite($botPayload)) { throw "I2CWrite failed for bottom row" }
+                return $this.FlushLogicalRows($startY, $startY + 15)
             } else {
-                # Last page only - render 8x8 as-is
-                [byte[]]$payload = @([byte]0x40) + ([byte[]]$sym)
-                if (-not $this.SetCursor($column, $page)) { throw "SetCursor failed" }
-                if (-not $this.I2CWrite($payload)) { throw "I2CWrite failed" }
+                $this.ClearLogicalRows($startY, $startY + 7)
+                for ($col = 0; $col -lt $sym.Count; $col++) {
+                    [byte]$b = $sym[$col]
+                    for ($bit = 0; $bit -lt 8; $bit++) {
+                        if ($b -band (1 -shl $bit)) { $this.SetLogicalPixel($column + $col, $startY + $bit, $true) }
+                    }
+                }
+                return $this.FlushLogicalRows($startY, $startY + 7)
             }
-
-            $this.Logger.WriteDebug("Symbol '$name' drawn successfully")
-            return $true
 
         } catch {
             $this.Logger.WriteError("DrawSymbol '$name' failed: $_")
@@ -557,17 +569,21 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
         }
     }
 
-    # Write text spanning 2 pages (double height, 16 px tall).
-    # Each glyph byte is vertically scaled 2x via ExpandNibble:
-    #   lower nibble (rows 0-3) -> top page,  upper nibble (rows 4-7) -> bottom page.
-    # Requires page in range 0 to (Pages-2) so that page+1 is a valid page.
+    # Write text spanning 2 logical pages (double height, 16 logical rows tall).
+    # Only supported in landscape (0deg/180deg) orientation.
+    # Requires page in range 0 to (LogicalPages-2) so that page+1 is valid.
     [bool] WriteTextTall([string]$text, [int]$page, [string]$align, [bool]$invert) {
         if (-not $this.IsInitialized) {
             $this.Logger.WriteError("SSD1306 not initialized")
             return $false
         }
 
-        $maxPage = $this.Pages - 2
+        if ($this.Rotation -eq 90 -or $this.Rotation -eq 270) {
+            $this.Logger.WriteError("WriteTextTall is not supported in portrait (90/270) orientation")
+            return $false
+        }
+
+        [int]$maxPage = $this.LogicalPages - 2
         if ($page -lt 0 -or $page -gt $maxPage) {
             $this.Logger.WriteError("WriteTextTall: page must be 0-$maxPage (needs page+1). Got: $page")
             return $false
@@ -578,56 +594,214 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
             return $true
         }
 
-        $this.Logger.WriteInfo("WriteTextTall '$text' page $page/$($page+1) align=$align")
+        $this.Logger.WriteInfo("WriteTextTall '$text' pages $page/$($page+1) align=$align rotation=$($this.Rotation)")
 
         try {
-            # Build glyph buffer (same as WriteText, FontSize 1)
-            [System.Collections.Generic.List[byte]]$rawBuf = [System.Collections.Generic.List[byte]]::new()
+            # Build glyph list
+            [System.Collections.Generic.List[byte[]]]$glyphList = [System.Collections.Generic.List[byte[]]]::new()
+            [int]$totalWidth = 0
             foreach ($char in $text.ToCharArray()) {
                 $key = [string]$char
-                if ($this.Glyphs.ContainsKey($key)) {
-                    foreach ($b in $this.Glyphs[$key]) { $rawBuf.Add([byte]$b) }
-                } else {
-                    foreach ($b in $this.Glyphs[' ']) { $rawBuf.Add([byte]$b) }
-                }
+                [byte[]]$g = if ($this.Glyphs.ContainsKey($key)) { [byte[]]$this.Glyphs[$key] } else { [byte[]]$this.Glyphs[' '] }
+                $glyphList.Add($g)
+                $totalWidth += $g.Count
             }
 
-            # Compute start column (based on raw glyph count = rendered width at 1x)
-            $startCol = switch ($align.ToLower()) {
-                'center' { [math]::Max(0, [math]::Floor(($this.Width - $rawBuf.Count) / 2)) }
-                'right'  { [math]::Max(0, $this.Width - $rawBuf.Count) }
+            [int]$startX = switch ($align.ToLower()) {
+                'center' { [math]::Max(0, [math]::Floor(($this.LogicalWidth - $totalWidth) / 2)) }
+                'right'  { [math]::Max(0, $this.LogicalWidth - $totalWidth) }
                 default  { 0 }
             }
+            [int]$startY = $page * 8
 
-            # Expand each column byte: lower nibble -> top row byte, upper nibble -> bot row byte
-            [System.Collections.Generic.List[byte]]$topBuf = [System.Collections.Generic.List[byte]]::new()
-            [System.Collections.Generic.List[byte]]$botBuf = [System.Collections.Generic.List[byte]]::new()
-            foreach ($b in $rawBuf) {
-                $bval = [byte]$b
-                $topBuf.Add($this.ExpandNibble($bval -band 0x0F))
-                $botBuf.Add($this.ExpandNibble(($bval -shr 4) -band 0x0F))
+            # Clear 2 logical pages (16 rows) before rendering
+            $this.ClearLogicalRows($startY, $startY + 15)
+
+            # Render with 2x vertical scale via ExpandNibble
+            [int]$lx = $startX
+            foreach ($g in $glyphList) {
+                if ($lx -ge $this.LogicalWidth) { break }
+                for ($col = 0; $col -lt $g.Count; $col++) {
+                    [byte]$bval = $g[$col]
+                    if ($invert) { $bval = [byte]($bval -bxor 0xFF) }
+                    [byte]$topByte = $this.ExpandNibble($bval -band 0x0F)
+                    [byte]$botByte = $this.ExpandNibble(($bval -shr 4) -band 0x0F)
+                    for ($bit = 0; $bit -lt 8; $bit++) {
+                        if ($topByte -band (1 -shl $bit)) { $this.SetLogicalPixel($lx + $col, $startY + $bit, $true) }
+                        if ($botByte -band (1 -shl $bit)) { $this.SetLogicalPixel($lx + $col, $startY + 8 + $bit, $true) }
+                    }
+                }
+                $lx += $g.Count
             }
 
-            # Apply invert
-            if ($invert) {
-                for ($i = 0; $i -lt $topBuf.Count; $i++) { $topBuf[$i] = $topBuf[$i] -bxor 0xFF }
-                for ($i = 0; $i -lt $botBuf.Count; $i++) { $botBuf[$i] = $botBuf[$i] -bxor 0xFF }
-            }
-
-            [byte[]]$topPayload = @([byte]0x40) + $topBuf.ToArray()
-            [byte[]]$botPayload = @([byte]0x40) + $botBuf.ToArray()
-
-            if (-not $this.SetCursor($startCol, $page)) { throw "SetCursor failed for page $page" }
-            if (-not $this.I2CWrite($topPayload)) { throw "I2CWrite failed for page $page" }
-            if (-not $this.SetCursor($startCol, $page + 1)) { throw "SetCursor failed for page $($page+1)" }
-            if (-not $this.I2CWrite($botPayload)) { throw "I2CWrite failed for page $($page+1)" }
-
-            $this.Logger.WriteDebug("WriteTextTall: wrote $($rawBuf.Count) glyph bytes across pages $page/$($page+1)")
-            return $true
+            return $this.FlushLogicalRows($startY, $startY + 15)
 
         } catch {
             $this.Logger.WriteError("WriteTextTall failed: $_")
             return $false
         }
+    }
+
+    # ---------------------------------------------------------------------------
+    # Rotation management
+    # ---------------------------------------------------------------------------
+
+    # Set display rotation to 0, 90, 180, or 270 degrees.
+    # 0/180 = landscape; 90/270 = portrait (swaps logical width and height).
+    # Re-runs hardware initialization when the rotation actually changes.
+    # FontSize 2 and WriteTextTall are only supported in 0/180 orientation.
+    [void] SetRotation([int]$degrees) {
+        if ($degrees -notin @(0, 90, 180, 270)) {
+            throw [System.ArgumentException]::new("Invalid rotation: $degrees. Must be 0, 90, 180, or 270.")
+        }
+        if ($this.Rotation -eq $degrees -and $this.IsInitialized) {
+            $this.Logger.WriteTrace("SetRotation: already at $degrees deg, no-op")
+            return
+        }
+        $this.Logger.WriteInfo("Setting rotation from $($this.Rotation) to $degrees degrees")
+        $this.Rotation = $degrees
+        $this.UpdateLogicalDimensions()
+        if ($this.FtdiDevice) {
+            $this.Initialize($true)
+        }
+    }
+
+    # ---------------------------------------------------------------------------
+    # Private rendering infrastructure
+    # ---------------------------------------------------------------------------
+
+    # Recompute LogicalWidth, LogicalHeight, LogicalPages from Width/Height/Rotation.
+    hidden [void] UpdateLogicalDimensions() {
+        if ($this.Rotation -eq 90 -or $this.Rotation -eq 270) {
+            $this.LogicalWidth  = $this.Height
+            $this.LogicalHeight = $this.Width
+        } else {
+            $this.LogicalWidth  = $this.Width
+            $this.LogicalHeight = $this.Height
+        }
+        $this.LogicalPages = [int]($this.LogicalHeight / 8)
+        $this.Logger.WriteDebug("Logical dims: $($this.LogicalWidth)x$($this.LogicalHeight), $($this.LogicalPages) pages")
+    }
+
+    # Set or clear one physical pixel in the framebuffer.
+    # Clips silently when px/py are outside physical bounds.
+    hidden [void] SetPixel([int]$px, [int]$py, [bool]$on) {
+        if ($px -lt 0 -or $px -ge $this.Width -or $py -lt 0 -or $py -ge $this.Height) { return }
+        [int]$idx  = ($py -shr 3) * $this.Width + $px
+        [byte]$mask = [byte](1 -shl ($py -band 7))
+        if ($on) {
+            $this.FrameBuffer[$idx] = [byte]($this.FrameBuffer[$idx] -bor $mask)
+        } else {
+            $this.FrameBuffer[$idx] = [byte]($this.FrameBuffer[$idx] -band ([byte]0xFF -bxor $mask))
+        }
+    }
+
+    # Map a logical (canvas) pixel to physical coordinates and write it.
+    # Rotation mappings (phys Width=128, phys Height=64 or 32):
+    #   0deg:   px=lx,          py=ly
+    #   90deg:  px=Width-1-ly,  py=lx           (portrait: top = original right edge)
+    #   180deg: px=Width-1-lx,  py=Height-1-ly  (both axes flipped)
+    #   270deg: px=ly,          py=Height-1-lx  (portrait: top = original left edge)
+    hidden [void] SetLogicalPixel([int]$lx, [int]$ly, [bool]$on) {
+        [int]$px = 0
+        [int]$py = 0
+        switch ($this.Rotation) {
+            0   { $px = $lx;                      $py = $ly                    }
+            90  { $px = $this.Width - 1 - $ly;    $py = $lx                    }
+            180 { $px = $this.Width - 1 - $lx;    $py = $this.Height - 1 - $ly }
+            270 { $px = $ly;                       $py = $this.Height - 1 - $lx }
+        }
+        $this.SetPixel($px, $py, $on)
+    }
+
+    # Zero framebuffer bytes that correspond to logical rows yStart..yEnd.
+    # Fast path for 0deg/180deg (whole physical pages); column-range path for 90deg/270deg.
+    hidden [void] ClearLogicalRows([int]$yStart, [int]$yEnd) {
+        switch ($this.Rotation) {
+            0 {
+                [int]$p0 = $yStart -shr 3
+                [int]$p1 = $yEnd   -shr 3
+                for ($p = $p0; $p -le $p1; $p++) {
+                    [System.Array]::Clear($this.FrameBuffer, $p * $this.Width, $this.Width)
+                }
+            }
+            180 {
+                # Physical pages are mirrored (logical page 0 = physical page Pages-1)
+                [int]$p0 = $this.Pages - 1 - ($yEnd   -shr 3)
+                [int]$p1 = $this.Pages - 1 - ($yStart -shr 3)
+                for ($p = $p0; $p -le $p1; $p++) {
+                    [System.Array]::Clear($this.FrameBuffer, $p * $this.Width, $this.Width)
+                }
+            }
+            90 {
+                # Logical ly -> physical x = (Width-1-ly); all physical pages touched
+                [int]$colLow  = $this.Width - 1 - $yEnd
+                [int]$colHigh = $this.Width - 1 - $yStart
+                for ($p = 0; $p -lt $this.Pages; $p++) {
+                    for ($col = $colLow; $col -le $colHigh; $col++) {
+                        $this.FrameBuffer[$p * $this.Width + $col] = 0
+                    }
+                }
+            }
+            270 {
+                # Logical ly -> physical x = ly; all physical pages touched
+                [int]$colLow  = $yStart
+                [int]$colHigh = $yEnd
+                for ($p = 0; $p -lt $this.Pages; $p++) {
+                    for ($col = $colLow; $col -le $colHigh; $col++) {
+                        $this.FrameBuffer[$p * $this.Width + $col] = 0
+                    }
+                }
+            }
+        }
+    }
+
+    # Send one physical page from the framebuffer to the hardware.
+    hidden [bool] FlushPhysPage([int]$physPage) {
+        try {
+            if (-not $this.SetCursor(0, $physPage)) { throw "SetCursor failed for page $physPage" }
+            [byte[]]$payload = New-Object byte[] ($this.Width + 1)
+            $payload[0] = [byte]0x40
+            [System.Array]::Copy($this.FrameBuffer, $physPage * $this.Width, $payload, 1, $this.Width)
+            if (-not $this.I2CWrite($payload)) { throw "I2CWrite failed for page $physPage" }
+            return $true
+        } catch {
+            $this.Logger.WriteError("FlushPhysPage $physPage failed: $_")
+            return $false
+        }
+    }
+
+    # Send all physical pages to the hardware.
+    hidden [bool] FlushAll() {
+        for ($p = 0; $p -lt $this.Pages; $p++) {
+            if (-not $this.FlushPhysPage($p)) { return $false }
+        }
+        return $true
+    }
+
+    # Send the physical pages affected by logical rows yStart..yEnd.
+    # 0deg/180deg: only the 1-2 physical pages that overlap; 90deg/270deg: all pages.
+    hidden [bool] FlushLogicalRows([int]$yStart, [int]$yEnd) {
+        switch ($this.Rotation) {
+            0 {
+                [int]$p0 = $yStart -shr 3
+                [int]$p1 = $yEnd   -shr 3
+                for ($p = $p0; $p -le $p1; $p++) {
+                    if (-not $this.FlushPhysPage($p)) { return $false }
+                }
+            }
+            180 {
+                [int]$p0 = $this.Pages - 1 - ($yEnd   -shr 3)
+                [int]$p1 = $this.Pages - 1 - ($yStart -shr 3)
+                for ($p = $p0; $p -le $p1; $p++) {
+                    if (-not $this.FlushPhysPage($p)) { return $false }
+                }
+            }
+            { $_ -eq 90 -or $_ -eq 270 } {
+                # Logical rows touch all physical pages in 90/270 orientation
+                if (-not $this.FlushAll()) { return $false }
+            }
+        }
+        return $true
     }
 }

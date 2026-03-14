@@ -167,7 +167,7 @@ function Invoke-PsGadgetI2C {
             $paramAttr = [System.Management.Automation.ParameterAttribute]::new()
             $paramAttr.Mandatory = $false
             $attrs.Add($paramAttr)
-            $attrs.Add([System.Management.Automation.ValidateRangeAttribute]::new(0, 7))
+            $attrs.Add([System.Management.Automation.ValidateRangeAttribute]::new(0, 15))
             $rp = [System.Management.Automation.RuntimeDefinedParameter]::new('Page', [int], $attrs)
             $dynParams.Add('Page', $rp)
 
@@ -231,6 +231,15 @@ function Invoke-PsGadgetI2C {
             $attrs.Add([System.Management.Automation.ValidateRangeAttribute]::new(0, 127))
             $rp = [System.Management.Automation.RuntimeDefinedParameter]::new('Column', [int], $attrs)
             $dynParams.Add('Column', $rp)
+
+            # Rotation
+            $attrs = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
+            $paramAttr = [System.Management.Automation.ParameterAttribute]::new()
+            $paramAttr.Mandatory = $false
+            $attrs.Add($paramAttr)
+            $attrs.Add([System.Management.Automation.ValidateSetAttribute]::new([string[]]@('0','90','180','270')))
+            $rp = [System.Management.Automation.RuntimeDefinedParameter]::new('Rotation', [int], $attrs)
+            $dynParams.Add('Rotation', $rp)
         }
 
         return $dynParams
@@ -295,10 +304,12 @@ function Invoke-PsGadgetI2C {
                     $clear         = [bool]$PSBoundParameters['Clear']
                     $column        = if ($PSBoundParameters.ContainsKey('Column')) { $PSBoundParameters['Column'] } else { 0 }
                     $displayHeight = if ($PSBoundParameters.ContainsKey('DisplayHeight')) { $PSBoundParameters['DisplayHeight'] } else { 64 }
+                    $rotation      = if ($PSBoundParameters.ContainsKey('Rotation')) { $PSBoundParameters['Rotation'] } else { 0 }
                     return Invoke-PsGadgetI2CSsd1306 `
                         -Ftdi          $ftdi `
                         -I2CAddress    $I2CAddress `
                         -DisplayHeight $displayHeight `
+                        -Rotation      $rotation `
                         -Text          $text `
                         -Page          $page `
                         -Align         $align `
@@ -452,6 +463,10 @@ function Invoke-PsGadgetI2CSsd1306 {
         [int]$DisplayHeight = 64,
 
         [Parameter(Mandatory = $false)]
+        [ValidateSet(0, 90, 180, 270)]
+        [int]$Rotation = 0,
+
+        [Parameter(Mandatory = $false)]
         [string]$Text,
 
         [Parameter(Mandatory = $false)]
@@ -480,16 +495,12 @@ function Invoke-PsGadgetI2CSsd1306 {
     if ($Text -and $Symbol) {
         throw "Specify either -Text or -Symbol, not both."
     }
-    $maxPage = ($DisplayHeight / 8) - 1
     if (($Text -or $Symbol) -and $Page -lt 0) {
-        throw "-Page (0-$maxPage) is required when using -Text or -Symbol."
-    }
-    if (($Text -or $Symbol) -and $Page -gt $maxPage) {
-        throw "-Page $Page is out of range for a ${DisplayHeight}px display (max page: $maxPage)."
+        throw "-Page is required when using -Text or -Symbol."
     }
 
     # --- get or create cached SSD1306 instance ---
-    # Cache key includes height: a 128x32 and 128x64 at the same address need separate instances.
+    # Cache key includes height; rotation is not part of key since SetRotation() updates in place.
     $cacheKey = "SSD1306:$($I2CAddress.ToString('X2')):$DisplayHeight"
     $ssd = $null
     if ($Ftdi._i2cDevices -and $Ftdi._i2cDevices.ContainsKey($cacheKey)) {
@@ -502,6 +513,12 @@ function Invoke-PsGadgetI2CSsd1306 {
             throw "SSD1306 Initialize() failed at address 0x$($I2CAddress.ToString('X2'))"
         }
         if ($Ftdi._i2cDevices) { $Ftdi._i2cDevices[$cacheKey] = $ssd }
+    }
+
+    # Apply rotation (no-op if already at the requested rotation)
+    if ($ssd.Rotation -ne $Rotation) {
+        Write-Verbose "SSD1306 rotation $($ssd.Rotation) -> $Rotation"
+        $ssd.SetRotation($Rotation)
     }
 
     # --- dispatch ---
@@ -521,14 +538,8 @@ function Invoke-PsGadgetI2CSsd1306 {
         }
         $action = "symbol-$Symbol"
     } elseif ($Text) {
-        if ($FontSize -eq 2) {
-            if (-not $ssd.WriteTextTall($Text, $Page, $Align, [bool]$Invert)) {
-                throw "SSD1306 WriteTextTall('$Text', page=$Page) failed"
-            }
-        } else {
-            if (-not $ssd.WriteText($Text, $Page, $Align, 1, [bool]$Invert)) {
-                throw "SSD1306 WriteText('$Text', page=$Page) failed"
-            }
+        if (-not $ssd.WriteText($Text, $Page, $Align, $FontSize, [bool]$Invert)) {
+            throw "SSD1306 WriteText('$Text', page=$Page, size=$FontSize) failed"
         }
         $action = "write-text"
     }
