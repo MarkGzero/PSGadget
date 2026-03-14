@@ -55,11 +55,11 @@ function Invoke-PsGadgetI2C {
         Channel range:  0-15
         Degrees range:  0-180
 
-    .PARAMETER PulseMinUs (dynamic - PCA9685 only)
+    .PARAMETER PulseMinUs
     Minimum servo pulse width in microseconds.  Default is 500 (0.5 ms).
     Adjust for servos with non-standard pulse ranges.  Valid range: 100-3000.
 
-    .PARAMETER PulseMaxUs (dynamic - PCA9685 only)
+    .PARAMETER PulseMaxUs
     Maximum servo pulse width in microseconds.  Default is 2500 (2.5 ms).
     Adjust for servos with non-standard pulse ranges.  Valid range: 100-3000.
 
@@ -118,7 +118,15 @@ function Invoke-PsGadgetI2C {
 
         [Parameter(Mandatory = $false)]
         [ValidateRange(23, 1526)]
-        [int]$Frequency = 50
+        [int]$Frequency = 50,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(100, 3000)]
+        [int]$PulseMinUs = 500,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(100, 3000)]
+        [int]$PulseMaxUs = 2500
     )
 
     DynamicParam {
@@ -136,25 +144,6 @@ function Invoke-PsGadgetI2C {
             )
             $dynParams.Add('ServoAngle', $rp)
 
-            # PulseMinUs (optional) - minimum servo pulse width in microseconds
-            $minAttrs = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
-            $minAttr = [System.Management.Automation.ParameterAttribute]::new()
-            $minAttr.Mandatory = $false
-            $minAttrs.Add($minAttr)
-            $minAttrs.Add([System.Management.Automation.ValidateRangeAttribute]::new(100, 3000))
-            $dynParams.Add('PulseMinUs', [System.Management.Automation.RuntimeDefinedParameter]::new(
-                'PulseMinUs', [int], $minAttrs
-            ))
-
-            # PulseMaxUs (optional) - maximum servo pulse width in microseconds
-            $maxAttrs = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
-            $maxAttr = [System.Management.Automation.ParameterAttribute]::new()
-            $maxAttr.Mandatory = $false
-            $maxAttrs.Add($maxAttr)
-            $maxAttrs.Add([System.Management.Automation.ValidateRangeAttribute]::new(100, 3000))
-            $dynParams.Add('PulseMaxUs', [System.Management.Automation.RuntimeDefinedParameter]::new(
-                'PulseMaxUs', [int], $maxAttrs
-            ))
         }
 
         return $dynParams
@@ -193,8 +182,8 @@ function Invoke-PsGadgetI2C {
             # --- dispatch to module handler ---
             switch ($I2CModule) {
                 'PCA9685' {
-                    $pulseMinUs = if ($PSBoundParameters.ContainsKey('PulseMinUs')) { $PSBoundParameters['PulseMinUs'] } else { 500 }
-                    $pulseMaxUs = if ($PSBoundParameters.ContainsKey('PulseMaxUs')) { $PSBoundParameters['PulseMaxUs'] } else { 2500 }
+                    $pulseMinUs = $PulseMinUs
+                    $pulseMaxUs = $PulseMaxUs
                     return Invoke-PsGadgetI2CPca9685 `
                         -Ftdi         $ftdi `
                         -I2CAddress   $I2CAddress `
