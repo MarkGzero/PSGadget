@@ -58,7 +58,7 @@ Two hardware approaches are covered:
 
 > **Beginner**: A servo has three wires. Power and ground go to an external 5V supply. The signal wire (PWM) connects to a PCA9685 output channel. The PCA9685 itself connects to the FTDI adapter via two I2C wires (SCL and SDA).
 
-> **Engineer**: RC servo specs (MG996R datasheet, SG90 spec sheet) detail the PWM input requirements: 50 Hz ±5%, 1.0-2.0 ms pulse width. The PCA9685 uses a 25 MHz internal oscillator with 12-bit PWM resolution (0-4095 counts per period). I2C standard mode (100 kHz) is sufficient; most breakouts support fast mode (400 kHz) but PSGadget defaults to 100 kHz.
+> **Engineer**: RC servo specs (MG996R datasheet, SG90 spec sheet) typically quote a PWM input range of 1.0-2.0 ms, but the MG996R and most modern hobby servos respond to the wider standard RC range of 0.5-2.5 ms (full 180 deg travel). PSGadget defaults to 0.5-2.5 ms to cover more servo models without clipping travel. If your servo spec sheet is narrower (e.g. 0.75-2.25 ms), pass `-PulseMinUs`/`-PulseMaxUs` at connect time. The PCA9685 uses a 25 MHz internal oscillator with 12-bit PWM resolution (0-4095 counts per period). I2C standard mode (100 kHz) is sufficient; most breakouts support fast mode (400 kHz) but PSGadget defaults to 100 kHz.
 
 ---
 
@@ -106,20 +106,27 @@ The NXP PCA9685 is a 16-channel 12-bit PWM controller designed for LED dimming a
 - **Sleep mode** — required to reprogram prescaler for frequency changes
 - **Auto-increment** — write multiple registers in single I2C transaction
 
-PSGadget's PsGadgetPca9685 class handles all of this. You just call:
+PSGadget's PsGadgetPca9685 class handles all of this. The preferred API is `Invoke-PsGadgetI2C`:
 
 ```powershell
+# Preferred (current) API
+Invoke-PsGadgetI2C -Index 0 -I2CModule PCA9685 -ServoAngle @(0, 90)
+
+# Legacy API (still works, but deprecated)
 Invoke-PsGadgetPca9685SetChannel -PsGadget $pca -Channel 0 -Degrees 90
 ```
 
-And PSGadget calculates the register values, sends the I2C write, and the chip generates the PWM.
+PSGadget calculates the register values, sends the I2C write, and the chip generates the PWM.
+
+> **Note**: `Connect-PsGadgetPca9685`, `Invoke-PsGadgetPca9685SetChannel`, `Invoke-PsGadgetPca9685SetChannels`, `Get-PsGadgetPca9685Channel`, and `Get-PsGadgetPca9685Frequency` are still loaded and functional but are deprecated. Use `Invoke-PsGadgetI2C -I2CModule PCA9685` for new code.
 
 > **Engineer**: at 50 Hz, 20 ms period, 4096 steps:
 > - Step duration: 20 ms / 4096 = 4.88 µs
-> - 1.0 ms pulse = 205 steps, 1.5 ms = 307 steps, 2.0 ms = 410 steps
+> - Default pulse range: 0.5 ms (0 deg) to 2.5 ms (180 deg) — 0 deg = 102 steps, 90 deg = 307 steps, 180 deg = 512 steps
 > - Prescaler formula: `prescale = round(25MHz / (4096 * 50 Hz)) - 1 = 121`
+> - Count formula: `offCount = pulseUs * frequency * 4096 / 1_000_000`
 >
-> PSGadget inverts this formula to calculate PWM ON/OFF counts from degree input.
+> PSGadget uses `DegreesToCounts()` with per-instance `PulseMinUs`/`PulseMaxUs` properties. Defaults are 500/2500. Pass `-PulseMinUs`/`-PulseMaxUs` to `Connect-PsGadgetPca9685` or `Invoke-PsGadgetI2C` to retune for your specific servo model.
 
 ### Wiring: FT232H I2C to PCA9685
 
@@ -289,17 +296,17 @@ try {
 
 ## Servo Position Reference
 
-Use this table to understand the degree-to-pulse mapping:
+Use this table to understand the degree-to-pulse mapping (PSGadget default range: 0.5-2.5 ms):
 
-| Degrees | Pulse width | Servo behavior |
-|---------|-------------|---------|
-| 0 | 1.0 ms | Full counterclockwise |
-| 45 | 1.25 ms | 1/4 travel left from center |
-| 90 | 1.5 ms | Center/neutral (typical idle position) |
-| 135 | 1.75 ms | 1/4 travel right from center |
-| 180 | 2.0 ms | Full clockwise |
+| Degrees | Pulse width | PWM counts (50 Hz) | Servo behavior |
+|---------|-------------|---------------------|----------------|
+| 0 | 0.5 ms | 102 | Full counterclockwise |
+| 45 | 1.0 ms | 205 | 1/4 travel left from center |
+| 90 | 1.5 ms | 307 | Center/neutral (typical idle position) |
+| 135 | 2.0 ms | 410 | 1/4 travel right from center |
+| 180 | 2.5 ms | 512 | Full clockwise |
 
-All values outside 0-180 are clamped to this range by PSGadget; invalid addresses are rejected.
+All values outside 0-180 are clamped by PSGadget. The pulse range is configurable via `-PulseMinUs`/`-PulseMaxUs` (see Troubleshooting if your servo does not reach full travel).
 
 ---
 
@@ -330,40 +337,58 @@ All values outside 0-180 are clamped to this range by PSGadget; invalid addresse
 - **Power supply insufficient**: If the servo is stalling (resistance when you try to move it by hand), the 5V supply may be sagging. Add a larger capacitor across the servo supply (100-470 µF electrolytic).
 - **Ground loop**: Ensure all grounds (FTDI, PCA9685, servo supply) are connected at one point; floating grounds introduce noise.
 
-### Servo only reaches two positions
+### Servo does not reach full travel (short range or stiff at extremes)
 
-- PSGadget sends continuous PWM updates, so this is unlikely. If it happens, your servo may have a nonstandard PWM range (e.g., 0.75-2.25 ms instead of 1.0-2.0 ms). PSGadget currently assumes standard 1.0-2.0 ms. Workaround: contact manufacturer or adjust PS script to rescale degrees.
+- Your servo may have a narrower pulse range than the PSGadget default of 0.5-2.5 ms (e.g., the datasheet may specify 0.75-2.25 ms or 1.0-2.0 ms). Pass `-PulseMinUs` and `-PulseMaxUs` at connect time to match your servo:
+  ```powershell
+  # Legacy API - tune pulse range
+  $pca = Connect-PsGadgetPca9685 -Index 0 -PulseMinUs 750 -PulseMaxUs 2250
+
+  # Preferred API - tune pulse range
+  Invoke-PsGadgetI2C -Index 0 -I2CModule PCA9685 -ServoAngle @(0, 0) -PulseMinUs 750 -PulseMaxUs 2250
+  ```
+- Conversely, if the servo buzzes or strains at 0 or 180 degrees, the pulse range may be too wide. Reduce `PulseMaxUs` or increase `PulseMinUs`.
 
 ---
 
 ## Quick Reference (Pro)
 
 ```powershell
-# Load and connect
 Import-Module PSGadget.psd1 -Force
-$pca = Connect-PsGadgetPca9685 -Index 0   # Connect to FT232H index 0, PCA9685 at 0x40
 
-# Set single channel
+# --- Preferred API (Invoke-PsGadgetI2C) ---
+
+# Single channel (opens + closes device automatically)
+Invoke-PsGadgetI2C -Index 0 -I2CModule PCA9685 -ServoAngle @(0, 90)
+
+# By serial number (stable across USB re-plug)
+Invoke-PsGadgetI2C -SerialNumber 'FTAXBFCQ' -I2CModule PCA9685 -ServoAngle @(0, 90)
+
+# Multiple channels in one call
+Invoke-PsGadgetI2C -Index 0 -I2CModule PCA9685 -ServoAngle @(@(0,90), @(1,45), @(2,135))
+
+# Custom pulse range (for servos with non-standard range)
+Invoke-PsGadgetI2C -Index 0 -I2CModule PCA9685 -ServoAngle @(0, 90) -PulseMinUs 750 -PulseMaxUs 2250
+
+# Reuse an open device (device is NOT closed after call)
+$dev = New-PsGadgetFtdi -Index 0
+Invoke-PsGadgetI2C -PsGadget $dev -I2CModule PCA9685 -ServoAngle @(0, 90)
+
+# --- Legacy API (deprecated - still functional) ---
+
+$pca = Connect-PsGadgetPca9685 -Index 0   # 0x40, 50 Hz, 500-2500 us
+$pca = Connect-PsGadgetPca9685 -Index 0 -PulseMinUs 750 -PulseMaxUs 2250  # custom range
 Invoke-PsGadgetPca9685SetChannel -PsGadget $pca -Channel 0 -Degrees 90
-
-# Set multiple channels at once
 Invoke-PsGadgetPca9685SetChannels -PsGadget $pca -Degrees @(0, 45, 90, 135, 180)
-
-# Read current cached position
-$pos = Get-PsGadgetPca9685Channel -PsGadget $pca -Channel 0
-
-# Get current frequency
+$pos = Get-PsGadgetPca9685Channel -PsGadget $pca -Channel 0   # reads local cache
 $freq = Get-PsGadgetPca9685Frequency -PsGadget $pca
 
-# Sweep example
+# Sweep example (works with either API; shown with legacy for multi-step)
+$pca = Connect-PsGadgetPca9685 -Index 0
 for ($deg = 0; $deg -le 180; $deg += 5) {
     Invoke-PsGadgetPca9685SetChannel -PsGadget $pca -Channel 0 -Degrees $deg
-    Start-Sleep -Milliseconds 50   # 50 ms between steps = 9 sec total sweep
+    Start-Sleep -Milliseconds 50   # 50 ms/step = ~9 sec total sweep
 }
-
-# Advanced: direct register access for custom frequencies
-$pca.SetFrequency(60)    # Change to 60 Hz
-# Re-initialize is automatic; device enters SLEEP mode, updates prescaler, exits SLEEP
 ```
 
 **Performance**: Every `Invoke-PsGadgetPca9685SetChannel` call is **Tier 0** (hardware I2C clocking). PowerShell involvement is minimal: parameter binding + 1 I2C write. Typical latency: 1-2 ms per I2C command. The PCA9685 generates PWM independently with zero CPU overhead.
