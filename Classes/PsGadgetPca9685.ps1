@@ -92,29 +92,43 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
 
             $this.Logger.WriteDebug("Calculated prescaler value: $prescaleValue for $($this.Frequency) Hz")
 
-            # Step 1: Put device to SLEEP (set SLEEP bit in MODE1)
-            # MODE1 register: bit 4 = SLEEP, bit 5 = AUTO_INC
-            # 0x11 = binary 00010001 = SLEEP + AUTO_INC enabled
-            $this.Logger.WriteTrace("Writing MODE1=0x11 (sleep enabled, auto-increment enabled)")
-            if (-not $this.I2CWrite(@([PsGadgetPca9685]::REG_MODE1, 0x11))) {
+            # Step 1: Reset device to known state
+            $this.Logger.WriteTrace("Writing MODE1=0x00 (reset)")
+            if (-not $this.I2CWrite(@([PsGadgetPca9685]::REG_MODE1, 0x00))) {
+                throw "Failed to reset MODE1"
+            }
+
+            # Step 2: Put device to SLEEP so prescaler can be written
+            # MODE1 bit4 = SLEEP; bit7 (RESTART) must be 0 during prescale write
+            # 0x10 = 0001 0000 = SLEEP only
+            $this.Logger.WriteTrace("Writing MODE1=0x10 (sleep for prescale write)")
+            if (-not $this.I2CWrite(@([PsGadgetPca9685]::REG_MODE1, 0x10))) {
                 throw "Failed to write MODE1 sleep command"
             }
 
-            # Step 2: Write Prescaler register (must be done while in SLEEP mode)
+            # Step 3: Write Prescaler register (must be done while SLEEP bit is set)
             $this.Logger.WriteTrace("Writing PRESCALE register=$prescaleValue")
             if (-not $this.I2CWrite(@([PsGadgetPca9685]::REG_PRESCALE, [byte]$prescaleValue))) {
                 throw "Failed to write prescaler"
             }
 
-            # Step 3: Wake device (clear SLEEP bit in MODE1)
-            # 0x01 = binary 00000001 = wake, no sleep
-            $this.Logger.WriteTrace("Writing MODE1=0x01 (sleep disabled, device active)")
-            if (-not $this.I2CWrite(@([PsGadgetPca9685]::REG_MODE1, 0x01))) {
+            # Step 4: Restore MODE1 without SLEEP bit (wake device)
+            $this.Logger.WriteTrace("Writing MODE1=0x00 (wake device)")
+            if (-not $this.I2CWrite(@([PsGadgetPca9685]::REG_MODE1, 0x00))) {
                 throw "Failed to write MODE1 wake command"
             }
 
-            # Step 4: Wait for oscillator to stabilize (per datasheet: >= 500 us minimum)
-            Start-Sleep -Milliseconds 1
+            # Step 5: Wait for oscillator to stabilize (datasheet min 500 us; use 5 ms per Adafruit)
+            Start-Sleep -Milliseconds 5
+
+            # Step 6: Enable auto-increment (AI, bit5) and set RESTART (bit7)
+            # 0xA0 = 1010 0000 = RESTART(bit7) + AI(bit5)
+            # AI is REQUIRED for multi-byte channel register writes to advance correctly.
+            # Without AI, all bytes in a 5-byte write go to the same register.
+            $this.Logger.WriteTrace("Writing MODE1=0xA0 (RESTART + auto-increment enabled)")
+            if (-not $this.I2CWrite(@([PsGadgetPca9685]::REG_MODE1, 0xA0))) {
+                throw "Failed to enable auto-increment"
+            }
 
             # Step 5: Initialize all channels to OFF state
             $this.Logger.WriteTrace("Initializing all 16 channels to OFF")
