@@ -47,6 +47,19 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
         $this.InitializeSymbols()
     }
 
+    PsGadgetSsd1306([System.Object]$ftdiDevice, [byte]$address, [int]$height) {
+        $this.Logger.WriteInfo("Creating PsGadgetSsd1306 instance with FTDI device, address 0x$($address.ToString('X2')), height $height")
+        
+        $this.FtdiDevice = $ftdiDevice
+        $this.I2CAddress = $address
+        $this.Width = 128
+        $this.Height = $height
+        $this.Pages = $height / 8
+        $this.IsInitialized = $false
+        $this.InitializeGlyphs()
+        $this.InitializeSymbols()
+    }
+
     [void] InitializeGlyphs() {
         $this.Logger.WriteDebug("Initializing SSD1306 glyph font table")
         
@@ -167,24 +180,30 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
         $this.Logger.WriteInfo("Initializing SSD1306 display at address 0x$($this.I2CAddress.ToString('X2'))")
 
         try {
+            # Height-dependent init values:
+            #   128x64: mux=0x3F (63), COM pins=0x12 (alt config, left/right remap)
+            #   128x32: mux=0x1F (31), COM pins=0x02 (sequential, no remap)
+            [byte]$muxRatio = [byte]($this.Height - 1)
+            [byte]$comPins  = if ($this.Height -eq 32) { 0x02 } else { 0x12 }
+
             # SSD1306 initialization sequence
             $initCommands = @(
-                0xAE,       # Display OFF
-                0xD5, 0x80, # Set Display Clock Divide Ratio / Oscillator Frequency
-                0xA8, 0x3F, # Set Multiplex Ratio (1/64 duty)
-                0xD3, 0x00, # Set Display Offset (no offset)
-                0x40,       # Set Display Start Line = 0
-                0x8D, 0x14, # Charge Pump Setting (Enable)
-                0x20, 0x00, # Memory Addressing Mode = Horizontal
-                0xA1,       # Set Segment Re-map (column address 127 is SEG0)
-                0xC8,       # Set COM Output Scan Direction (remapped mode)
-                0xDA, 0x12, # Set COM Pins Hardware Configuration
-                0x81, 0xCF, # Set Contrast Control (0xCF = high)
-                0xD9, 0xF1, # Set Pre-charge Period
-                0xDB, 0x40, # Set VCOMH Deselect Level
-                0xA4,       # Resume to RAM content display
-                0xA6,       # Normal display (non-inverted)
-                0xAF        # Display ON
+                0xAE,          # Display OFF
+                0xD5, 0x80,    # Set Display Clock Divide Ratio / Oscillator Frequency
+                0xA8, $muxRatio, # Set Multiplex Ratio (height-dependent)
+                0xD3, 0x00,    # Set Display Offset (no offset)
+                0x40,          # Set Display Start Line = 0
+                0x8D, 0x14,    # Charge Pump Setting (Enable)
+                0x20, 0x00,    # Memory Addressing Mode = Horizontal
+                0xA1,          # Set Segment Re-map (column address 127 is SEG0)
+                0xC8,          # Set COM Output Scan Direction (remapped mode)
+                0xDA, $comPins, # Set COM Pins Hardware Configuration (height-dependent)
+                0x81, 0xCF,    # Set Contrast Control (0xCF = high)
+                0xD9, 0xF1,    # Set Pre-charge Period
+                0xDB, 0x40,    # Set VCOMH Deselect Level
+                0xA4,          # Resume to RAM content display
+                0xA6,          # Normal display (non-inverted)
+                0xAF           # Display ON
             )
             
             # Send each command with control byte 0x00
@@ -487,8 +506,8 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
     }
 
     # Draw a named symbol at the given page and column.
-    # When page <= 6: renders 16 rows tall (2-page, 8 cols wide) via ExpandNibble.
-    # When page == 7: renders 8 rows tall (1-page, 8 cols wide) as-is.
+    # When page <= (Pages-2): renders 16 rows tall (2-page, 8 cols wide) via ExpandNibble.
+    # When page == (Pages-1): renders 8 rows tall (1-page, 8 cols wide) as-is.
     [bool] DrawSymbol([string]$name, [int]$page, [int]$column) {
         if (-not $this.IsInitialized) {
             $this.Logger.WriteError("SSD1306 not initialized")
@@ -505,7 +524,7 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
         $this.Logger.WriteInfo("Drawing symbol '$name' at page $page, column $column")
 
         try {
-            if ($page -le 6) {
+            if ($page -le ($this.Pages - 2)) {
                 # 16x16 render: expand each column byte into top (lower nibble) and bot (upper nibble)
                 [byte[]]$topBuf = New-Object byte[] $sym.Count
                 [byte[]]$botBuf = New-Object byte[] $sym.Count
@@ -523,7 +542,7 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
                 if (-not $this.SetCursor($column, $page + 1)) { throw "SetCursor failed for bottom row" }
                 if (-not $this.I2CWrite($botPayload)) { throw "I2CWrite failed for bottom row" }
             } else {
-                # Page 7 only - render 8x8 as-is
+                # Last page only - render 8x8 as-is
                 [byte[]]$payload = @([byte]0x40) + ([byte[]]$sym)
                 if (-not $this.SetCursor($column, $page)) { throw "SetCursor failed" }
                 if (-not $this.I2CWrite($payload)) { throw "I2CWrite failed" }
@@ -541,15 +560,16 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
     # Write text spanning 2 pages (double height, 16 px tall).
     # Each glyph byte is vertically scaled 2x via ExpandNibble:
     #   lower nibble (rows 0-3) -> top page,  upper nibble (rows 4-7) -> bottom page.
-    # Requires page in range 0-6 (page+1 must be valid).
+    # Requires page in range 0 to (Pages-2) so that page+1 is a valid page.
     [bool] WriteTextTall([string]$text, [int]$page, [string]$align, [bool]$invert) {
         if (-not $this.IsInitialized) {
             $this.Logger.WriteError("SSD1306 not initialized")
             return $false
         }
 
-        if ($page -lt 0 -or $page -gt 6) {
-            $this.Logger.WriteError("WriteTextTall: page must be 0-6 (needs page+1). Got: $page")
+        $maxPage = $this.Pages - 2
+        if ($page -lt 0 -or $page -gt $maxPage) {
+            $this.Logger.WriteError("WriteTextTall: page must be 0-$maxPage (needs page+1). Got: $page")
             return $false
         }
 
