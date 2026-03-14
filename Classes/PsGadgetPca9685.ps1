@@ -79,7 +79,7 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
             return $this.IsInitialized
         }
 
-        $this.Logger.WriteInfo("Initializing PCA9685 at address 0x{0:X2} with frequency {1} Hz" -f $this.I2CAddress, $this.Frequency)
+        $this.Logger.WriteInfo(("Initializing PCA9685 at address 0x{0:X2} with frequency {1} Hz" -f @($this.I2CAddress, $this.Frequency)))
 
         try {
             # Calculate prescaler for desired frequency
