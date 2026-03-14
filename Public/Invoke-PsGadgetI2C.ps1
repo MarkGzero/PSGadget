@@ -55,6 +55,14 @@ function Invoke-PsGadgetI2C {
         Channel range:  0-15
         Degrees range:  0-180
 
+    .PARAMETER PulseMinUs (dynamic - PCA9685 only)
+    Minimum servo pulse width in microseconds.  Default is 500 (0.5 ms).
+    Adjust for servos with non-standard pulse ranges.  Valid range: 100-3000.
+
+    .PARAMETER PulseMaxUs (dynamic - PCA9685 only)
+    Maximum servo pulse width in microseconds.  Default is 2500 (2.5 ms).
+    Adjust for servos with non-standard pulse ranges.  Valid range: 100-3000.
+
     .EXAMPLE
     # Move servo on channel 0 to 90 degrees
     Invoke-PsGadgetI2C -Index 0 -I2CModule PCA9685 -ServoAngle @(0, 90)
@@ -117,17 +125,36 @@ function Invoke-PsGadgetI2C {
         $dynParams = [System.Management.Automation.RuntimeDefinedParameterDictionary]::new()
 
         if ($PSBoundParameters['I2CModule'] -eq 'PCA9685') {
+            # ServoAngle (mandatory)
             $attrs = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
-
             $paramAttr = [System.Management.Automation.ParameterAttribute]::new()
             $paramAttr.Mandatory = $true
             $paramAttr.HelpMessage = 'Single @(channel,degrees) or array of pairs @(@(ch,deg),...)'
             $attrs.Add($paramAttr)
-
             $rp = [System.Management.Automation.RuntimeDefinedParameter]::new(
                 'ServoAngle', [object[]], $attrs
             )
             $dynParams.Add('ServoAngle', $rp)
+
+            # PulseMinUs (optional) - minimum servo pulse width in microseconds
+            $minAttrs = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
+            $minAttr = [System.Management.Automation.ParameterAttribute]::new()
+            $minAttr.Mandatory = $false
+            $minAttrs.Add($minAttr)
+            $minAttrs.Add([System.Management.Automation.ValidateRangeAttribute]::new(100, 3000))
+            $dynParams.Add('PulseMinUs', [System.Management.Automation.RuntimeDefinedParameter]::new(
+                'PulseMinUs', [int], $minAttrs
+            ))
+
+            # PulseMaxUs (optional) - maximum servo pulse width in microseconds
+            $maxAttrs = [System.Collections.ObjectModel.Collection[System.Attribute]]::new()
+            $maxAttr = [System.Management.Automation.ParameterAttribute]::new()
+            $maxAttr.Mandatory = $false
+            $maxAttrs.Add($maxAttr)
+            $maxAttrs.Add([System.Management.Automation.ValidateRangeAttribute]::new(100, 3000))
+            $dynParams.Add('PulseMaxUs', [System.Management.Automation.RuntimeDefinedParameter]::new(
+                'PulseMaxUs', [int], $maxAttrs
+            ))
         }
 
         return $dynParams
@@ -166,11 +193,15 @@ function Invoke-PsGadgetI2C {
             # --- dispatch to module handler ---
             switch ($I2CModule) {
                 'PCA9685' {
+                    $pulseMinUs = if ($PSBoundParameters.ContainsKey('PulseMinUs')) { $PSBoundParameters['PulseMinUs'] } else { 500 }
+                    $pulseMaxUs = if ($PSBoundParameters.ContainsKey('PulseMaxUs')) { $PSBoundParameters['PulseMaxUs'] } else { 2500 }
                     return Invoke-PsGadgetI2CPca9685 `
                         -Ftdi         $ftdi `
                         -I2CAddress   $I2CAddress `
                         -Frequency    $Frequency `
-                        -ServoAngle   $PSBoundParameters['ServoAngle']
+                        -ServoAngle   $PSBoundParameters['ServoAngle'] `
+                        -PulseMinUs   $pulseMinUs `
+                        -PulseMaxUs   $pulseMaxUs
                 }
             }
         } finally {
@@ -199,7 +230,13 @@ function Invoke-PsGadgetI2CPca9685 {
         [int]$Frequency,
 
         [Parameter(Mandatory = $true)]
-        [object[]]$ServoAngle
+        [object[]]$ServoAngle,
+
+        [Parameter(Mandatory = $false)]
+        [int]$PulseMinUs = 500,
+
+        [Parameter(Mandatory = $false)]
+        [int]$PulseMaxUs = 2500
     )
 
     # --- parse ServoAngle into normalised list of [channel, degrees] pairs ---
@@ -254,10 +291,17 @@ function Invoke-PsGadgetI2CPca9685 {
         } else {
             Write-Verbose "Using cached PCA9685 at 0x$($I2CAddress.ToString('X2')) ($($pca.Frequency) Hz)"
         }
+        if ($pca.PulseMinUs -ne $PulseMinUs -or $pca.PulseMaxUs -ne $PulseMaxUs) {
+            Write-Verbose "PCA9685 pulse range updated: $($pca.PulseMinUs)-$($pca.PulseMaxUs) -> $PulseMinUs-$PulseMaxUs us"
+            $pca.PulseMinUs = $PulseMinUs
+            $pca.PulseMaxUs = $PulseMaxUs
+        }
     } else {
         Write-Verbose "Creating PCA9685 at I2C address 0x$($I2CAddress.ToString('X2')), frequency $Frequency Hz"
         $pca = [PsGadgetPca9685]::new($Ftdi._connection, $I2CAddress)
         $pca.Frequency = $Frequency
+        $pca.PulseMinUs = $PulseMinUs
+        $pca.PulseMaxUs = $PulseMaxUs
         if (-not $pca.Initialize($false)) {
             throw "PCA9685 Initialize() failed at address 0x$($I2CAddress.ToString('X2'))"
         }

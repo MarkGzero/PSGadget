@@ -21,6 +21,14 @@ function Connect-PsGadgetPca9685 {
     .PARAMETER Frequency
     The PWM frequency in Hz. Default is 50 (for RC servos). Valid range: 23-1526 Hz.
 
+    .PARAMETER PulseMinUs
+    Minimum servo pulse width in microseconds. Default is 500 (0.5 ms).
+    Adjust for servos with non-standard pulse ranges. Valid range: 100-3000.
+
+    .PARAMETER PulseMaxUs
+    Maximum servo pulse width in microseconds. Default is 2500 (2.5 ms).
+    Adjust for servos with non-standard pulse ranges. Valid range: 100-3000.
+
     .PARAMETER Connection
     An existing PsGadgetFtdi connection object (from New-PsGadgetFtdi or Connect-PsGadgetFtdi).
     If provided, -Index is ignored.
@@ -63,6 +71,14 @@ function Connect-PsGadgetPca9685 {
         [ValidateRange(23, 1526)]
         [int]$Frequency = 50,
 
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(100, 3000)]
+        [int]$PulseMinUs = 500,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(100, 3000)]
+        [int]$PulseMaxUs = 2500,
+
         [Parameter(Mandatory = $true, ParameterSetName = 'Connection')]
         [ValidateNotNull()]
         [object]$Connection
@@ -91,6 +107,8 @@ function Connect-PsGadgetPca9685 {
         # Create PCA9685 instance
         $pca = [PsGadgetPca9685]::new($ftdi._connection, $Address)
         $pca.Frequency = $Frequency
+        $pca.PulseMinUs = $PulseMinUs
+        $pca.PulseMaxUs = $PulseMaxUs
 
         # Initialize
         if (-not $pca.Initialize()) {

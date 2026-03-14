@@ -26,10 +26,10 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
     [int]static hidden $PWM_STEPS = 4096          # 12-bit PWM resolution (0-4095)
     [int]static hidden $CHANNELS = 16             # 16 independent PWM channels
 
-    # Servo pulse mapping (standard RC: 500µs–2500µs for 0–180 degrees)
-    # Store in microseconds as integers to avoid float static member issues in PS5.1.
-    [int]static hidden $PULSE_MIN_US = 500    # 0.5 ms at 0 degrees
-    [int]static hidden $PULSE_MAX_US = 2500   # 2.5 ms at 180 degrees
+    # Servo pulse mapping (standard RC: 500us-2500us for 0-180 degrees)
+    # Instance properties so each PCA9685 device can be tuned for its specific servo model.
+    [int]$PulseMinUs                         # minimum servo pulse width in microseconds (default 500)
+    [int]$PulseMaxUs                         # maximum servo pulse width in microseconds (default 2500)
     [int]static hidden $DEGREE_MIN = 0
     [int]static hidden $DEGREE_MAX = 180
 
@@ -40,6 +40,8 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
         $this.Frequency = 50             # RC servo default frequency
         $this.IsInitialized = $false
         $this.ChannelState = @{}
+        $this.PulseMinUs = 500
+        $this.PulseMaxUs = 2500
 
         # Initialize channel cache
         for ($i = 0; $i -lt [PsGadgetPca9685]::CHANNELS; $i++) {
@@ -55,6 +57,8 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
         $this.Frequency = 50
         $this.IsInitialized = $false
         $this.ChannelState = @{}
+        $this.PulseMinUs = 500
+        $this.PulseMaxUs = 2500
 
         for ($i = 0; $i -lt [PsGadgetPca9685]::CHANNELS; $i++) {
             $this.ChannelState[$i] = 90
@@ -69,6 +73,8 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
         $this.Frequency = 50
         $this.IsInitialized = $false
         $this.ChannelState = @{}
+        $this.PulseMinUs = 500
+        $this.PulseMaxUs = 2500
 
         for ($i = 0; $i -lt [PsGadgetPca9685]::CHANNELS; $i++) {
             $this.ChannelState[$i] = 90
@@ -162,9 +168,9 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
 
         # Map degrees -> pulse width in microseconds
         # e.g. 0° -> 500µs, 90° -> 1500µs, 180° -> 2500µs at standard RC range
-        $pulseUs = [PsGadgetPca9685]::PULSE_MIN_US + [int][math]::Round(
+        $pulseUs = $this.PulseMinUs + [int][math]::Round(
             ([double]$degrees / [double][PsGadgetPca9685]::DEGREE_MAX) *
-            ([PsGadgetPca9685]::PULSE_MAX_US - [PsGadgetPca9685]::PULSE_MIN_US)
+            [double]($this.PulseMaxUs - $this.PulseMinUs)
         )
 
         # Convert microseconds to 12-bit PWM step count.
