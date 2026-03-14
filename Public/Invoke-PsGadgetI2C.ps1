@@ -18,6 +18,10 @@ function Invoke-PsGadgetI2C {
                      Single channel:    -ServoAngle @(0, 90)
                      Multiple channels: -ServoAngle @(@(0,90), @(1,180), @(2,45))
 
+    .PARAMETER PsGadget
+    An already-open PsGadgetFtdi object (from New-PsGadgetFtdi).
+    When supplied the device is NOT closed after the call.
+
     .PARAMETER Index
     FTDI device index (0-based) from List-PsGadgetFtdi.
     Default is 0.
@@ -60,6 +64,11 @@ function Invoke-PsGadgetI2C {
     Invoke-PsGadgetI2C -Index 0 -I2CModule PCA9685 -ServoAngle @(@(0,90), @(1,180), @(2,45))
 
     .EXAMPLE
+    # Use an already-open device object (device stays open after call)
+    $dev = New-PsGadgetFtdi -Index 0
+    Invoke-PsGadgetI2C -PsGadget $dev -I2CModule PCA9685 -ServoAngle @(0, 90)
+
+    .EXAMPLE
     # Use device serial number (stable across replug)
     Invoke-PsGadgetI2C -SerialNumber "FTAXBFCQ" -I2CModule PCA9685 -ServoAngle @(0, 0)
 
@@ -71,13 +80,18 @@ function Invoke-PsGadgetI2C {
     PSCustomObject with Module, Address, Frequency, and ChannelsSet (array of Channel/Degrees records).
 
     .NOTES
-    The FTDI device is opened and closed within this call.  Do not hold an external
-    connection to the same device while calling this function.
+    When using -Index or -SerialNumber the FTDI device is opened and closed within
+    this call.  When using -PsGadget the caller retains ownership and the device
+    is NOT closed after the call.
     #>
 
     [CmdletBinding(DefaultParameterSetName = 'ByIndex')]
     [OutputType('PSCustomObject')]
     param(
+        [Parameter(Mandatory = $true, ParameterSetName = 'ByDevice', Position = 0)]
+        [ValidateNotNull()]
+        [object]$PsGadget,
+
         [Parameter(Mandatory = $false, ParameterSetName = 'ByIndex')]
         [ValidateRange(0, 127)]
         [int]$Index = 0,
@@ -120,10 +134,16 @@ function Invoke-PsGadgetI2C {
     }
 
     process {
-        # --- open FTDI device ---
+        $ownsDevice = $PSCmdlet.ParameterSetName -ne 'ByDevice'
         $ftdi = $null
         try {
-            if ($PSCmdlet.ParameterSetName -eq 'BySerial') {
+            if ($PSCmdlet.ParameterSetName -eq 'ByDevice') {
+                $ftdi = $PsGadget
+                if (-not $ftdi -or -not $ftdi.IsOpen) {
+                    throw "PsGadgetFtdi object is not open."
+                }
+                Write-Verbose "Using provided PsGadgetFtdi device"
+            } elseif ($PSCmdlet.ParameterSetName -eq 'BySerial') {
                 Write-Verbose "Opening FTDI device serial '$SerialNumber'"
                 $ftdi = New-PsGadgetFtdi -SerialNumber $SerialNumber
             } else {
@@ -150,7 +170,7 @@ function Invoke-PsGadgetI2C {
                 }
             }
         } finally {
-            if ($ftdi -and $ftdi.IsOpen) {
+            if ($ownsDevice -and $ftdi -and $ftdi.IsOpen) {
                 Write-Verbose "Closing FTDI device"
                 $ftdi.Close()
             }
