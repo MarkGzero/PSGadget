@@ -1,9 +1,9 @@
-# Example: Stepper Motor Control with FT232H (ACBUS/MPSSE) or FT232RNL (CBUS)
+# Example: Stepper Motor Control with FT232H (CBUS/MPSSE) or FT232RNL (CBUS)
 
 Drive a 5V geared stepper (28BYJ-48 or similar) via a KS0327/ULN2003 driver
 board using an FTDI USB adapter. Two hardware paths are covered:
 
-- **FT232H / MPSSE** — ACBUS0-3 output; no EEPROM programming required.
+- **FT232H / MPSSE** — CBUS0-3 output; no EEPROM programming required.
   This is the recommended path and is what most PSGadget kit builds use.
 - **FT232RNL / CBUS** — CBUS0-3 output; requires a one-time EEPROM write.
 
@@ -16,7 +16,7 @@ Both paths use the same `Set-PsGadgetGpio` cmdlet at runtime.
 - [Who This Is For](#who-this-is-for)
 - [What You Need](#what-you-need)
 - [Hardware Background](#hardware-background)
-  - [Wiring - FT232H ACBUS (recommended)](#wiring---ft232h-acbus-recommended)
+  - [Wiring - FT232H CBUS (recommended)](#wiring---ft232h-cbus-recommended)
   - [Wiring - FT232RNL CBUS](#wiring---ft232rnl-cbus)
   - [Coil sequencing](#coil-sequencing)
   - [Power considerations](#power-considerations)
@@ -63,7 +63,7 @@ This example is written for:
     the board’s VCCIO jumper is set to **5 V** (not 3.3 V) before proceeding –
     the ULN2003 inputs require full‑scale logic and the motor supply may also
     be taken from the same 5 V rail.
-  * For FT232H (or any MPSSE device) use ACBUS0‑3 instead; no EEPROM step is
+  * For FT232H (or any MPSSE device) use CBUS0‑3 instead; no EEPROM step is
     required and the outputs are already 5 V if you set VCCIO accordingly.
 - KS0327 "Keyestudio" ULN2003 stepper motor driver board (or generic
   ULN2003‑based module) with 5‑wire 28BYJ‑48 stepper attached.
@@ -81,20 +81,20 @@ This example is written for:
 
 ## Hardware Background
 
-### Wiring - FT232H ACBUS (recommended)
+### Wiring - FT232H CBUS (recommended)
 
-Connect ACBUS0-3 directly to ULN2003 IN1-IN4. No EEPROM programming needed.
+Connect CBUS0-3 directly to ULN2003 IN1-IN4. No EEPROM programming needed.
 
-| FT232H pin | ACBUS signal | ULN2003 input | Coil      |
-|-----------|--------------|---------------|-----------|
-| ACBUS0    | `ACBUS0`     | `IN1`         | Coil A    |
-| ACBUS1    | `ACBUS1`     | `IN2`         | Coil A'   |
-| ACBUS2    | `ACBUS2`     | `IN3`         | Coil B    |
-| ACBUS3    | `ACBUS3`     | `IN4`         | Coil B'   |
+| FT232H pin | CBUS signal | ULN2003 input | Coil      |
+|-----------|-------------|---------------|-----------|
+| CBUS0     | `CBUS0`     | `IN1`         | Coil A    |
+| CBUS1     | `CBUS1`     | `IN2`         | Coil A'   |
+| CBUS2     | `CBUS2`     | `IN3`         | Coil B    |
+| CBUS3     | `CBUS3`     | `IN4`         | Coil B'   |
 | 5 V USB   |              | `5 V`         | Motor supply |
 | GND       |              | `GND`         | Common ground |
 
-> **Engineer**: ACBUS0-3 are driven by the MPSSE engine's high-byte port
+> **Engineer**: CBUS0-3 are driven by the MPSSE engine's high-byte port
 > (`0x82` command). All four bits are set atomically in a single 3-byte USB
 > transfer, which is what gives the FT232H path its clean step timing.
 
@@ -161,7 +161,7 @@ The `GpioMethod` should show `CBUS`.
 
 ## Step 2 - Program CBUS EEPROM (one-time, FT232R only)
 
-*Skip this step if you are using an FT232H/MPSSE device; the ACBUS pins are
+*Skip this step if you are using an FT232H/MPSSE device; the CBUS pins are
 immediately available and no EEPROM programming is required.*
 
 Before runtime GPIO will work on an FT232R you must set CBUS0‑3 to
@@ -192,7 +192,7 @@ Set-PsGadgetGpio -Index 1 -Pins @(0..3) -State HIGH -DurationMs 200
 Set-PsGadgetGpio -Index 1 -Pins @(0..3) -State LOW
 ```
 
-On an FT232R this toggles CBUS0‑3; on an FT232H it toggles ACBUS0‑3. The
+On an FT232R this toggles CBUS0‑3; on an FT232H it toggles CBUS0‑3. The
 ULN2003 board LEDs will light accordingly (they are tied to each IN pin).
 
 ---
@@ -236,7 +236,7 @@ try {
 }
 ```
 
-> **Engineer**: `Set-PsGadgetGpio` uses a cached ACBUS state value — the HIGH
+> **Engineer**: `Set-PsGadgetGpio` uses a cached CBUS state value — the HIGH
 > call sets the active bits, the LOW call clears the rest, both using the cache
 > for read-modify-write without USB round-trips. Each step generates two
 > 3-byte MPSSE writes (6 bytes total) over USB.

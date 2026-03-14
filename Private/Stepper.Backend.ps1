@@ -166,6 +166,22 @@ function Invoke-PsGadgetStepperMove {
 
     if ($activeMode -ne 'AsyncBitBang') {
         $log.WriteInfo("StepperMove: switching to AsyncBitBang (was '$activeMode')")
+
+        # FT232H / MPSSE devices require a device reset before switching to async
+        # bit-bang mode.  Without the reset, SetBitMode(AsyncBitBang) may be
+        # silently ignored and the pins remain under MPSSE control.
+        if ($conn -and $conn.PSObject.Properties['Device'] -and $conn.Device) {
+            try {
+                $conn.Device.ResetDevice() | Out-Null
+                $log.WriteTrace("StepperMove: ResetDevice before mode switch")
+                Start-Sleep -Milliseconds 50
+                $conn.Device.Purge(3) | Out-Null
+                Start-Sleep -Milliseconds 10
+            } catch {
+                $log.WriteTrace("StepperMove: ResetDevice/Purge not available: $($_.Exception.Message)")
+            }
+        }
+
         Set-PsGadgetFtdiMode -PsGadget $Ftdi -Mode AsyncBitBang -Mask $PinMask | Out-Null
     }
 
