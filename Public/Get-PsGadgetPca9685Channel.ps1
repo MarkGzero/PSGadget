@@ -1,4 +1,6 @@
 #Requires -Version 5.1
+# DEPRECATED - use Invoke-PsGadgetI2C -I2CModule PCA9685 instead.
+# This file remains loaded as a private helper for internal use.
 
 function Get-PsGadgetPca9685Channel {
     <#

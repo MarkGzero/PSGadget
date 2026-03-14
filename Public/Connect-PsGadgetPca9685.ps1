@@ -1,4 +1,6 @@
 #Requires -Version 5.1
+# DEPRECATED - use Invoke-PsGadgetI2C -I2CModule PCA9685 instead.
+# This file remains loaded as a private helper for internal use.
 
 function Connect-PsGadgetPca9685 {
     <#
@@ -47,7 +49,7 @@ function Connect-PsGadgetPca9685 {
     #>
 
     [CmdletBinding(DefaultParameterSetName = 'Index')]
-    [OutputType([PsGadgetPca9685])]
+    [OutputType('PsGadgetPca9685')]
     param(
         [Parameter(Mandatory = $false, ParameterSetName = 'Index')]
         [ValidateRange(0, 127)]
@@ -63,7 +65,7 @@ function Connect-PsGadgetPca9685 {
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Connection')]
         [ValidateNotNull()]
-        [PsGadgetFtdi]$Connection
+        [object]$Connection
     )
 
     try {

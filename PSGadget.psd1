@@ -39,11 +39,7 @@
         'Get-PsGadgetEspNowDevices',
         'Send-PsGadgetI2CWrite',
         'Invoke-PsGadgetI2CScan',
-        'Connect-PsGadgetPca9685',
-        'Invoke-PsGadgetPca9685SetChannel',
-        'Invoke-PsGadgetPca9685SetChannels',
-        'Get-PsGadgetPca9685Channel',
-        'Get-PsGadgetPca9685Frequency'
+        'Invoke-PsGadgetI2C'
     )
     
     # No cmdlets, variables, or aliases exported
