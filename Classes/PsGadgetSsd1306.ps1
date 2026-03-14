@@ -32,7 +32,7 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
     }
     
     PsGadgetSsd1306([System.Object]$ftdiDevice, [byte]$address) {
-        $this.Logger.WriteInfo("Creating PsGadgetSsd1306 instance with FTDI device and address 0x{0:X2}" -f $address)
+        $this.Logger.WriteInfo("Creating PsGadgetSsd1306 instance with FTDI device and address 0x$($address.ToString('X2'))")
         
         $this.FtdiDevice = $ftdiDevice
         $this.I2CAddress = $address
@@ -147,7 +147,7 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
             $this.Glyphs.Add('}', @( 0x00, 0x00, 0x77, 0x08, 0x00, 0x00 ))
             $this.Glyphs.Add('~', @( 0x00, 0x10, 0x08, 0x10, 0x08, 0x00 ))
             
-            $this.Logger.WriteDebug("Loaded {0} character glyphs" -f $this.Glyphs.Count)
+            $this.Logger.WriteDebug("Loaded $($this.Glyphs.Count) character glyphs")
             
         } catch {
             $this.Logger.WriteError("Failed to initialize glyphs: $_")
@@ -160,7 +160,7 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
             return $this.IsInitialized
         }
 
-        $this.Logger.WriteInfo("Initializing SSD1306 display at address 0x{0:X2}" -f $this.I2CAddress)
+        $this.Logger.WriteInfo("Initializing SSD1306 display at address 0x$($this.I2CAddress.ToString('X2'))")
 
         try {
             # SSD1306 initialization sequence
@@ -235,7 +235,7 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
         }
         
         if ($page -lt 0 -or $page -ge $this.Pages) {
-            $this.Logger.WriteError("Invalid page number: $page (valid range: 0-{0})" -f ($this.Pages - 1))
+            $this.Logger.WriteError("Invalid page number: $page (valid range: 0-$($this.Pages - 1))")
             return $false
         }
         
@@ -268,12 +268,12 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
         }
         
         if ($column -lt 0 -or $column -ge $this.Width) {
-            $this.Logger.WriteError("Invalid column: $column (valid range: 0-{0})" -f ($this.Width - 1))
+            $this.Logger.WriteError("Invalid column: $column (valid range: 0-$($this.Width - 1))")
             return $false
         }
         
         if ($page -lt 0 -or $page -ge $this.Pages) {
-            $this.Logger.WriteError("Invalid page: $page (valid range: 0-{0})" -f ($this.Pages - 1))
+            $this.Logger.WriteError("Invalid page: $page (valid range: 0-$($this.Pages - 1))")
             return $false
         }
         
@@ -376,7 +376,7 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
                 throw "Failed to send text data"
             }
             
-            $this.Logger.WriteDebug("Text written successfully ({0} bytes)" -f $buffer.Count)
+            $this.Logger.WriteDebug("Text written successfully ($($buffer.Count) bytes)")
             return $true
             
         } catch {

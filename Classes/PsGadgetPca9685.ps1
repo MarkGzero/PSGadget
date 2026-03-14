@@ -61,7 +61,7 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
     }
 
     PsGadgetPca9685([System.Object]$ftdiDevice, [byte]$address) {
-        $this.Logger.WriteInfo("Creating PsGadgetPca9685 instance with FTDI device and address 0x{0:X2}" -f $address)
+        $this.Logger.WriteInfo("Creating PsGadgetPca9685 instance with FTDI device and address 0x$($address.ToString('X2'))")
 
         $this.FtdiDevice = $ftdiDevice
         $this.I2CAddress = $address
@@ -79,7 +79,7 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
             return $this.IsInitialized
         }
 
-        $this.Logger.WriteInfo(("Initializing PCA9685 at address 0x{0:X2} with frequency {1} Hz" -f @($this.I2CAddress, $this.Frequency)))
+        $this.Logger.WriteInfo("Initializing PCA9685 at address 0x$($this.I2CAddress.ToString('X2')) with frequency $($this.Frequency) Hz")
 
         try {
             # Calculate prescaler for desired frequency
@@ -171,7 +171,7 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
         }
 
         if ($channel -lt 0 -or $channel -ge [PsGadgetPca9685]::CHANNELS) {
-            $this.Logger.WriteError("Invalid channel: $channel (valid range: 0-{0})" -f ([PsGadgetPca9685]::CHANNELS - 1))
+            $this.Logger.WriteError("Invalid channel: $channel (valid range: 0-$([PsGadgetPca9685]::CHANNELS - 1))")
             return $false
         }
 
@@ -239,7 +239,7 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
     # Get current cached degree value for a channel
     [int] GetChannel([int]$channel) {
         if ($channel -lt 0 -or $channel -ge [PsGadgetPca9685]::CHANNELS) {
-            $this.Logger.WriteError("Invalid channel: $channel (valid range: 0-{0})" -f ([PsGadgetPca9685]::CHANNELS - 1))
+            $this.Logger.WriteError("Invalid channel: $channel (valid range: 0-$([PsGadgetPca9685]::CHANNELS - 1))")
             return 0
         }
 
