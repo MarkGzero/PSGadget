@@ -185,26 +185,25 @@ function Invoke-PsGadgetStepperMove {
         Set-PsGadgetFtdiMode -PsGadget $Ftdi -Mode AsyncBitBang -Mask $PinMask | Out-Null
     }
 
-    # --- write bulk buffer ---
+    # --- write per-step loop ---
+    # The FT232H baud-rate timer does not pace async bit-bang writes reliably -
+    # a bulk Write() call returns immediately while the chip flushes all bytes
+    # at USB-transfer speed (all coils fire in ~20ms total regardless of baud).
+    # Per-step 1-byte writes with Start-Sleep are used instead.  The USB
+    # round-trip (~1ms) plus the explicit sleep gives a predictable per-step
+    # interval.  For 4076 steps at 2ms delay this is ~8 seconds per revolution,
+    # which is within the 28BYJ-48 operating range (max ~15 rpm output shaft).
     if ($conn -and $conn.PSObject.Properties['Device'] -and $conn.Device) {
-        # Baud rate controls byte-output rate in async bit-bang mode.
-        # D2XX timer:  byte_rate = baud / 16
-        # Required:    baud = 16000 / DelayMs
-        # Clamp to 300 bps minimum (D2XX lower limit).
-        $baud = [uint32]([Math]::Max(300, [int](16000 / $DelayMs)))
-        $log.WriteDebug("StepperMove: SetBaudRate $baud bps (${DelayMs}ms/step)")
-
+        $log.WriteInfo("StepperMove: per-step write loop $Steps steps @ ${DelayMs}ms")
+        $stepBuf = [byte[]]@(0x00)
         try {
-            $baudStatus = $conn.Device.SetBaudRate($baud)
-            $log.WriteTrace("SetBaudRate $baud -> $baudStatus")
-        } catch {
-            $log.WriteTrace("SetBaudRate not available (stub): $($_.Exception.Message)")
-        }
-
-        try {
-            [uint32]$written = 0
-            $conn.Device.Write($buf, [uint32]$buf.Length, [ref]$written) | Out-Null
-            $log.WriteInfo("StepperMove: wrote $written/$($buf.Length) bytes @ ${baud} bps")
+            for ($i = 0; $i -lt $Steps; $i++) {
+                $stepBuf[0] = $buf[$i]
+                [uint32]$written = 0
+                $conn.Device.Write($stepBuf, 1, [ref]$written) | Out-Null
+                Start-Sleep -Milliseconds $DelayMs
+            }
+            $log.WriteInfo("StepperMove: completed $Steps steps")
         } catch [System.NotImplementedException] {
             $log.WriteTrace("StepperMove stub: FT_Write not implemented (no hardware)")
         } catch {
@@ -214,9 +213,9 @@ function Invoke-PsGadgetStepperMove {
 
         # De-energize coils after move to prevent heat at rest
         try {
-            $zeroBuf = [byte[]]@(0x00)
+            $stepBuf[0] = 0x00
             [uint32]$zw = 0
-            $conn.Device.Write($zeroBuf, 1, [ref]$zw) | Out-Null
+            $conn.Device.Write($stepBuf, 1, [ref]$zw) | Out-Null
             $log.WriteTrace("StepperMove: coils de-energized")
         } catch {
             $log.WriteTrace("StepperMove de-energize stub: $($_.Exception.Message)")
