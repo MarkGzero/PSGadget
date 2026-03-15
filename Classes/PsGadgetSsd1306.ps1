@@ -655,7 +655,8 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
             [int]$textWidth  = 0
             foreach ($c in $label.ToCharArray()) {
                 $k = [string]$c
-                $textWidth += (if ($this.Glyphs.ContainsKey($k)) { $this.Glyphs[$k] } else { $this.Glyphs[' '] }).Count
+                [byte[]]$gw = if ($this.Glyphs.ContainsKey($k)) { [byte[]]$this.Glyphs[$k] } else { [byte[]]$this.Glyphs[' '] }
+                $textWidth += $gw.Count
             }
             [int]$startX = [math]::Max(0, [math]::Floor(($this.LogicalWidth  - $textWidth) / 2))
             [int]$startY = [math]::Floor(($this.LogicalHeight - 8) / 2)
