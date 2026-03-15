@@ -184,12 +184,15 @@ function Write-Ssd1306Page {
     )
 
     try {
-        # Cursor set: 3 separate I2C transactions matching the reference Set-Ssd1306Cursor.
-        # Many SSD1306 clones tolerate multi-byte streaming (Co=0) for data but not for
-        # cursor commands. Three individual writes are universally reliable.
-        $device.I2CWrite([byte[]](0x00, [byte](0xB0 + $physPage))) | Out-Null  # set page
-        $device.I2CWrite([byte[]](0x00, [byte]0x00)) | Out-Null                 # col low  = 0
-        $device.I2CWrite([byte[]](0x00, [byte]0x10)) | Out-Null                 # col high = 0
+        # HORIZONTAL addressing mode window: constrain column 0-127, page N-N.
+        # 0xB0+page cursor commands are PAGE mode only and are ignored in HORIZONTAL mode.
+        # Each command byte is sent as its own I2C transaction (same pattern as init).
+        $device.I2CWrite([byte[]](0x00, [byte]0x21)) | Out-Null              # SET_COL_ADDR
+        $device.I2CWrite([byte[]](0x00, [byte]0x00)) | Out-Null              # col start = 0
+        $device.I2CWrite([byte[]](0x00, [byte]0x7F)) | Out-Null              # col end   = 127
+        $device.I2CWrite([byte[]](0x00, [byte]0x22)) | Out-Null              # SET_PAGE_ADDR
+        $device.I2CWrite([byte[]](0x00, [byte]$physPage)) | Out-Null         # page start
+        $device.I2CWrite([byte[]](0x00, [byte]$physPage)) | Out-Null         # page end (same)
 
         # Page data: $width bytes from the framebuffer starting at this page's offset.
         [byte[]]$pageData = [byte[]]::new($width)
