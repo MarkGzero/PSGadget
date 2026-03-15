@@ -650,16 +650,20 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
                 $this.SetLogicalPixel($this.LogicalWidth - 1,  $y, $true)
             }
 
-            # "PsGadget" — pixel-perfect center (not snapped to page boundary)
-            [string]$label   = 'PsGadget'
-            [int]$textWidth  = 0
+            # "PsGadget" — always font size 2: double width (each column repeated twice)
+            # + double height (ExpandNibble: each pixel row becomes 2 rows, 16 px tall total).
+            # Size is independent of display height — works the same on 128x32 and 128x64.
+            [string]$label  = 'PsGadget'
+
+            # textWidth at 2x: each glyph column is rendered twice side-by-side
+            [int]$textWidth = 0
             foreach ($c in $label.ToCharArray()) {
                 $k = [string]$c
                 [byte[]]$gw = if ($this.Glyphs.ContainsKey($k)) { [byte[]]$this.Glyphs[$k] } else { [byte[]]$this.Glyphs[' '] }
-                $textWidth += $gw.Count
+                $textWidth += $gw.Count * 2
             }
-            [int]$startX = [math]::Max(0, [math]::Floor(($this.LogicalWidth  - $textWidth) / 2))
-            [int]$startY = [math]::Floor(($this.LogicalHeight - 8) / 2)
+            [int]$startX = [math]::Max(0, [math]::Floor(($this.LogicalWidth - $textWidth) / 2))
+            [int]$startY = [math]::Floor(($this.LogicalHeight - 16) / 2)
 
             [int]$lx = $startX
             foreach ($c in $label.ToCharArray()) {
@@ -667,13 +671,17 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
                 [byte[]]$g = if ($this.Glyphs.ContainsKey($k)) { [byte[]]$this.Glyphs[$k] } else { [byte[]]$this.Glyphs[' '] }
                 for ($col = 0; $col -lt $g.Count; $col++) {
                     [byte]$colByte = $g[$col]
-                    for ($bit = 0; $bit -lt 8; $bit++) {
-                        if ($colByte -band (1 -shl $bit)) {
-                            $this.SetLogicalPixel($lx + $col, $startY + $bit, $true)
+                    [byte]$topByte = $this.ExpandNibble($colByte -band 0x0F)
+                    [byte]$botByte = $this.ExpandNibble(($colByte -shr 4) -band 0x0F)
+                    # Render each column twice (double width)
+                    for ($dx = 0; $dx -lt 2; $dx++) {
+                        for ($bit = 0; $bit -lt 8; $bit++) {
+                            if ($topByte -band (1 -shl $bit)) { $this.SetLogicalPixel($lx + $col * 2 + $dx, $startY +     $bit, $true) }
+                            if ($botByte -band (1 -shl $bit)) { $this.SetLogicalPixel($lx + $col * 2 + $dx, $startY + 8 + $bit, $true) }
                         }
                     }
                 }
-                $lx += $g.Count
+                $lx += $g.Count * 2
             }
 
             # One bulk push — border + text in a single display update
