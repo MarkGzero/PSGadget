@@ -138,11 +138,11 @@ function Initialize-Ssd1306 {
             0xAF                       # Display ON
         )
 
-        Write-Verbose ("Initialize-Ssd1306: sending {0} init bytes (height={1}, rotation={2})" -f $initCommands.Length, $height, $rotation)
-        foreach ($cmd in $initCommands) {
-            $device.I2CWrite([byte[]](0x00, $cmd)) | Out-Null
-            Start-Sleep -Milliseconds 1
-        }
+        Write-Verbose ("Initialize-Ssd1306: sending {0}-byte init sequence (height={1}, rotation={2})" -f $initCommands.Length, $height, $rotation)
+        Send-Ssd1306Command -device $device -commands $initCommands | Out-Null
+
+        # Allow hardware to settle after power-on init sequence (charge pump, oscillator).
+        Start-Sleep -Milliseconds 5
 
         return $true
     } catch {
@@ -184,15 +184,11 @@ function Write-Ssd1306Page {
     )
 
     try {
-        # HORIZONTAL addressing mode window: constrain column 0-127, page N-N.
-        # 0xB0+page cursor commands are PAGE mode only and are ignored in HORIZONTAL mode.
-        # Each command byte is sent as its own I2C transaction (same pattern as init).
-        $device.I2CWrite([byte[]](0x00, [byte]0x21)) | Out-Null              # SET_COL_ADDR
-        $device.I2CWrite([byte[]](0x00, [byte]0x00)) | Out-Null              # col start = 0
-        $device.I2CWrite([byte[]](0x00, [byte]0x7F)) | Out-Null              # col end   = 127
-        $device.I2CWrite([byte[]](0x00, [byte]0x22)) | Out-Null              # SET_PAGE_ADDR
-        $device.I2CWrite([byte[]](0x00, [byte]$physPage)) | Out-Null         # page start
-        $device.I2CWrite([byte[]](0x00, [byte]$physPage)) | Out-Null         # page end (same)
+        # HORIZONTAL addressing mode: set column window (0x21 + start + end) and
+        # page window (0x22 + start + end) — each as a single I2C transaction so the
+        # SSD1306 receives the command byte and its 2 argument bytes together.
+        Send-Ssd1306Command -device $device -commands ([byte[]](0x21, 0x00, 0x7F)) | Out-Null
+        Send-Ssd1306Command -device $device -commands ([byte[]](0x22, [byte]$physPage, [byte]$physPage)) | Out-Null
 
         # Page data: $width bytes from the framebuffer starting at this page's offset.
         [byte[]]$pageData = [byte[]]::new($width)
