@@ -38,7 +38,7 @@ function Set-PsGadgetFtdiEeprom {
         Set-PsGadgetFtdiEeprom -Index 0 -DisableVcp
 
     .PARAMETER Index
-    Zero-based device index (as shown by List-PsGadgetFtdi).
+    Zero-based device index (as shown by Get-PsGadgetFtdi).
 
     .PARAMETER SerialNumber
     Alternative to Index: identify the device by serial number string.
@@ -186,7 +186,7 @@ function Set-PsGadgetFtdiEeprom {
         }
 
         if (-not $targetDev) {
-            throw "Device at index $targetIndex not found. Run List-PsGadgetFtdi to check available devices."
+            throw "Device at index $targetIndex not found. Run Get-PsGadgetFtdi to check available devices."
         }
 
         Write-Verbose "Target: $($targetDev.Type) - $($targetDev.Description) ($($targetDev.SerialNumber))"

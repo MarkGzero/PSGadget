@@ -235,7 +235,7 @@ driver and the D2XX library simultaneously.
 > package installs both at once.
 
 > **Scripter**: After installing the CDM package, each physical FT232R will appear TWICE
-> in `List-PsGadgetFtdi` -- once as a D2XX device (driver: ftd2xx.dll) and once as a
+> in `Get-PsGadgetFtdi` -- once as a D2XX device (driver: ftd2xx.dll) and once as a
 > virtual COM port. PSGadget functions use the D2XX entry. You can identify it because
 > it has no "A" appended to the serial number.
 
@@ -250,7 +250,7 @@ Import-Module C:\path\to\PSGadget\PSGadget.psd1 -Force
 4. Enumerate connected FTDI devices:
 
 ```powershell
-List-PsGadgetFtdi | Format-Table Index, Type, Driver, SerialNumber, LocationId, ComPort
+Get-PsGadgetFtdi | Format-Table Index, Type, Driver, SerialNumber, LocationId, ComPort
 ```
 
 Expected output (one physical FT232R appears twice):
@@ -265,7 +265,7 @@ Index  Type    Driver              SerialNumber  LocationId  ComPort
 The D2XX row (no "A" suffix on the serial number, no COM port) is the one PSGadget uses.
 Note its **Index** value -- you will need it in the next steps.
 
-> **Pro**: `List-PsGadgetFtdi | Where-Object Driver -eq 'ftd2xx.dll'` to filter directly.
+> **Pro**: `Get-PsGadgetFtdi | Where-Object Driver -eq 'ftd2xx.dll'` to filter directly.
 
 ---
 
@@ -464,7 +464,7 @@ $dev.CyclePort()   # triggers USB re-enumeration; the device handle is released 
 You are probably using the VCP index instead of the D2XX index. Run:
 
 ```powershell
-List-PsGadgetFtdi | Where-Object Driver -eq "ftd2xx.dll" | Format-Table Index, SerialNumber
+Get-PsGadgetFtdi | Where-Object Driver -eq "ftd2xx.dll" | Format-Table Index, SerialNumber
 ```
 
 Use one of those Index values.
@@ -500,7 +500,7 @@ Board is set to 3.3V VCCIO. Move the jumper to 5V (see Voltage Selection section
 
 ```powershell
 # Enumerate (D2XX only)
-List-PsGadgetFtdi | Where-Object Driver -eq "ftd2xx.dll" | Format-Table
+Get-PsGadgetFtdi | Where-Object Driver -eq "ftd2xx.dll" | Format-Table
 
 # EEPROM read
 Get-PsGadgetFtdiEeprom -Index 0 | Select-Object Cbus0, Cbus1, Cbus2, Cbus3

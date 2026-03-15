@@ -8,8 +8,8 @@ by category. Use `Get-Help <FunctionName>` for inline PowerShell help.
 ## Contents
 
 - [Discovery](#discovery)
-  - [List-PsGadgetFtdi](#list-psgadgetftdi)
-  - [List-PsGadgetMpy](#list-psgadgetmpy)
+  - [Get-PsGadgetFtdi](#get-psgadgetftdi)
+  - [Get-PsGadgetMpy](#get-psgadgetmpy)
 - [Connection](#connection)
   - [New-PsGadgetFtdi](#new-psgadgetftdi)
   - [Connect-PsGadgetFtdi](#connect-psgadgetftdi)
@@ -35,7 +35,7 @@ by category. Use `Get-Help <FunctionName>` for inline PowerShell help.
 
 ## Discovery
 
-### List-PsGadgetFtdi
+### Get-PsGadgetFtdi
 
 Enumerates all FTDI devices visible to the D2XX driver.
 
@@ -62,15 +62,15 @@ twice -- once with `Driver = ftd2xx.dll` (use for PSGadget) and once as
 entry appends "A".
 
 ```powershell
-List-PsGadgetFtdi | Format-Table
+Get-PsGadgetFtdi | Format-Table
 
 # Find only D2XX-accessible devices
-List-PsGadgetFtdi | Where-Object Driver -eq "ftd2xx.dll" | Format-Table Index, SerialNumber, LocationId
+Get-PsGadgetFtdi | Where-Object Driver -eq "ftd2xx.dll" | Format-Table Index, SerialNumber, LocationId
 ```
 
 ---
 
-### List-PsGadgetMpy
+### Get-PsGadgetMpy
 
 Enumerates serial ports likely connected to MicroPython devices.
 
@@ -83,10 +83,10 @@ Enumerates serial ports likely connected to MicroPython devices.
 **Returns**: array of port name strings, or objects when `-Detailed`
 
 ```powershell
-List-PsGadgetMpy
+Get-PsGadgetMpy
 
 # With port metadata
-List-PsGadgetMpy -Detailed | Format-Table
+Get-PsGadgetMpy -Detailed | Format-Table
 ```
 
 ---
@@ -105,7 +105,7 @@ type scope. The returned object is already open -- no `.Connect()` call needed.
 |-----------|------|----------|-------------|
 | `-SerialNumber` | string | BySerial | FTDI serial number (e.g. "BG01X3GX") |
 | `-Index` | int (0-127) | ByIndex | Zero-based device index |
-| `-LocationId` | string | ByLocation | USB hub+port address from `List-PsGadgetFtdi` |
+| `-LocationId` | string | ByLocation | USB hub+port address from `Get-PsGadgetFtdi` |
 
 **Returns**: `PsGadgetFtdi` object
 
@@ -585,7 +585,7 @@ enumeration, and configuration file. Returns a structured object.
 | BackendReady | bool | True if the selected backend loaded successfully |
 | NativeLibOk | bool | True if the platform native library is present |
 | NativeLibPath | string | Full path checked |
-| Devices | string[] | Formatted device list from List-PsGadgetFtdi |
+| Devices | string[] | Formatted device list from Get-PsGadgetFtdi |
 | DeviceCount | int | Number of enumerated devices |
 | ConfigPresent | bool | True if ~/.psgadget/config.json exists |
 | IsReady | bool | True if all checks passed |
@@ -615,8 +615,8 @@ Test-PsGadgetSetup
 
 | Function | Short Description |
 |----------|-------------------|
-| `List-PsGadgetFtdi` | Enumerate FTDI devices |
-| `List-PsGadgetMpy` | Enumerate MicroPython serial ports |
+| `Get-PsGadgetFtdi` | Enumerate FTDI devices |
+| `Get-PsGadgetMpy` | Enumerate MicroPython serial ports |
 | `New-PsGadgetFtdi` | Create PsGadgetFtdi object (OOP entry point) |
 | `Connect-PsGadgetFtdi` | Open raw FTDI connection |
 | `Connect-PsGadgetMpy` | Open MicroPython REPL connection |

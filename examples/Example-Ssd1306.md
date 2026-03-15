@@ -2,45 +2,47 @@
 
 Drive a 128x64 SSD1306 OLED display from a Windows PC using an FT232H USB adapter.
 PSGadget automatically selects the best backend for your PowerShell version:
-FtdiSharp on PS 5.1, .NET IoT on PS 7.
+FTD2XX_NET (D2XX MPSSE) on PS 5.1, .NET IoT on PS 7.
 
 ---
 
 ## Table of Contents
 
-- [Who This Is For](#who-this-is-for)
-- [What You Need](#what-you-need)
-- [Hardware Background](#hardware-background)
-  - [I2C address](#i2c-address)
-- [Hardware Wiring](#hardware-wiring)
-- [Step 1 - Load the Module and Verify Detection](#step-1---load-the-module-and-verify-detection)
-- [Step 2 - Connect the Device](#step-2---connect-the-device)
-- [Step 3 - Scan the I2C Bus (recommended)](#step-3---scan-the-i2c-bus-recommended)
-- [Step 4 - Write to the Display](#step-4---write-to-the-display)
-  - [Simple text](#simple-text)
-  - [Advanced formatting](#advanced-formatting)
-- [Step 5 - Clear the Display](#step-5---clear-the-display)
-- [Step 6 - Write Text](#step-6---write-text)
-  - [Display layout reference](#display-layout-reference)
-  - [Text alignment](#text-alignment)
-  - [Large text (double-width font)](#large-text-double-width-font)
-  - [Inverted text (dark on white)](#inverted-text-dark-on-white)
-- [Step 7 - Live Clock Example](#step-7---live-clock-example)
-- [Step 8 - Scrolling Status Display](#step-8---scrolling-status-display)
-- [Step 9 - Cursor Positioning for Raw Layout](#step-9---cursor-positioning-for-raw-layout)
-- [Step 10 - Close the Connection](#step-10---close-the-connection)
-- [Using Invoke-PsGadgetI2C (Preferred Public API)](#using-invoke-psgadgeti2c-preferred-public-api)
-  - [Symbols Reference](#symbols-reference)
-- [Complete Examples](#complete-examples)
-  - [Example 1 - Standard (quiet output)](#example-1---standard-quiet-output)
-  - [Example 2 - Verbose (beginner-friendly)](#example-2---verbose-beginner-friendly)
-- [Troubleshooting](#troubleshooting)
-  - [Display stays blank after init](#display-stays-blank-after-init)
-  - [Failed to open device](#failed-to-open-device)
-  - [Scan returns nothing](#scan-returns-nothing)
-  - [Partial or garbled text](#partial-or-garbled-text)
-  - [PS version differences](#ps-version-differences)
-- [Quick Reference (Pro)](#quick-reference-pro)
+- [Example: SSD1306 OLED Display via FT232H I2C](#example-ssd1306-oled-display-via-ft232h-i2c)
+  - [Table of Contents](#table-of-contents)
+  - [Who This Is For](#who-this-is-for)
+  - [What You Need](#what-you-need)
+  - [Hardware Background](#hardware-background)
+    - [I2C address](#i2c-address)
+  - [Hardware Wiring](#hardware-wiring)
+  - [Step 1 - Load the Module and Verify Detection](#step-1---load-the-module-and-verify-detection)
+  - [Step 2 - Connect the Device](#step-2---connect-the-device)
+  - [Step 3 - Scan the I2C Bus (recommended)](#step-3---scan-the-i2c-bus-recommended)
+  - [Step 4 - Write to the Display](#step-4---write-to-the-display)
+    - [Simple text](#simple-text)
+    - [Advanced formatting](#advanced-formatting)
+  - [Step 5 - Clear the Display](#step-5---clear-the-display)
+  - [Step 6 - Write Text](#step-6---write-text)
+    - [Display layout reference](#display-layout-reference)
+    - [Text alignment](#text-alignment)
+    - [Large text (double-width font)](#large-text-double-width-font)
+    - [Inverted text (dark on white)](#inverted-text-dark-on-white)
+  - [Step 7 - Live Clock Example](#step-7---live-clock-example)
+  - [Step 8 - Scrolling Status Display](#step-8---scrolling-status-display)
+  - [Step 9 - Cursor Positioning for Raw Layout](#step-9---cursor-positioning-for-raw-layout)
+  - [Step 10 - Close the Connection](#step-10---close-the-connection)
+  - [Using Invoke-PsGadgetI2C (Preferred Public API)](#using-invoke-psgadgeti2c-preferred-public-api)
+    - [Symbols Reference](#symbols-reference)
+  - [Complete Examples](#complete-examples)
+    - [Example 1 - Standard (quiet output)](#example-1---standard-quiet-output)
+    - [Example 2 - Verbose (beginner-friendly)](#example-2---verbose-beginner-friendly)
+  - [Troubleshooting](#troubleshooting)
+    - [Display stays blank after init](#display-stays-blank-after-init)
+    - ["Failed to open device"](#failed-to-open-device)
+    - [Scan returns nothing](#scan-returns-nothing)
+    - [Partial or garbled text](#partial-or-garbled-text)
+    - [PS version differences](#ps-version-differences)
+  - [Quick Reference (Pro)](#quick-reference-pro)
 
 ---
 
@@ -74,9 +76,9 @@ FtdiSharp on PS 5.1, .NET IoT on PS 7.
 
 > **Engineer**: The FT232H includes the MPSSE (Multi-Protocol Synchronous Serial Engine),
 > a hardware block that implements I2C, SPI, and JTAG. On PS 5.1, PSGadget uses the
-> FtdiSharp library which wraps D2XX and handles MPSSE setup internally. On PS 7, PSGadget
-> uses the .NET IoT `Iot.Device.Ft232H` binding. Both backends use ADBUS0 as SCL and
-> ADBUS1 as SDA at 100 kHz standard mode.
+> FTD2XX_NET managed wrapper (`lib/net48/FTD2XX_NET.dll`) and drives MPSSE I2C directly
+> via the D2XX API. On PS 7, PSGadget uses the .NET IoT `Iot.Device.Ft232H` binding.
+> Both backends use ADBUS0 as SCL and ADBUS1 as SDA at 100 kHz standard mode.
 >
 > The SSD1306 is a write-only I2C peripheral. PSGadget does not need to implement I2C read
 > for display purposes. The initialization sequence sets contrast, scan direction, and
@@ -108,7 +110,7 @@ Connect four wires between the FT232H breakout and the SSD1306 module:
 > usually the first two pins in a row. The SSD1306 has 4 pins labeled SCL, SDA, VCC, GND.
 
 > **Engineer**: The FT232H I/O is 3.3V. Most SSD1306 modules accept 3.3V logic.
-> FtdiSharp and .NET IoT both drive SCL/SDA as push-pull outputs (not strict open-drain),
+> FTD2XX_NET MPSSE and .NET IoT both drive SCL/SDA as push-pull outputs (not strict open-drain),
 > which works reliably for short wires to a single peripheral. Keep wires under 20 cm.
 
 ---
@@ -118,7 +120,7 @@ Connect four wires between the FT232H breakout and the SSD1306 module:
 ```powershell
 Import-Module C:\path\to\PSGadget\PSGadget.psd1 -Force -DisableNameChecking
 
-List-PsGadgetFtdi | Format-Table Index, Type, SerialNumber, LocationId, HasMpsse
+Get-PsGadgetFtdi | Format-Table Index, Type, SerialNumber, LocationId, HasMpsse
 ```
 
 Expected output:
@@ -180,19 +182,18 @@ $dev.Scan() | Format-Table
 > your VCC/GND wires first, then SCL/SDA. If you see 0x3D instead of 0x3C, pass
 > `-Address 0x3D` in the next step.
 
-> **Engineer**: On PS 5.1, `Scan()` calls `[FtdiSharp.Protocols.I2C]::new(device).Scan()`
-> which returns `byte[]` of ACK'd addresses. On PS 7, it calls
+> **Engineer**: On PS 5.1, `Scan()` calls `Invoke-FtdiI2CScan` which probes each address
+> via raw MPSSE I2C transactions over FTD2XX_NET. On PS 7, it calls
 > `Iot.Device.Ft232H.Ft232HDevice.CreateOrGetI2cBus()` and probes each address with a
 > `ReadByte()` -- NACK throws and is caught silently as no-device. Both paths are
 > selected automatically.
 
 ---
 
-> **Note**: `Write-PsGadgetSsd1306` and `Clear-PsGadgetSsd1306` shown in this section
-> are legacy helpers kept for internal use. The preferred public API is
-> `Invoke-PsGadgetI2C -I2CModule SSD1306` (see section below).
-> The `$dev.Display()` and `$dev.ClearDisplay()` class methods still work and call the
-> same internal code paths.
+> **Note**: `Write-PsGadgetSsd1306`, `Clear-PsGadgetSsd1306`, and `Set-PsGadgetSsd1306Cursor`
+> were removed in v0.3.7. Use `$d.WriteText()`, `$d.Clear()`, `$d.ClearPage()` on the object
+> returned by `$dev.GetDisplay()`, or use `Invoke-PsGadgetI2C -I2CModule SSD1306` (preferred
+> public API). `$dev.Display()` and `$dev.ClearDisplay()` continue to work as before.
 
 ## Step 4 - Write to the Display
 
@@ -220,9 +221,9 @@ Use it when you need alignment, larger text, or inverted rows:
 
 ```powershell
 $d = $dev.GetDisplay()               # init once, reuse every call
-Write-PsGadgetSsd1306 -Display $d -Text "PSGadget"  -Page 0 -Align center
-Write-PsGadgetSsd1306 -Display $d -Text "12:34:56"  -Page 2 -Align center -FontSize 2
-Write-PsGadgetSsd1306 -Display $d -Text "ALARM"     -Page 6 -Align center -Invert
+$d.WriteText("PSGadget", 0, 'center', 1, $false)
+$d.WriteText("12:34:56", 2, 'center', 2, $false)   # FontSize 2 = double-width
+$d.WriteText("ALARM",    6, 'center', 1, $true)    # $true = inverted
 ```
 
 > **Beginner**: `$dev.GetDisplay()` just gives you a handle to the screen. Think of it
@@ -232,9 +233,9 @@ Write-PsGadgetSsd1306 -Display $d -Text "ALARM"     -Page 6 -Align center -Inver
 > **Scripter**: `$dev.GetDisplay()` and `$dev.Display()` share the same underlying
 > connection object -- calling either one first is fine. No re-init, no conflicts.
 
-> **Engineer**: `GetDisplay()` returns `$dev._display` (a `PsGadgetSsd1306` instance with
-> the FtdiSharp or IoT I2C handle baked in). Both `Display()` and `ClearDisplay()` call
-> `GetDisplay()` internally, so there is only ever one I2C handle per device.
+> **Engineer**: `GetDisplay()` returns `$dev._display` (a `PsGadgetSsd1306` instance wired
+> to the ADBUS MPSSE I2C path via the cached D2XX connection). Both `Display()` and
+> `ClearDisplay()` call `GetDisplay()` internally, so there is only ever one I2C handle per device.
 
 ---
 
@@ -250,15 +251,15 @@ $dev.ClearDisplay(3)     # clear only page 3 (faster for live updates)
 If you already have `$d` from `GetDisplay()`, you can also call the function directly:
 
 ```powershell
-Clear-PsGadgetSsd1306 -Display $d           # clear all pages
-Clear-PsGadgetSsd1306 -Display $d -Page 3   # clear one page
+$d.Clear()        # clear all pages
+$d.ClearPage(3)   # clear one page
 ```
 
-Both operate on the same cached object -- use whichever is more readable in context.
+Both operate on the same cached object.
 
 > **Engineer**: The SSD1306 128x64 frame buffer is organized as 8 horizontal pages (rows),
 > each 8 pixels tall and 128 bytes wide. One byte per column, one bit per pixel row.
-> `Clear-PsGadgetSsd1306` writes 0x00 to every byte in the target page(s).
+> `.Clear()` / `.ClearPage()` write 0x00 to every byte in the target page(s).
 
 ---
 
@@ -282,12 +283,12 @@ The built-in font is 6x8 pixels per character, giving up to ~21 characters per r
 ```powershell
 $d = $dev.GetDisplay()
 $dev.ClearDisplay()
-Write-PsGadgetSsd1306 -Display $d -Text "PSGadget"                              -Page 0 -Align center
-Write-PsGadgetSsd1306 -Display $d -Text "Hello World"                           -Page 1
-Write-PsGadgetSsd1306 -Display $d -Text ("Date: " + (Get-Date -f "yyyy-MM-dd")) -Page 3
+$d.WriteText("PSGadget",                              0, 'center', 1, $false)
+$d.WriteText("Hello World",                           1, 'left',   1, $false)
+$d.WriteText("Date: " + (Get-Date -f "yyyy-MM-dd"),  3, 'left',   1, $false)
 ```
 
-> **Beginner**: `-Page` is just which row of the screen to write on. Page 0 is the top row,
+> **Beginner**: The second argument is which row of the screen to write on. Page 0 is the top row,
 > page 7 is the bottom. `-Align center` centers the text horizontally.
 
 ### Text alignment
@@ -295,9 +296,9 @@ Write-PsGadgetSsd1306 -Display $d -Text ("Date: " + (Get-Date -f "yyyy-MM-dd")) 
 ```powershell
 $d = $dev.GetDisplay()
 $dev.ClearDisplay()
-Write-PsGadgetSsd1306 -Display $d -Text "left"   -Page 1 -Align left
-Write-PsGadgetSsd1306 -Display $d -Text "center" -Page 3 -Align center
-Write-PsGadgetSsd1306 -Display $d -Text "right"  -Page 5 -Align right
+$d.WriteText("left",   1, 'left',   1, $false)
+$d.WriteText("center", 3, 'center', 1, $false)
+$d.WriteText("right",  5, 'right',  1, $false)
 ```
 
 ### Large text (double-width font)
@@ -306,7 +307,7 @@ Write-PsGadgetSsd1306 -Display $d -Text "right"  -Page 5 -Align right
 It occupies one page (8px tall) and roughly 10-11 characters per row.
 
 ```powershell
-Write-PsGadgetSsd1306 -Display $d -Text "BIG" -Page 0 -Align center -FontSize 2
+$d.WriteText("BIG", 0, 'center', 2, $false)
 ```
 
 ### Inverted text (dark on white)
@@ -315,7 +316,7 @@ Write-PsGadgetSsd1306 -Display $d -Text "BIG" -Page 0 -Align center -FontSize 2
 dark characters on a white background.
 
 ```powershell
-Write-PsGadgetSsd1306 -Display $d -Text "ALARM" -Page 4 -Align center -Invert
+$d.WriteText("ALARM", 4, 'center', 1, $true)
 ```
 
 > **Engineer**: Inversion is applied in software before the byte array is sent. The SSD1306
@@ -329,13 +330,12 @@ Write-PsGadgetSsd1306 -Display $d -Text "ALARM" -Page 4 -Align center -Invert
 ```powershell
 $d = $dev.GetDisplay()
 $dev.ClearDisplay()
-Write-PsGadgetSsd1306 -Display $d -Text "Live Clock" -Page 0 -Align center
+$d.WriteText("Live Clock", 0, 'center', 1, $false)
 
 $deadline = (Get-Date).AddSeconds(10)
 while ((Get-Date) -lt $deadline) {
     $dev.ClearDisplay(3)
-    Write-PsGadgetSsd1306 -Display $d -Text (Get-Date -Format "HH:mm:ss") `
-        -Page 3 -Align center -FontSize 2
+    $d.WriteText((Get-Date -Format "HH:mm:ss"), 3, 'center', 2, $false)
     Start-Sleep -Milliseconds 500
 }
 ```
@@ -352,7 +352,7 @@ Write multiple status lines pulled from live system data:
 ```powershell
 $d = $dev.GetDisplay()
 $dev.ClearDisplay()
-Write-PsGadgetSsd1306 -Display $d -Text "-- STATUS --" -Page 0 -Align center
+$d.WriteText("-- STATUS --", 0, 'center', 1, $false)
 
 $lines = @(
     "CPU: (Get-WmiObject Win32_Processor | Select -Expand LoadPercentage)%",
@@ -361,7 +361,7 @@ $lines = @(
 )
 
 for ($i = 0; $i -lt $lines.Count; $i++) {
-    Write-PsGadgetSsd1306 -Display $d -Text $lines[$i] -Page ($i + 2)
+    $d.WriteText($lines[$i], $i + 2, 'left', 1, $false)
 }
 ```
 
@@ -372,13 +372,19 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
 
 ## Step 9 - Cursor Positioning for Raw Layout
 
+`Set-PsGadgetSsd1306Cursor` was removed in v0.3.7. For raw GDDRAM writes, use the
+`PsGadgetSsd1306` class methods via `$d = $dev.GetDisplay()`:
+
 ```powershell
-Set-PsGadgetSsd1306Cursor -Display $d -Column 64 -Page 3
+$d = $dev.GetDisplay()
+# WriteText positions automatically per-page. For arbitrary column starts, use
+# Invoke-PsGadgetI2C which exposes all SSD1306 formatting options.
+Invoke-PsGadgetI2C -PsGadget $dev -I2CModule SSD1306 -Text "half" -Page 3 -Align right
 ```
 
-> **Engineer**: Sends command sequence: set column address (0x21, col, 127), set page
-> address (0x22, page, 7). Subsequent 0x40 data bytes write directly to GDDRAM at the
-> specified offset.
+> **Engineer**: The SSD1306 column/page address registers (0x21/0x22) are managed
+> internally by `WriteText()`. PSGadget does not expose a raw cursor API; all positioning
+> goes through the page-based write methods.
 
 ---
 
@@ -497,18 +503,17 @@ try {
 
     $d = $dev.GetDisplay()
     $dev.ClearDisplay()
-    Write-PsGadgetSsd1306 -Display $d -Text "Clock" -Page 0 -Align center
+    $d.WriteText("Clock", 0, 'center', 1, $false)
 
     $deadline = (Get-Date).AddSeconds(10)
     while ((Get-Date) -lt $deadline) {
         $dev.ClearDisplay(3)
-        Write-PsGadgetSsd1306 -Display $d -Text (Get-Date -Format "HH:mm:ss") `
-            -Page 3 -Align center -FontSize 2
+        $d.WriteText((Get-Date -Format "HH:mm:ss"), 3, 'center', 2, $false)
         Start-Sleep -Milliseconds 500
     }
 
     $dev.ClearDisplay()
-    Write-PsGadgetSsd1306 -Display $d -Text "Done." -Page 3 -Align center
+    $d.WriteText("Done.", 3, 'center', 1, $false)
 
 } finally {
     $dev.Close()
@@ -544,7 +549,7 @@ if (-not $setup.IsReady) {
 }
 
 # List devices so Verbose shows the connect hint automatically
-List-PsGadgetFtdi -Verbose | Format-Table Index, Type, SerialNumber, HasMpsse
+Get-PsGadgetFtdi -Verbose | Format-Table Index, Type, SerialNumber, HasMpsse
 
 $dev = New-PsGadgetFtdi -Index 0   # connected immediately - no .Connect() needed
 
@@ -566,18 +571,17 @@ try {
 
     $d = $dev.GetDisplay()
     $dev.ClearDisplay()
-    Write-PsGadgetSsd1306 -Display $d -Text "Clock" -Page 0 -Align center -Verbose
+    $d.WriteText("Clock", 0, 'center', 1, $false)
 
     $deadline = (Get-Date).AddSeconds(10)
     while ((Get-Date) -lt $deadline) {
         $dev.ClearDisplay(3)
-        Write-PsGadgetSsd1306 -Display $d -Text (Get-Date -Format "HH:mm:ss") `
-            -Page 3 -Align center -FontSize 2 -Verbose
+        $d.WriteText((Get-Date -Format "HH:mm:ss"), 3, 'center', 2, $false)
         Start-Sleep -Milliseconds 500
     }
 
     $dev.ClearDisplay()
-    Write-PsGadgetSsd1306 -Display $d -Text "Done." -Page 3 -Align center -Verbose
+    $d.WriteText("Done.", 3, 'center', 1, $false)
 
 } finally {
     $dev.Close()
@@ -591,7 +595,7 @@ Expected console output (abbreviated):
 PsGadget Setup Check
 ----------------------------------------------------
 Platform  : Windows / PS 7.5.4 / .NET 9.0.x
-Backend   : FtdiSharp (D2XX / PS 5.1) -or- IoT (Iot.Device.Bindings / PS 7)
+Backend   : FTD2XX_NET D2XX MPSSE (PS 5.1) -or- IoT (Iot.Device.Bindings / PS 7)
 Native lib: [OK] FTD2XX.dll
 Devices   : 1 device(s) found
 Config    : [OK] C:\Users\you\.psgadget\config.json
@@ -599,7 +603,7 @@ Config    : [OK] C:\Users\you\.psgadget\config.json
   [0] FT232H     SN=FT4ABCDE    GPIO=MPSSE
 Status    : READY
 VERBOSE: All checks passed. Hardware is ready.
-VERBOSE: Quick start: List-PsGadgetFtdi | Format-Table
+VERBOSE: Quick start: Get-PsGadgetFtdi | Format-Table
 VERBOSE: Then:        $dev = New-PsGadgetFtdi -SerialNumber <SN>
 
 VERBOSE:   [0] FT232H  SN=FT4ABCDE  -> $dev = New-PsGadgetFtdi -SerialNumber 'FT4ABCDE'
@@ -639,7 +643,7 @@ Device closed.
 ### Scan returns nothing
 
 - Check VCC and GND first -- display may be unpowered
-- Confirm `HasMpsse = True` via `List-PsGadgetFtdi`
+- Confirm `HasMpsse = True` via `Get-PsGadgetFtdi`
 - Reseat all four jumper wires
 
 ### Partial or garbled text
@@ -653,7 +657,7 @@ PSGadget auto-selects the backend -- no configuration needed:
 
 | PS Version | Backend used | Source |
 |---|---|---|
-| 5.1 | FtdiSharp `Protocols.I2C` | `lib/ftdisharp/FtdiSharp.dll` |
+| 5.1 | FTD2XX_NET D2XX MPSSE | `lib/net48/FTD2XX_NET.dll` |
 | 7.x | .NET IoT `Iot.Device.Ft232H` | `lib/net8/` |
 
 ---

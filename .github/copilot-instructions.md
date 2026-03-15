@@ -82,7 +82,7 @@ pwsh -c ". ./Tests/Test-PsGadgetWindows.ps1"
 
 # Smoke-test cross-platform functions
 Test-PsGadgetEnvironment
-List-PsGadgetFtdi | Format-Table
+Get-PsGadgetFtdi | Format-Table
 $dev = New-PsGadgetFtdi -Index 0
 ```
 
@@ -119,9 +119,9 @@ $dev = New-PsGadgetFtdi -Index 0
 **Exported Public Functions** (defined in [PSGadget.psd1](PSGadget.psd1)):
 - `New-PsGadgetFtdi` - construct and auto-connect an FTDI device object
 - `Test-PsGadgetEnvironment` - validate module environment, drivers, and dependencies
-- `List-PsGadgetFtdi` - enumerate connected FTDI devices (hides VCP by default; use `-ShowVCP`)
+- `Get-PsGadgetFtdi` - enumerate connected FTDI devices (hides VCP by default; use `-ShowVCP`)
 - `Connect-PsGadgetFtdi` - open a connection to an FTDI device by `-Index`
-- `List-PsGadgetMpy` - enumerate MicroPython serial ports
+- `Get-PsGadgetMpy` - enumerate MicroPython serial ports
 - `Connect-PsGadgetMpy` - open a MicroPython REPL connection
 - `Set-PsGadgetGpio` - set GPIO pin state; use `-Index` (not `-DeviceIndex`, which was removed)
 - `Get-PsGadgetFtdiEeprom` - read FTDI device EEPROM

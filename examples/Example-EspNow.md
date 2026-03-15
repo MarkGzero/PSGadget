@@ -213,7 +213,7 @@ the PC. Open a serial connection to confirm the receiver is alive:
 
 ```powershell
 # Find the FT232H COM port
-List-PsGadgetFtdi | Format-Table
+Get-PsGadgetFtdi | Format-Table
 
 # Connect and check receiver banner
 $mpy = Connect-PsGadgetMpy -SerialPort "/dev/ttyUSB0"
@@ -311,7 +311,7 @@ The file is also saved to `~/.psgadget/known_devices.txt` for offline reference.
 | Receiver running, transmitter never pairs | Different `ctssid` on each device | Redeploy both with matching `config.json` |
 | `known_devices.txt` pull says ENOENT | Receiver has not seen any transmitter yet | Wait for transmitter to power on and send at least one packet |
 | Telemetry stops after a while | Transmitter lost receiver MAC (reboot) | Transmitter auto-rediscovers on next boot; power cycle transmitter |
-| `Serial port not found` | Wrong port name | Run `List-PsGadgetMpy` to see available ports |
+| `Serial port not found` | Wrong port name | Run `Get-PsGadgetMpy` to see available ports |
 
 > **Beginner**: If the receiver is running (green NeoPixel flash on boot) but you
 > see no data in PowerShell, the most common cause is the TX/RX wires being

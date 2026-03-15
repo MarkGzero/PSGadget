@@ -23,14 +23,14 @@ function New-PsGadgetFtdi {
     .PARAMETER SerialNumber
     FTDI device serial number (e.g. "FT9ZLJ51").
     Preferred: stable across USB re-plugs regardless of port order.
-    Use List-PsGadgetFtdi to find the serial number.
+    Use Get-PsGadgetFtdi to find the serial number.
 
     .PARAMETER Index
-    FTDI device index (0-based) from List-PsGadgetFtdi.
+    FTDI device index (0-based) from Get-PsGadgetFtdi.
     May change if devices are plugged in different order.
 
     .PARAMETER LocationId
-    FTDI USB LocationId (hub+port address) from List-PsGadgetFtdi.
+    FTDI USB LocationId (hub+port address) from Get-PsGadgetFtdi.
     Stable for a fixed physical USB port - useful for demo rigs.
 
     .EXAMPLE

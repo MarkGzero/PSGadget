@@ -12,14 +12,14 @@ function Connect-PsGadgetMpy {
     
     .PARAMETER SerialPort
     The serial port name to connect to (e.g., COM3, /dev/ttyUSB0). 
-    Use List-PsGadgetMpy to see available ports.
+    Use Get-PsGadgetMpy to see available ports.
     
     .EXAMPLE
     $Device = Connect-PsGadgetMpy -SerialPort "COM3"
     $Info = $Device.GetInfo()
     
     .EXAMPLE
-    $AvailablePorts = List-PsGadgetMpy
+    $AvailablePorts = Get-PsGadgetMpy
     $MpyDevice = Connect-PsGadgetMpy -SerialPort $AvailablePorts[0]
     $Result = $MpyDevice.Invoke("print('Hello from MicroPython')")
     

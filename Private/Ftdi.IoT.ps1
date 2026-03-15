@@ -144,7 +144,7 @@ function Invoke-FtdiIotOpen {
 
         if (-not $rawFtDevice) {
             throw "Could not locate an IoT FtDevice for serial number '$($DeviceInfo.SerialNumber)'. " +
-                  "Try re-running List-PsGadgetFtdi and connecting again."
+                  "Try re-running Get-PsGadgetFtdi and connecting again."
         }
 
         Write-Verbose "Opening $($DeviceInfo.Type) via IoT Ft232HDevice: $($DeviceInfo.Description)"

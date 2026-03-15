@@ -29,7 +29,7 @@ public functions are added.
 Import-Module ./PSGadget.psd1 -Force
 
 # Enumerate all connected FTDI devices
-List-PsGadgetFtdi | Format-Table
+Get-PsGadgetFtdi | Format-Table
 
 # Example output (Windows):
 # Index  Description          SerialNumber  LocationId  Type    GpioMethod  HasMpsse
@@ -49,7 +49,7 @@ automatically. Unload it before using GPIO:
 sudo rmmod ftdi_sio
 ```
 Devices claimed by `ftdi_sio` show as `IsVcp=True` and are hidden from
-`List-PsGadgetFtdi` by default. Use `-ShowVCP` to see them, or unload the
+`Get-PsGadgetFtdi` by default. Use `-ShowVCP` to see them, or unload the
 driver to make them accessible. See [Getting Started - Linux Setup](../docs/wiki/Getting-Started.md#linux-setup)
 for full setup including `libftd2xx.so` installation.
 
@@ -60,7 +60,7 @@ for full setup including `libftd2xx.so` installation.
 The FT232H has a built-in MPSSE engine. GPIO is available immediately on
 ACBUS0-7 (physical pins 21-31). No EEPROM programming is required.
 
-> **VCP driver conflict**: If `List-PsGadgetFtdi -ShowVCP` shows your FT232H device
+> **VCP driver conflict**: If `Get-PsGadgetFtdi -ShowVCP` shows your FT232H device
 > TWICE (once as D2XX and once as a COM port), the EEPROM `IsVCP` flag is set. This
 > prevents MPSSE from gaining exclusive control and GPIO/servo operations will silently
 > fail. Fix it with `Set-PsGadgetFtdiEeprom -Index 0 -DisableVcp` then replug the cable.
@@ -83,7 +83,7 @@ ACBUS0-7 (physical pins 21-31). No EEPROM programming is required.
 
 ```powershell
 # Confirm FT232H is at index 0 with GpioMethod = MPSSE
-List-PsGadgetFtdi | Format-Table
+Get-PsGadgetFtdi | Format-Table
 
 # Set ACBUS2 and ACBUS4 HIGH
 Set-PsGadgetGpio -Index 0 -Pins @(2, 4) -State HIGH
@@ -122,10 +122,10 @@ as the FT232H -- the dispatch is automatic based on the device's GpioMethod.
 ### Step 1 - Identify D2XX-Enabled Device
 
 **How FTDI Dual Driver Enumeration Works:**
-When both VCP and D2XX drivers are installed (standard Windows setup), Windows loads two drivers per physical FTDI device. `List-PsGadgetFtdi` shows only the D2XX-accessible entry by default:
+When both VCP and D2XX drivers are installed (standard Windows setup), Windows loads two drivers per physical FTDI device. `Get-PsGadgetFtdi` shows only the D2XX-accessible entry by default:
 
 ```powershell
-List-PsGadgetFtdi | Format-Table Index, Type, Driver, SerialNumber, LocationId
+Get-PsGadgetFtdi | Format-Table Index, Type, Driver, SerialNumber, LocationId
 
 # Example output (one physical FT232R device):
 # Index Type   Driver     SerialNumber LocationId
@@ -135,7 +135,7 @@ List-PsGadgetFtdi | Format-Table Index, Type, Driver, SerialNumber, LocationId
 
 To see VCP entries as well (e.g. to find the COM port number for serial terminal use):
 ```powershell
-List-PsGadgetFtdi -ShowVCP | Format-Table Index, Type, Driver, SerialNumber, LocationId, ComPort
+Get-PsGadgetFtdi -ShowVCP | Format-Table Index, Type, Driver, SerialNumber, LocationId, ComPort
 
 # Example output with -ShowVCP:
 # Index Type   Driver              SerialNumber LocationId ComPort
@@ -154,7 +154,7 @@ List-PsGadgetFtdi -ShowVCP | Format-Table Index, Type, Driver, SerialNumber, Loc
 **Find your D2XX-enabled device:**
 ```powershell
 # Default output already shows only D2XX devices
-List-PsGadgetFtdi | Format-Table Index, SerialNumber, LocationId
+Get-PsGadgetFtdi | Format-Table Index, SerialNumber, LocationId
 ```
 
 ### Step 2 - Inspect current EEPROM (optional, recommended first time)
@@ -246,19 +246,19 @@ Set-PsGadgetGpio -Index 0 -Pins @(0, 1) -State LOW
 **Error: "Failed to open device via OpenByIndex and OpenBySerialNumber: FT_DEVICE_NOT_FOUND"**
 
 This typically means you're trying to use an index that corresponds to a VCP-mode device.
-VCP devices no longer appear in `List-PsGadgetFtdi` by default so this should be rare.
+VCP devices no longer appear in `Get-PsGadgetFtdi` by default so this should be rare.
 If it occurs, verify your index against current output:
 ```powershell
 # Default output shows only D2XX-accessible devices
-List-PsGadgetFtdi | Format-Table Index, SerialNumber
+Get-PsGadgetFtdi | Format-Table Index, SerialNumber
 
 # Use one of those Index values
 Set-PsGadgetFt232rCbusMode -Index <D2XX_INDEX>
 ```
 
 **Understanding Dual Enumeration:**
-- `List-PsGadgetFtdi` shows D2XX devices only by default (PsGadget-compatible)
-- Use `List-PsGadgetFtdi -ShowVCP` to see VCP entries and their COM port assignments
+- `Get-PsGadgetFtdi` shows D2XX devices only by default (PsGadget-compatible)
+- Use `Get-PsGadgetFtdi -ShowVCP` to see VCP entries and their COM port assignments
 - **ftd2xx.dll entry**: Use for PSGadget EEPROM/GPIO functions
 - **ftdibus.sys (VCP) entry**: Use for serial terminal applications
 - **Serial number pattern**: Same base number, VCP adds "A" suffix
@@ -302,7 +302,7 @@ or `$dev.StepsPerRevolution` rather than hardcoding 2048/4096.
 
 ```powershell
 # Enumerate devices - FT232R or FT232H work equally
-List-PsGadgetFtdi | Format-Table Index, Type, SerialNumber, GpioMethod
+Get-PsGadgetFtdi | Format-Table Index, Type, SerialNumber, GpioMethod
 
 # Step count (one-shot - auto opens and closes device)
 Invoke-PsGadgetStepper -Index 0 -Steps 4076             # ~1 revolution
@@ -575,7 +575,7 @@ PSGadget exposes an object-oriented interface via `New-PsGadgetFtdi`, which retu
 $dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"
 
 # Identify by USB port location (stable for fixed demo rig wiring)
-# List-PsGadgetFtdi | Select-Object Index, SerialNumber, LocationId
+# Get-PsGadgetFtdi | Select-Object Index, SerialNumber, LocationId
 $dev = New-PsGadgetFtdi -LocationId 197634
 
 # FT232R CBUS GPIO (pins 0-3)
@@ -648,7 +648,7 @@ $conn.Close()
 | Function                    | Purpose                                                       |
 |-----------------------------|---------------------------------------------------------------|
 | New-PsGadgetFtdi            | Create a PsGadgetFtdi device object (OOP entry point; -SerialNumber, -Index, or -LocationId) |
-| List-PsGadgetFtdi           | Enumerate PsGadget-compatible FTDI devices (D2XX only by default; use -ShowVCP to include VCP) |
+| Get-PsGadgetFtdi           | Enumerate PsGadget-compatible FTDI devices (D2XX only by default; use -ShowVCP to include VCP) |
 | Connect-PsGadgetFtdi        | Open a device connection by index, serial number, or LocationId |
 | Get-PsGadgetFtdiEeprom      | Read EEPROM contents (FT232H and FT232R: inspect IsVCP flag, CBUS/ACBUS modes, drive settings) |
 | Set-PsGadgetFtdiEeprom      | Write EEPROM settings for FT232H or FT232R (-DisableVcp to fix VCP/MPSSE conflict; -CbusPins to configure CBUS pins; -ACDriveCurrent/-ADDriveCurrent for FT232H) |
@@ -657,7 +657,7 @@ $conn.Close()
 | Invoke-PsGadgetI2C          | Unified I2C dispatch (-I2CModule PCA9685 for servo control, SSD1306 for OLED); auto-opens/closes device unless -PsGadget supplied |
 | Invoke-PsGadgetI2CScan      | Scan I2C bus and report devices found (-Index, -SerialNumber) |
 | Invoke-PsGadgetStepper      | Drive a stepper motor via async bit-bang ADBUS0-3 (FT232R or FT232H); -Steps or -Degrees; -StepsPerRevolution for calibrated angles (28BYJ-48 default ~4075.77 half-steps/rev, NOT 4096) |
-| List-PsGadgetMpy            | Enumerate MicroPython serial ports                            |
+| Get-PsGadgetMpy            | Enumerate MicroPython serial ports                            |
 | Connect-PsGadgetMpy         | Open a MicroPython REPL connection                            |
 | Install-PsGadgetMpyScript   | Deploy bundled ESP-NOW Receiver or Transmitter main.py + config.json to an ESP32 via mpremote (-SerialPort, -Role, -ConfigPath, -Force) |
 | Get-PsGadgetEspNowDevices   | Pull known_devices.txt from Receiver flash via mpremote; returns [PSCustomObject]{Mac, LastSeen}[] (-SerialPort, -OutputPath) |

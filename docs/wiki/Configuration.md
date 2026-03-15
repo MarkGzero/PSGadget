@@ -141,13 +141,13 @@ Sets the device's power-on default to D2XX-only, eliminating the duplicate VCP
 
 **Enable when:**
 - You only use PSGadget (D2XX) and never need the COM port
-- The duplicate VCP entry in `List-PsGadgetFtdi` is confusing or causing conflicts
+- The duplicate VCP entry in `Get-PsGadgetFtdi` is confusing or causing conflicts
 - CI/automation scenarios where COM port enumeration is undesirable
 
 **Leave disabled when:**
 - You also use the FT232R as a serial port with tools like PuTTY or Arduino IDE
 
-**Effect on `List-PsGadgetFtdi`:**
+**Effect on `Get-PsGadgetFtdi`:**
 With `false` (default), one physical device appears twice: once as `ftd2xx.dll`
 (D2XX) and once as `ftdibus.sys (VCP)` with a COM port. With `true`, it appears
 only once, as D2XX, with no COM port entry.

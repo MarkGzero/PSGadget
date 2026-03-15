@@ -20,7 +20,7 @@ $e = Test-PsGadgetEnvironment
 ## Device enumeration and connect
 
 ```powershell
-List-PsGadgetFtdi | Format-Table Index, Type, SerialNumber, GpioMethod
+Get-PsGadgetFtdi | Format-Table Index, Type, SerialNumber, GpioMethod
 
 # By serial number (recommended -- stable across USB port changes)
 $dev = New-PsGadgetFtdi -SerialNumber 'BG01X3GX'
@@ -29,7 +29,7 @@ $dev = New-PsGadgetFtdi -SerialNumber 'BG01X3GX'
 $dev = New-PsGadgetFtdi -Index 0
 
 # By type
-$sn  = (List-PsGadgetFtdi | Where-Object { $_.Type -eq 'FT232H' })[0].SerialNumber
+$sn  = (Get-PsGadgetFtdi | Where-Object { $_.Type -eq 'FT232H' })[0].SerialNumber
 $dev = New-PsGadgetFtdi -SerialNumber $sn
 ```
 
@@ -99,7 +99,7 @@ Bit mask is 8 bits: upper nibble = direction, lower nibble = value.
 ## MicroPython
 
 ```powershell
-List-PsGadgetMpy | Format-Table
+Get-PsGadgetMpy | Format-Table
 
 $mpy = Connect-PsGadgetMpy -SerialPort '/dev/ttyUSB0'
 $mpy.Invoke("import sys; print(sys.version)")

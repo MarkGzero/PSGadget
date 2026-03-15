@@ -24,9 +24,9 @@ Describe 'PsGadget Module Tests' {
         
         It 'Should export the correct functions' {
             $ExportedFunctions = (Get-Module PSGadget).ExportedFunctions.Keys
-            $ExportedFunctions | Should -Contain 'List-PsGadgetFtdi'
+            $ExportedFunctions | Should -Contain 'Get-PsGadgetFtdi'
             $ExportedFunctions | Should -Contain 'Connect-PsGadgetFtdi'
-            $ExportedFunctions | Should -Contain 'List-PsGadgetMpy'
+            $ExportedFunctions | Should -Contain 'Get-PsGadgetMpy'
             $ExportedFunctions | Should -Contain 'Connect-PsGadgetMpy'
             $ExportedFunctions | Should -Contain 'Set-PsGadgetGpio'
             $ExportedFunctions | Should -Contain 'Test-PsGadgetEnvironment'
@@ -92,11 +92,11 @@ Describe 'PsGadget Module Tests' {
 
     Context 'FTDI Functions' {
         It 'Should list FTDI devices without error' {
-            { List-PsGadgetFtdi } | Should -Not -Throw
+            { Get-PsGadgetFtdi } | Should -Not -Throw
         }
         
-        It 'Should return array from List-PsGadgetFtdi' {
-            $Result = List-PsGadgetFtdi
+        It 'Should return array from Get-PsGadgetFtdi' {
+            $Result = Get-PsGadgetFtdi
             # Use GetType() to check array type directly; piping to Should -BeOfType
             # unrolls the array and checks each element, which would fail for PSCustomObject.
             @($Result).Count | Should -BeGreaterThan 0
@@ -119,11 +119,11 @@ Describe 'PsGadget Module Tests' {
 
     Context 'MicroPython Functions' {
         It 'Should list serial ports without error' {
-            { List-PsGadgetMpy } | Should -Not -Throw
+            { Get-PsGadgetMpy } | Should -Not -Throw
         }
         
-        It 'Should return array from List-PsGadgetMpy' {
-            $Result = List-PsGadgetMpy
+        It 'Should return array from Get-PsGadgetMpy' {
+            $Result = Get-PsGadgetMpy
             # Wrapping in @() handles both array and scalar returns.
             # On CI/Linux without physical serial ports, stubs provide at least one entry.
             @($Result).Count | Should -BeGreaterThan 0

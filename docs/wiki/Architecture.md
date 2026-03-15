@@ -197,7 +197,7 @@ PSGadget/
     Mpy.Backend.ps1              mpremote operations (Protocol)
   Public/
     Test-PsGadgetEnvironment.ps1
-    List-PsGadgetFtdi.ps1
+    Get-PsGadgetFtdi.ps1
     Connect-PsGadgetFtdi.ps1
     New-PsGadgetFtdi.ps1
     Set-PsGadgetGpio.ps1
@@ -208,7 +208,7 @@ PSGadget/
     Clear-PsGadgetSsd1306.ps1
     Write-PsGadgetSsd1306.ps1
     Set-PsGadgetSsd1306Cursor.ps1
-    List-PsGadgetMpy.ps1
+    Get-PsGadgetMpy.ps1
     Connect-PsGadgetMpy.ps1
     Get-PsGadgetConfig.ps1
     Set-PsGadgetConfig.ps1
@@ -277,7 +277,7 @@ Script-scope flags set after loading:
 When no backend loads (missing native library, unsupported platform, or
 development machine with no hardware), all device operations run in stub mode:
 
-- `List-PsGadgetFtdi` returns two simulated devices (FT232H + FT232R).
+- `Get-PsGadgetFtdi` returns two simulated devices (FT232H + FT232R).
 - `Connect-PsGadgetFtdi` returns a stub handle.
 - GPIO and I2C calls log to the method but do not send bytes.
 - `Test-PsGadgetEnvironment` reports `Backend: Stub (no hardware access)`.

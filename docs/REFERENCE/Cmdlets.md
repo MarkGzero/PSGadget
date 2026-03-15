@@ -40,12 +40,12 @@ Test-PsGadgetEnvironment [-Verbose]
 
 ## FTDI device management
 
-### List-PsGadgetFtdi
+### Get-PsGadgetFtdi
 
 Lists connected FTDI devices.
 
 ```powershell
-List-PsGadgetFtdi [-ShowVCP]
+Get-PsGadgetFtdi [-ShowVCP]
 ```
 
 **Parameters:**
@@ -70,7 +70,7 @@ New-PsGadgetFtdi [-Index <int>] [-SerialNumber <string>] [-LocationId <string>]
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| Index | int | Zero-based device index from `List-PsGadgetFtdi` |
+| Index | int | Zero-based device index from `Get-PsGadgetFtdi` |
 | SerialNumber | string | Device serial number (stable across USB ports) |
 | LocationId | string | USB location ID |
 
@@ -257,13 +257,13 @@ Set-PsGadgetSsd1306Cursor -Display <object> -Page <int> -Column <int>
 
 ## MicroPython
 
-### List-PsGadgetMpy
+### Get-PsGadgetMpy
 
 Lists available serial ports. With `-Detailed`, adds VID/PID and board
 identification via WMI (Windows) or port metadata (Unix).
 
 ```powershell
-List-PsGadgetMpy [-Detailed]
+Get-PsGadgetMpy [-Detailed]
 ```
 
 **Parameters:**

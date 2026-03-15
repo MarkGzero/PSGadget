@@ -1,7 +1,7 @@
-# List-PsGadgetMpy.ps1
+# Get-PsGadgetMpy.ps1
 # Enumerate available serial ports for MicroPython devices
 
-function List-PsGadgetMpy {
+function Get-PsGadgetMpy {
     <#
     .SYNOPSIS
     Lists all available serial ports that could contain MicroPython devices.
@@ -15,10 +15,10 @@ function List-PsGadgetMpy {
     properties instead of plain port name strings.
     
     .EXAMPLE
-    List-PsGadgetMpy
+    Get-PsGadgetMpy
     
     .EXAMPLE
-    List-PsGadgetMpy -Detailed | Where-Object { $_.IsMicroPython } | Select Port, FriendlyName, Manufacturer
+    Get-PsGadgetMpy -Detailed | Where-Object { $_.IsMicroPython } | Select Port, FriendlyName, Manufacturer
     
     .OUTPUTS
     System.String[] when called without -Detailed.

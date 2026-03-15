@@ -159,7 +159,7 @@ function Test-PsGadgetEnvironment {
     $deviceNote = 'None found'
 
     try {
-        $devices = @(List-PsGadgetFtdi -ErrorAction SilentlyContinue)
+        $devices = @(Get-PsGadgetFtdi -ErrorAction SilentlyContinue)
         if ($devices.Count -gt 0) {
             $deviceNote = "$($devices.Count) device(s) found"
         }
@@ -252,7 +252,7 @@ function Test-PsGadgetEnvironment {
     if ($isReady) {
         $resultStatus   = 'OK'
         $resultReason   = 'All checks passed'
-        $resultNextStep = 'Run: List-PsGadgetFtdi | Format-Table'
+        $resultNextStep = 'Run: Get-PsGadgetFtdi | Format-Table'
     } elseif (-not $backendOk -and $isSnapPwsh) {
         $resultStatus   = 'Fail'
         $resultReason   = 'snap-confined pwsh: GLIBC mismatch prevents libftd2xx.so from loading (snap bundled glibc is older than library requirement)'
@@ -294,7 +294,7 @@ function Test-PsGadgetEnvironment {
 
     if ($isReady) {
         Write-Verbose 'All checks passed. Hardware is ready.'
-        Write-Verbose 'Quick start: List-PsGadgetFtdi | Format-Table'
+        Write-Verbose 'Quick start: Get-PsGadgetFtdi | Format-Table'
         Write-Verbose 'Then:        $dev = New-PsGadgetFtdi -SerialNumber <SN>'
     }
 

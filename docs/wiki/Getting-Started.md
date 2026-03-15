@@ -56,7 +56,7 @@ The first import also creates `~/.psgadget/` with `logs/` and a default
 ## Step 1 -- Find Your Device
 
 ```powershell
-List-PsGadgetFtdi | Format-Table
+Get-PsGadgetFtdi | Format-Table
 ```
 
 Example output on Windows with one FT232H and one FT232R plugged in (Linux output is similar -- see [Linux Setup](#linux-setup)):
@@ -92,7 +92,7 @@ is blocked.
 
 ```powershell
 # With ftdi_sio loaded -- device appears as VCP, hidden by default
-List-PsGadgetFtdi -ShowVCP
+Get-PsGadgetFtdi -ShowVCP
 
 # Index  Type    LocationId    Driver          IsVcp
 # -----  ----    ----------    ------          -----
@@ -109,7 +109,7 @@ After unloading:
 
 ```powershell
 # Device now appears in default listing (no -ShowVCP needed)
-List-PsGadgetFtdi
+Get-PsGadgetFtdi
 
 # Index  Type    LocationId       Driver  IsVcp
 # -----  ----    ----------       ------  -----
@@ -243,7 +243,7 @@ $ftdi.Close()
 
 ```powershell
 # Find MicroPython devices
-List-PsGadgetMpy
+Get-PsGadgetMpy
 
 # Connect and run code
 $mpy = Connect-PsGadgetMpy -SerialPort "/dev/ttyUSB0"   # or COM3 on Windows
@@ -265,7 +265,7 @@ $dev = New-PsGadgetFtdi -LocationId 197634   # connected immediately
 Set-PsGadgetGpio -SerialNumber "FT4ABCDE" -Pins @(0) -State HIGH
 ```
 
-Use `List-PsGadgetFtdi | Select-Object SerialNumber, LocationId` to find
+Use `Get-PsGadgetFtdi | Select-Object SerialNumber, LocationId` to find
 these values.
 
 ---
