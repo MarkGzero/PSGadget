@@ -167,6 +167,10 @@ The device is open and ready to use on the line immediately after.
 
 ## Step 3 - Scan the I2C Bus (recommended)
 
+Note: When using the quiic I2C connector, dont forget to flip the mode switch to "on" position
+
+![ft232h-i2c](..\docs\images\ft232h_i2c.png)
+
 Before initializing the display, confirm it is visible on the bus:
 
 ```powershell

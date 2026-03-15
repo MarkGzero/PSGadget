@@ -621,6 +621,74 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
         }
     }
 
+    # Draw a 2-pixel border around the entire display, render "PsGadget" centered,
+    # flush once, hold for 3 seconds, then clear.
+    [bool] ShowSplash() {
+        if (-not $this.IsInitialized) {
+            $this.Logger.WriteError("SSD1306 not initialized")
+            return $false
+        }
+
+        $this.Logger.WriteInfo("ShowSplash: 2-px border + 'PsGadget' label")
+
+        try {
+            # Start clean
+            [System.Array]::Clear($this.FrameBuffer, 0, $this.FrameBuffer.Length)
+
+            # 2-pixel border — top and bottom rows
+            for ($x = 0; $x -lt $this.LogicalWidth; $x++) {
+                $this.SetLogicalPixel($x, 0, $true)
+                $this.SetLogicalPixel($x, 1, $true)
+                $this.SetLogicalPixel($x, $this.LogicalHeight - 2, $true)
+                $this.SetLogicalPixel($x, $this.LogicalHeight - 1, $true)
+            }
+            # 2-pixel border — left and right columns (corners already set above)
+            for ($y = 2; $y -lt ($this.LogicalHeight - 2); $y++) {
+                $this.SetLogicalPixel(0,                       $y, $true)
+                $this.SetLogicalPixel(1,                       $y, $true)
+                $this.SetLogicalPixel($this.LogicalWidth - 2,  $y, $true)
+                $this.SetLogicalPixel($this.LogicalWidth - 1,  $y, $true)
+            }
+
+            # "PsGadget" — pixel-perfect center (not snapped to page boundary)
+            [string]$label   = 'PsGadget'
+            [int]$textWidth  = 0
+            foreach ($c in $label.ToCharArray()) {
+                $k = [string]$c
+                $textWidth += (if ($this.Glyphs.ContainsKey($k)) { $this.Glyphs[$k] } else { $this.Glyphs[' '] }).Count
+            }
+            [int]$startX = [math]::Max(0, [math]::Floor(($this.LogicalWidth  - $textWidth) / 2))
+            [int]$startY = [math]::Floor(($this.LogicalHeight - 8) / 2)
+
+            [int]$lx = $startX
+            foreach ($c in $label.ToCharArray()) {
+                $k = [string]$c
+                [byte[]]$g = if ($this.Glyphs.ContainsKey($k)) { [byte[]]$this.Glyphs[$k] } else { [byte[]]$this.Glyphs[' '] }
+                for ($col = 0; $col -lt $g.Count; $col++) {
+                    [byte]$colByte = $g[$col]
+                    for ($bit = 0; $bit -lt 8; $bit++) {
+                        if ($colByte -band (1 -shl $bit)) {
+                            $this.SetLogicalPixel($lx + $col, $startY + $bit, $true)
+                        }
+                    }
+                }
+                $lx += $g.Count
+            }
+
+            # One bulk push — border + text in a single display update
+            $this.FlushAll() | Out-Null
+
+            Start-Sleep -Seconds 3
+
+            $this.Clear() | Out-Null
+            return $true
+
+        } catch {
+            $this.Logger.WriteError("ShowSplash failed: $_")
+            return $false
+        }
+    }
+
     # ---------------------------------------------------------------------------
     # Rotation management
     # ---------------------------------------------------------------------------
