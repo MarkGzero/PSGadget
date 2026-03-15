@@ -1,7 +1,7 @@
 @{
     # Module metadata
     RootModule           = 'PSGadget.psm1'
-    ModuleVersion        = '0.3.6'
+    ModuleVersion        = '0.3.7'
     CompatiblePSEditions = @('Desktop', 'Core')
     GUID                 = '72440f23-d3c6-4249-83eb-9affa6df882b'
 
@@ -33,7 +33,6 @@
         'Set-PsGadgetConfig',
         'Install-PsGadgetMpyScript',
         'Get-PsGadgetEspNowDevices',
-        'Send-PsGadgetI2CWrite',
         'Invoke-PsGadgetI2CScan',
         'Invoke-PsGadgetI2C',
         'Invoke-PsGadgetStepper'
@@ -65,21 +64,15 @@
         'Private/Initialize-PsGadgetEnvironment.ps1',
         'Private/Invoke-NativeProcess.ps1',
         'Private/Mpy.Backend.ps1',
-        'Public/Clear-PsGadgetSsd1306.ps1',
+        'Private/Send-PsGadgetI2CWrite.ps1',
         'Public/Connect-PsGadgetFtdi.ps1',
         'Public/Connect-PsGadgetMpy.ps1',
-        'Public/Connect-PsGadgetPca9685.ps1',
-        'Public/Connect-PsGadgetSsd1306.ps1',
         'Public/Get-PsGadgetConfig.ps1',
         'Public/Get-PsGadgetEspNowDevices.ps1',
         'Public/Get-PsGadgetFtdiEeprom.ps1',
-        'Public/Get-PsGadgetPca9685Channel.ps1',
-        'Public/Get-PsGadgetPca9685Frequency.ps1',
         'Public/Install-PsGadgetMpyScript.ps1',
         'Public/Invoke-PsGadgetStepper.ps1',
         'Public/Invoke-PsGadgetI2CScan.ps1',
-        'Public/Invoke-PsGadgetPca9685SetChannel.ps1',
-        'Public/Invoke-PsGadgetPca9685SetChannels.ps1',
         'Public/List-PsGadgetFtdi.ps1',
         'Public/List-PsGadgetMpy.ps1',
         'Public/New-PsGadgetFtdi.ps1',
@@ -88,10 +81,7 @@
         'Public/Set-PsGadgetFt232rCbusMode.ps1',
         'Public/Set-PsGadgetFtdiEeprom.ps1',
         'Public/Set-PsGadgetFtdiMode.ps1',
-        'Public/Send-PsGadgetI2CWrite.ps1',
         'Public/Set-PsGadgetGpio.ps1',
-        'Public/Set-PsGadgetSsd1306Cursor.ps1',
-        'Public/Write-PsGadgetSsd1306.ps1',
         'lib/net48/FTD2XX_NET.dll',
         'lib/net48/FTD2XX_NET.xml',
         'lib/netstandard20/FTD2XX_NET.dll',
@@ -110,7 +100,7 @@
             LicenseUri   = 'https://opensource.org/licenses/MIT'
             ProjectUri   = 'https://github.com/MarkGzero/PsGadget'
             IconUri      = ''
-            ReleaseNotes = 'v0.3.6: Invoke-PsGadgetStepper - unified stepper motor cmdlet for FT232R/FT232H via async bit-bang. Bulk USB write for jitter-free step timing. Calibrated StepsPerRevolution (28BYJ-48: ~4075.77 half-steps, NOT 4096). Angle-based moves via -Degrees. PsGadgetFtdi.Step() and .StepDegrees() shorthand methods. v0.3.5: SSD1306 OLED integrated into Invoke-PsGadgetI2C. v0.3.4: ESP-NOW wireless telemetry.'
+            ReleaseNotes = 'v0.3.7: Removed 9 deprecated SSD1306/PCA9685 wrapper functions; Send-PsGadgetI2CWrite demoted to internal private helper. Invoke-PsGadgetI2C is now the sole I2C entry point. PsGadgetFtdi.GetDisplay/Display/ClearDisplay use class methods directly. v0.3.6: Invoke-PsGadgetStepper - unified stepper motor cmdlet for FT232R/FT232H via async bit-bang. Bulk USB write for jitter-free step timing. Calibrated StepsPerRevolution (28BYJ-48: ~4075.77 half-steps, NOT 4096). Angle-based moves via -Degrees. PsGadgetFtdi.Step() and .StepDegrees() shorthand methods. v0.3.5: SSD1306 OLED integrated into Invoke-PsGadgetI2C. v0.3.4: ESP-NOW wireless telemetry.'
         }
     }
 }

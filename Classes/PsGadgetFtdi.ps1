@@ -227,8 +227,8 @@ class PsGadgetFtdi : System.IDisposable {
     #
     # Usage:
     #   $d = $dev.GetDisplay()
-    #   Write-PsGadgetSsd1306 -Display $d -Text "Clock" -Page 0 -Align center -FontSize 2
-    #   Clear-PsGadgetSsd1306 -Display $d -Page 0
+    #   $d.WriteText("Clock", 0, 'center', 2, $false)
+    #   $d.ClearPage(0)
     [PsGadgetSsd1306] GetDisplay() {
         return $this.GetDisplay(0x3C)
     }
@@ -239,16 +239,18 @@ class PsGadgetFtdi : System.IDisposable {
             throw [System.InvalidOperationException]::new('Device not open. Call Connect() first.')
         }
         if (-not $this._display -or -not $this._display.IsInitialized) {
-            $this._display = Connect-PsGadgetSsd1306 -FtdiDevice $this._connection -Address $Address
-            if (-not $this._display) {
-                throw [System.InvalidOperationException]::new('Failed to connect to SSD1306 display at 0x' + $Address.ToString('X2'))
+            $ssd = [PsGadgetSsd1306]::new($this._connection, $Address)
+            $ssd.Initialize($false) | Out-Null
+            if (-not $ssd.IsInitialized) {
+                throw [System.InvalidOperationException]::new('Failed to initialize SSD1306 display at 0x' + $Address.ToString('X2'))
             }
+            $this._display = $ssd
         }
         return $this._display
     }
 
-    # Display() - write text to the SSD1306 OLED.
-    # For alignment/FontSize/Invert use $dev.GetDisplay() then Write-PsGadgetSsd1306.
+    # Display() - write text to the SSD1306 OLED (left-aligned, FontSize 1).
+    # For alignment/FontSize/Invert use $dev.GetDisplay() then call .WriteText() directly.
     [void] Display([string]$Text) {
         $this.Display($Text, 0, 0x3C)
     }
@@ -259,7 +261,7 @@ class PsGadgetFtdi : System.IDisposable {
 
     [void] Display([string]$Text, [int]$Page, [byte]$Address) {
         $this.Logger.WriteTrace("Display('$Text', page=$Page, addr=0x$($Address.ToString('X2')))")
-        Write-PsGadgetSsd1306 -Display $this.GetDisplay($Address) -Text $Text -Page $Page | Out-Null
+        $this.GetDisplay($Address).WriteText($Text, $Page, 'left', 1, $false) | Out-Null
     }
 
     # ClearDisplay() - clear all pages or a single page.
@@ -274,9 +276,9 @@ class PsGadgetFtdi : System.IDisposable {
     [void] ClearDisplay([int]$Page, [byte]$Address) {
         $this.Logger.WriteTrace("ClearDisplay(page=$Page, addr=0x$($Address.ToString('X2')))")
         if ($Page -ge 0) {
-            Clear-PsGadgetSsd1306 -Display $this.GetDisplay($Address) -Page $Page | Out-Null
+            $this.GetDisplay($Address).ClearPage($Page) | Out-Null
         } else {
-            Clear-PsGadgetSsd1306 -Display $this.GetDisplay($Address) | Out-Null
+            $this.GetDisplay($Address).Clear() | Out-Null
         }
     }
 

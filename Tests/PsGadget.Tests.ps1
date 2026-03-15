@@ -43,7 +43,7 @@ Describe 'PsGadget Module Tests' {
         }
         
         It 'Should have the correct module version' {
-            (Get-Module PSGadget).Version.ToString() | Should -Be '0.3.6'
+            (Get-Module PSGadget).Version.ToString() | Should -Be '0.3.7'
         }
     }
 
@@ -225,8 +225,8 @@ Describe 'PsGadget Module Tests' {
                 $pca = [PsGadgetPca9685]::new($stubHandle, [byte]0x40)
                 $pca.Initialize() | Should -Be $true
 
-                Invoke-PsGadgetPca9685SetChannel -PsGadget $pca -Channel 0 -Degrees 135 | Should -Be $true
-                Get-PsGadgetPca9685Channel -PsGadget $pca -Channel 0 | Should -Be 135
+                $pca.SetChannel(0, 135) | Should -Be $true
+                $pca.GetChannel(0) | Should -Be 135
             }
         }
 
@@ -236,10 +236,10 @@ Describe 'PsGadget Module Tests' {
                 $pca = [PsGadgetPca9685]::new($stubHandle, [byte]0x40)
                 $pca.Initialize() | Should -Be $true
 
-                Invoke-PsGadgetPca9685SetChannels -PsGadget $pca -Degrees @(15, 90, 165) | Should -Be $true
-                Get-PsGadgetPca9685Channel -PsGadget $pca -Channel 0 | Should -Be 15
-                Get-PsGadgetPca9685Channel -PsGadget $pca -Channel 1 | Should -Be 90
-                Get-PsGadgetPca9685Channel -PsGadget $pca -Channel 2 | Should -Be 165
+                $pca.SetChannels([int[]]@(15, 90, 165)) | Should -Be $true
+                $pca.GetChannel(0) | Should -Be 15
+                $pca.GetChannel(1) | Should -Be 90
+                $pca.GetChannel(2) | Should -Be 165
             }
         }
 
@@ -249,7 +249,7 @@ Describe 'PsGadget Module Tests' {
                 $pca = [PsGadgetPca9685]::new($stubHandle, [byte]0x40)
                 $pca.Initialize() | Should -Be $true
 
-                Get-PsGadgetPca9685Frequency -PsGadget $pca | Should -Be 50
+                $pca.GetFrequency() | Should -Be 50
             }
         }
     }
