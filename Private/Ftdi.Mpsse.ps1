@@ -677,12 +677,20 @@ function Send-MpsseI2CWrite {
                 # Per-byte ACK reads are skipped — SSD1306 always ACKs data bytes,
                 # and polling the RX buffer per byte is the dominant latency source.
                 # ------------------------------------------------------------------
-                $dataBuf = [System.Collections.Generic.List[byte]]::new($Data.Length * 4 + 1)
+                $dataBuf = [System.Collections.Generic.List[byte]]::new($Data.Length * 13 + 1)
                 foreach ($b in $Data) {
                     # 0x11,0x00,0x00,$b: MSB_FALLING_EDGE_CLOCK_BYTE_OUT, 1 byte (length-1=0)
                     $dataBuf.AddRange([byte[]](0x11, 0x00, 0x00, $b))
+                    # 9th ACK clock: release SDA then pulse SCL once.
+                    # SDA is driven high (master owns the bus, slave ACK/NACK is ignored).
+                    # Without this clock pulse the slave expects one more edge before it
+                    # latches the byte; the next 0x11 byte's first edge is consumed as the
+                    # ACK clock and all subsequent bytes are misaligned by 1 bit.
+                    $dataBuf.AddRange([byte[]](0x80, 0x02, 0x03))  # SDA=hi, SCL=lo (release SDA)
+                    $dataBuf.AddRange([byte[]](0x80, 0x03, 0x03))  # SDA=hi, SCL=hi (ACK clock hi)
+                    $dataBuf.AddRange([byte[]](0x80, 0x02, 0x03))  # SDA=hi, SCL=lo (ACK clock lo)
                 }
-                $dataBuf.Add([byte]0x87)   # SEND_IMMEDIATE: flush after all data bytes
+                $dataBuf.Add([byte]0x87)   # SEND_IMMEDIATE: flush entire payload
 
                 if ($ByteDump) {
                     Write-Verbose ("I2C TX data: {0} byte(s)" -f $Data.Length)
