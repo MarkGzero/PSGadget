@@ -17,6 +17,10 @@ class PsGadgetFtdi : System.IDisposable {
     # Stores initialized I2C device objects so re-calls skip construction + hardware init.
     hidden [hashtable]$_i2cDevices = $null
 
+    # SSD1306 display height (32 or 64 pixels).  Set before first GetDisplay() call.
+    # Writable via New-PsGadgetFtdi -DisplayHeight 32 or directly: $dev.DisplayHeight = 32
+    [int]$DisplayHeight = 64
+
     # Stepper motor calibration.
     # 0.0 = use mode-appropriate default from Get-PsGadgetStepperDefaultStepsPerRev:
     #   Half: ~4075.77  Full: ~2037.89  (28BYJ-48 empirical, NOT 2048/4096)
@@ -230,16 +234,25 @@ class PsGadgetFtdi : System.IDisposable {
     #   $d.WriteText("Clock", 0, 'center', 2, $false)
     #   $d.ClearPage(0)
     [PsGadgetSsd1306] GetDisplay() {
-        return $this.GetDisplay(0x3C)
+        return $this.GetDisplay(0x3C, $this.DisplayHeight)
     }
 
     [PsGadgetSsd1306] GetDisplay([byte]$Address) {
-        $this.Logger.WriteTrace("GetDisplay(0x$($Address.ToString('X2')))")
+        return $this.GetDisplay($Address, $this.DisplayHeight)
+    }
+
+    [PsGadgetSsd1306] GetDisplay([byte]$Address, [int]$Height) {
+        $this.Logger.WriteTrace("GetDisplay(0x$($Address.ToString('X2')), height=$Height)")
         if (-not $this.IsOpen) {
             throw [System.InvalidOperationException]::new('Device not open. Call Connect() first.')
         }
+        # Invalidate cached display if height changed (e.g. caller corrects after first use).
+        if ($this._display -and $this._display.IsInitialized -and $this._display.Height -ne $Height) {
+            $this.Logger.WriteInfo("DisplayHeight changed ($($this._display.Height) -> $Height): reinitializing SSD1306")
+            $this._display = $null
+        }
         if (-not $this._display -or -not $this._display.IsInitialized) {
-            $ssd = [PsGadgetSsd1306]::new($this._connection, $Address)
+            $ssd = [PsGadgetSsd1306]::new($this._connection, $Address, $Height)
             $ssd.Initialize($false) | Out-Null
             if (-not $ssd.IsInitialized) {
                 throw [System.InvalidOperationException]::new('Failed to initialize SSD1306 display at 0x' + $Address.ToString('X2'))

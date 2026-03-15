@@ -33,6 +33,16 @@ function New-PsGadgetFtdi {
     FTDI USB LocationId (hub+port address) from Get-PsGadgetFtdi.
     Stable for a fixed physical USB port - useful for demo rigs.
 
+    .PARAMETER DisplayHeight
+    SSD1306 OLED display height in pixels. Use 32 for 128x32 displays, 64 (default) for 128x64.
+    Sets $dev.DisplayHeight before the first GetDisplay() call.  Can also be changed afterwards:
+        $dev.DisplayHeight = 32
+
+    .EXAMPLE
+    # 128x32 OLED
+    $dev = New-PsGadgetFtdi -Index 0 -DisplayHeight 32
+    $dev.Display('hello')
+
     .EXAMPLE
     # Minimal - index workflow
     $dev = New-PsGadgetFtdi -Index 0
@@ -80,7 +90,11 @@ function New-PsGadgetFtdi {
 
         [Parameter(Mandatory = $true, ParameterSetName = 'ByLocation', Position = 0)]
         [ValidateNotNullOrEmpty()]
-        [string]$LocationId
+        [string]$LocationId,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet(32, 64)]
+        [int]$DisplayHeight = 64
     )
 
     if ($PSCmdlet.ParameterSetName -eq 'BySerial') {
@@ -96,6 +110,7 @@ function New-PsGadgetFtdi {
 
     # Connect immediately - mirrors MicroPython construction-implies-connection convention.
     # .Connect() is idempotent: if already open it returns immediately; if closed it reconnects.
+    $dev.DisplayHeight = $DisplayHeight
     $dev.Connect()
     return $dev
 }
