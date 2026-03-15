@@ -213,36 +213,11 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
             [byte]$muxRatio = [byte]($this.Height - 1)
             [byte]$comPins  = if ($this.Height -eq 32) { 0x02 } else { 0x12 }
 
-            # SSD1306 initialization sequence
-            $initCommands = @(
-                0xAE,          # Display OFF
-                0xD5, 0x80,    # Set Display Clock Divide Ratio / Oscillator Frequency
-                0xA8, $muxRatio, # Set Multiplex Ratio (height-dependent)
-                0xD3, 0x00,    # Set Display Offset (no offset)
-                0x40,          # Set Display Start Line = 0
-                0x8D, 0x14,    # Charge Pump Setting (Enable)
-                0x20, 0x00,    # Memory Addressing Mode = Horizontal
-                # Segment remap and COM scan: 0deg/90deg/270deg = standard; 180deg = both flipped
-                $(if ($this.Rotation -eq 180) { [byte]0xA0 } else { [byte]0xA1 }),
-                $(if ($this.Rotation -eq 180) { [byte]0xC0 } else { [byte]0xC8 }),
-                0xDA, $comPins, # Set COM Pins Hardware Configuration (height-dependent)
-                0x81, 0xCF,    # Set Contrast Control (0xCF = high)
-                0xD9, 0xF1,    # Set Pre-charge Period
-                0xDB, 0x40,    # Set VCOMH Deselect Level
-                0xA4,          # Resume to RAM content display
-                0xA6,          # Normal display (non-inverted)
-                0xAF           # Display ON
-            )
-            
-            # Send each command with control byte 0x00
-            foreach ($cmd in $initCommands) {
-                [byte[]]$data = @(0x00, $cmd)
-                if (-not $this.I2CWrite($data)) {
-                    throw ("Failed to send initialization command: 0x{0:X2}" -f $cmd)
-                }
-                Start-Sleep -Milliseconds 1
-            }
-            
+            # Send the full initialization sequence as one batched I2C transaction.
+            # PAGE addressing mode (0x20 0x02): page-mode cursor commands (0xB0+page, 0x00, 0x10)
+            # remain valid and FlushPhysPage continues to work without change.
+            Initialize-Ssd1306 -device $this -height $this.Height -rotation $this.Rotation | Out-Null
+
             $this.IsInitialized = $true
             $this.FrameBuffer = New-Object byte[] ($this.Width * $this.Pages)
             $this.Logger.WriteInfo("SSD1306 initialization completed successfully")
@@ -262,8 +237,8 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
         }
         $this.Logger.WriteInfo("Clearing SSD1306 display")
         try {
-            [System.Array]::Clear($this.FrameBuffer, 0, $this.FrameBuffer.Length)
-            return $this.FlushAll()
+            Clear-Ssd1306Display -device $this -frameBuffer $this.FrameBuffer -pages $this.Pages | Out-Null
+            return $true
         } catch {
             $this.Logger.WriteError("Failed to clear display: $_")
             return $false
@@ -759,11 +734,7 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
     # Send one physical page from the framebuffer to the hardware.
     hidden [bool] FlushPhysPage([int]$physPage) {
         try {
-            if (-not $this.SetCursor(0, $physPage)) { throw "SetCursor failed for page $physPage" }
-            [byte[]]$payload = New-Object byte[] ($this.Width + 1)
-            $payload[0] = [byte]0x40
-            [System.Array]::Copy($this.FrameBuffer, $physPage * $this.Width, $payload, 1, $this.Width)
-            if (-not $this.I2CWrite($payload)) { throw "I2CWrite failed for page $physPage" }
+            Write-Ssd1306Page -device $this -physPage $physPage -frameBuffer $this.FrameBuffer -width $this.Width | Out-Null
             return $true
         } catch {
             $this.Logger.WriteError("FlushPhysPage $physPage failed: $_")
@@ -771,12 +742,15 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
         }
     }
 
-    # Send all physical pages to the hardware.
+    # Send all physical pages to the hardware as a single bulk transfer.
     hidden [bool] FlushAll() {
-        for ($p = 0; $p -lt $this.Pages; $p++) {
-            if (-not $this.FlushPhysPage($p)) { return $false }
+        try {
+            Write-Ssd1306Display -device $this -frameBuffer $this.FrameBuffer -pages $this.Pages | Out-Null
+            return $true
+        } catch {
+            $this.Logger.WriteError("FlushAll failed: $_")
+            return $false
         }
-        return $true
     }
 
     # Send the physical pages affected by logical rows yStart..yEnd.

@@ -557,6 +557,9 @@ function Send-MpsseI2CWrite {
     .DESCRIPTION
     Writes data to an I2C device using MPSSE bit-banging.
     Handles I2C start condition, address, data, and stop condition.
+    Optimized: address phase uses 1 Write + 1 Read (NACK detection retained);
+    data phase uses a single Write for all bytes (no per-byte ACK reads).
+    Result: any-length I2C write = 4 USB round-trips instead of N*2.
     
     .PARAMETER DeviceHandle
     Handle to the opened FTDI device
@@ -603,11 +606,6 @@ function Send-MpsseI2CWrite {
         if ($isRealDevice) {
             if (-not $rawDevice) { throw 'Cannot resolve raw FTDI device handle for I2C write' }
 
-            # Assemble the ordered list of bytes to clock: address (write) then data
-            $allBytes = [System.Collections.Generic.List[byte]]::new()
-            $allBytes.Add([byte](($Address -shl 1) -bor 0x00))  # 7-bit address + R/W=0 (write)
-            foreach ($b in $Data) { $allBytes.Add([byte]$b) }
-
             # Pre-build START and STOP byte sequences matching FtdiSharp reference.
             # Multiple repeated transitions ensure signal integrity on slow/capacitive buses.
             #
@@ -632,7 +630,9 @@ function Send-MpsseI2CWrite {
             $st = $rawDevice.Write($startCmd, [uint32]$startCmd.Length, [ref]$bw)
             if ([int]$st -ne 0) { throw "I2C START failed: D2XX status=$st" }
 
-            # Clock each byte out and validate ACK before proceeding to the next byte.
+            # ------------------------------------------------------------------
+            # Address phase: 1 Write + 1 Read (ACK check retained for address
+            # NACK detection).
             #
             # Per FtdiSharp FTDI_SendByte:
             #   0x11, 0x00, 0x00, $b  - MSB_FALLING_EDGE_CLOCK_BYTE_OUT (1 byte, length-1=0)
@@ -640,48 +640,59 @@ function Send-MpsseI2CWrite {
             #   0x22, 0x00            - MSB_RISING_EDGE_CLOCK_BIT_IN (1 bit, length-1=0)
             #   0x87                  - SEND_IMMEDIATE: flush MPSSE RX buffer to host now
             # Read back 1 byte: bit 0 = ACK bit.  0=ACK (device held SDA low), 1=NACK.
-            for ($byteIdx = 0; $byteIdx -lt $allBytes.Count; $byteIdx++) {
-                [byte]$b = $allBytes[$byteIdx]
+            # ------------------------------------------------------------------
+            [byte]$addrByte = [byte](($Address -shl 1) -bor 0x00)   # 7-bit addr + R/W=0 (write)
+            [byte[]]$addrCmd = @(
+                0x11, 0x00, 0x00, $addrByte,  # clock address byte out, MSB-first, falling edge
+                0x80, 0x02, 0x03,              # release SDA high (SDAhi_SCLlo) before ACK
+                0x22, 0x00,                    # clock in 1 ACK bit, rising edge
+                0x87                           # SEND_IMMEDIATE
+            )
 
-                [byte[]]$byteCmd = @(
-                    0x11, 0x00, 0x00, $b,   # clock 1 byte out, falling edge, MSB first
-                    0x80, 0x02, 0x03,        # release SDA high (SDAhi_SCLlo) before ACK
-                    0x22, 0x00,              # clock in 1 ACK bit, rising edge
-                    0x87                     # SEND_IMMEDIATE
-                )
+            if ($ByteDump) {
+                Write-Verbose ("I2C TX addr=0x{0:X2} (wire=0x{1:X2})" -f $Address, $addrByte)
+            }
+
+            [uint32]$bwa = 0
+            $st = $rawDevice.Write($addrCmd, [uint32]$addrCmd.Length, [ref]$bwa)
+            if ([int]$st -ne 0) { throw "I2C address byte write failed: D2XX status=$st" }
+
+            [byte[]]$ackBuf = [byte[]]::new(1)
+            [uint32]$bra = 0
+            $rawDevice.Read($ackBuf, [uint32]1, [ref]$bra) | Out-Null
+
+            if ($bra -ne 1 -or ($ackBuf[0] -band 0x01) -ne 0) {
+                $nackPhase = 'address phase'
+            }
+
+            if ($ByteDump -and $bra -eq 1) {
+                $ackLabel = if (($ackBuf[0] -band 0x01) -eq 0) { 'ACK' } else { 'NACK' }
+                Write-Verbose ("I2C addr ACK: raw=0x{0:X2} ({1})" -f $ackBuf[0], $ackLabel)
+            }
+
+            if (-not $nackPhase) {
+                # ------------------------------------------------------------------
+                # Data phase: build all data byte MPSSE commands in one buffer and
+                # issue a SINGLE $rawDevice.Write() call for the entire payload.
+                # Per-byte ACK reads are skipped — SSD1306 always ACKs data bytes,
+                # and polling the RX buffer per byte is the dominant latency source.
+                # ------------------------------------------------------------------
+                $dataBuf = [System.Collections.Generic.List[byte]]::new($Data.Length * 4 + 1)
+                foreach ($b in $Data) {
+                    # 0x11,0x00,0x00,$b: MSB_FALLING_EDGE_CLOCK_BYTE_OUT, 1 byte (length-1=0)
+                    $dataBuf.AddRange([byte[]](0x11, 0x00, 0x00, $b))
+                }
+                $dataBuf.Add([byte]0x87)   # SEND_IMMEDIATE: flush after all data bytes
 
                 if ($ByteDump) {
-                    Write-Verbose ("I2C TX byte[{0}]=0x{1:X2} cmd: {2}" -f $byteIdx, $b, (($byteCmd | ForEach-Object { '0x{0:X2}' -f $_ }) -join ' '))
+                    Write-Verbose ("I2C TX data: {0} byte(s)" -f $Data.Length)
                 }
 
-                [uint32]$bwb = 0
-                $st = $rawDevice.Write($byteCmd, [uint32]$byteCmd.Length, [ref]$bwb)
+                [byte[]]$dataCmd = $dataBuf.ToArray()
+                [uint32]$bwd = 0
+                $st = $rawDevice.Write($dataCmd, [uint32]$dataCmd.Length, [ref]$bwd)
                 if ([int]$st -ne 0) {
-                    throw ("I2C write failed at byte {0}: D2XX status={1}" -f $byteIdx, $st)
-                }
-
-                # Read the 1 ACK bit clocked in by 0x22
-                [byte[]]$ackBuf = [byte[]]::new(1)
-                [uint32]$br = 0
-                Start-Sleep -Milliseconds 2
-                $rawDevice.Read($ackBuf, [uint32]1, [ref]$br) | Out-Null
-
-                if ($br -ne 1) {
-                    $nackPhase = if ($byteIdx -eq 0) { 'address phase' } else { "data byte $byteIdx" }
-                    break
-                }
-
-                # Bit 0 of result = ACK bit.  0 = ACK (device held SDA low), 1 = NACK.
-                $ackBit = $ackBuf[0] -band 0x01
-
-                if ($ByteDump) {
-                    $ackLabel = if ($ackBit -eq 0) { 'ACK' } else { 'NACK' }
-                    Write-Verbose ("I2C ACK byte[{0}]: raw=0x{1:X2} bit0={2} ({3})" -f $byteIdx, $ackBuf[0], $ackBit, $ackLabel)
-                }
-
-                if ($ackBit -ne 0) {
-                    $nackPhase = if ($byteIdx -eq 0) { 'address phase' } else { "data byte $byteIdx" }
-                    break
+                    throw ("I2C data phase write failed: D2XX status={0}" -f $st)
                 }
             }
 
@@ -705,7 +716,7 @@ function Send-MpsseI2CWrite {
     }
 
     # NACK check outside try/catch so it throws as a terminating error (not caught above).
-    # Stop was already sent inside the loop to release the bus before we arrive here.
+    # Stop was already sent inside the block to release the bus before we arrive here.
     if ($nackPhase) {
         $msg = "I2C NACK from device 0x{0:X2} at {1}" -f $Address, $nackPhase
         Write-Verbose $msg
