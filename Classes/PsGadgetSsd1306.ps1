@@ -220,6 +220,10 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
 
             $this.IsInitialized = $true
             $this.FrameBuffer = New-Object byte[] ($this.Width * $this.Pages)
+            # Clear the hardware GDDRAM to match the zeroed framebuffer.
+            # Reference implementation always clears after init; some displays retain
+            # GDDRAM across power cycles and will show stale data without this.
+            Write-Ssd1306Display -device $this -frameBuffer $this.FrameBuffer -pages $this.Pages | Out-Null
             $this.Logger.WriteInfo("SSD1306 initialization completed successfully")
             return $true
             

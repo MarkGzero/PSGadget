@@ -105,8 +105,8 @@ function Initialize-Ssd1306 {
 
     try {
         # Height-dependent init values:
-        #   128x64: mux=0x3F (63), COM pins=0x12 (alt config, left/right remap)
-        #   128x32: mux=0x1F (31), COM pins=0x02 (sequential, no remap)
+        #   128x64: mux=0x3F (63), COM pins=0x12 (alt config)
+        #   128x32: mux=0x1F (31), COM pins=0x02 (sequential)
         [byte]$muxRatio = [byte]($height - 1)
         [byte]$comPins  = if ($height -eq 32) { 0x02 } else { 0x12 }
 
@@ -115,8 +115,10 @@ function Initialize-Ssd1306 {
         [byte]$segRemap = if ($rotation -eq 180) { 0xA0 } else { 0xA1 }
         [byte]$comScan  = if ($rotation -eq 180) { 0xC0 } else { 0xC8 }
 
-        # Full SSD1306 initialization sequence — PAGE addressing mode (0x20 0x02).
-        # All bytes are sent in one I2C transaction via Send-Ssd1306Command.
+        # Full SSD1306 initialization sequence — HORIZONTAL addressing mode (0x20 0x00).
+        # Commands are sent one byte per I2C transaction (matching the proven reference
+        # implementation). Some SSD1306 clones do not handle multi-byte streaming mode
+        # (Co=0) reliably during init; per-byte writes are universally compatible.
         [byte[]]$initCommands = @(
             0xAE,                      # Display OFF
             0xD5, 0x80,                # Set Display Clock Divide Ratio / Oscillator Frequency
@@ -124,7 +126,7 @@ function Initialize-Ssd1306 {
             0xD3, 0x00,                # Set Display Offset (no offset)
             0x40,                      # Set Display Start Line = 0
             0x8D, 0x14,                # Charge Pump Setting (Enable)
-            0x20, 0x02,                # Memory Addressing Mode = PAGE (not horizontal 0x00)
+            0x20, 0x00,                # Memory Addressing Mode = HORIZONTAL
             $segRemap,                 # Segment re-map (rotation-dependent)
             $comScan,                  # COM output scan direction (rotation-dependent)
             0xDA, $comPins,            # Set COM Pins Hardware Configuration (height-dependent)
@@ -136,11 +138,11 @@ function Initialize-Ssd1306 {
             0xAF                       # Display ON
         )
 
-        Write-Verbose ("Initialize-Ssd1306: sending {0}-byte init sequence (height={1}, rotation={2})" -f $initCommands.Length, $height, $rotation)
-        Send-Ssd1306Command -device $device -commands $initCommands | Out-Null
-
-        # Allow hardware to settle after power-on init sequence (charge pump, oscillator).
-        Start-Sleep -Milliseconds 5
+        Write-Verbose ("Initialize-Ssd1306: sending {0} init bytes (height={1}, rotation={2})" -f $initCommands.Length, $height, $rotation)
+        foreach ($cmd in $initCommands) {
+            $device.I2CWrite([byte[]](0x00, $cmd)) | Out-Null
+            Start-Sleep -Milliseconds 1
+        }
 
         return $true
     } catch {
@@ -182,9 +184,12 @@ function Write-Ssd1306Page {
     )
 
     try {
-        # Cursor set: page (0xB0+page), column low nibble 0 (0x00), column high nibble 0 (0x10).
-        [byte[]]$cursorCmd = @([byte](0xB0 + $physPage), [byte]0x00, [byte]0x10)
-        Send-Ssd1306Command -device $device -commands $cursorCmd | Out-Null
+        # Cursor set: 3 separate I2C transactions matching the reference Set-Ssd1306Cursor.
+        # Many SSD1306 clones tolerate multi-byte streaming (Co=0) for data but not for
+        # cursor commands. Three individual writes are universally reliable.
+        $device.I2CWrite([byte[]](0x00, [byte](0xB0 + $physPage))) | Out-Null  # set page
+        $device.I2CWrite([byte[]](0x00, [byte]0x00)) | Out-Null                 # col low  = 0
+        $device.I2CWrite([byte[]](0x00, [byte]0x10)) | Out-Null                 # col high = 0
 
         # Page data: $width bytes from the framebuffer starting at this page's offset.
         [byte[]]$pageData = [byte[]]::new($width)
