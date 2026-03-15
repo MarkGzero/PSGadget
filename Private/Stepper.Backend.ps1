@@ -158,68 +158,106 @@ function Invoke-PsGadgetStepperMove {
 
     $log.WriteTrace("StepperMove: phase buffer $Steps bytes built")
 
-    # --- enter async bit-bang mode (sets ADBUS direction mask) ---
-    # Re-uses Set-PsGadgetFtdiMode so the connection's ActiveMode/GpioMethod
-    # are updated consistently with the rest of the module.
-    $conn       = $Ftdi._connection
-    $activeMode = if ($conn -and $conn.PSObject.Properties['ActiveMode']) { $conn.ActiveMode } else { '' }
-
-    if ($activeMode -ne 'AsyncBitBang') {
-        $log.WriteInfo("StepperMove: switching to AsyncBitBang (was '$activeMode')")
-
-        # FT232H / MPSSE devices require a device reset before switching to async
-        # bit-bang mode.  Without the reset, SetBitMode(AsyncBitBang) may be
-        # silently ignored and the pins remain under MPSSE control.
-        if ($conn -and $conn.PSObject.Properties['Device'] -and $conn.Device) {
-            try {
-                $conn.Device.ResetDevice() | Out-Null
-                $log.WriteTrace("StepperMove: ResetDevice before mode switch")
-                Start-Sleep -Milliseconds 50
-                $conn.Device.Purge(3) | Out-Null
-                Start-Sleep -Milliseconds 10
-            } catch {
-                $log.WriteTrace("StepperMove: ResetDevice/Purge not available: $($_.Exception.Message)")
-            }
-        }
-
-        Set-PsGadgetFtdiMode -PsGadget $Ftdi -Mode AsyncBitBang -Mask $PinMask | Out-Null
-    }
+    $conn      = $Ftdi._connection
+    $gpioMethod = if ($conn -and $conn.PSObject.Properties['GpioMethod']) { $conn.GpioMethod } else { '' }
 
     # --- write per-step loop ---
-    # The FT232H baud-rate timer does not pace async bit-bang writes reliably -
-    # a bulk Write() call returns immediately while the chip flushes all bytes
-    # at USB-transfer speed (all coils fire in ~20ms total regardless of baud).
-    # Per-step 1-byte writes with Start-Sleep are used instead.  The USB
-    # round-trip (~1ms) plus the explicit sleep gives a predictable per-step
-    # interval.  For 4076 steps at 2ms delay this is ~8 seconds per revolution,
-    # which is within the 28BYJ-48 operating range (max ~15 rpm output shaft).
+    # Two hardware paths:
+    #
+    # MPSSE (FT232H default): use the MPSSE SET_BITS_LOW command (0x80, value, direction).
+    #   Three bytes per step, device stays in MPSSE mode, no mode switch or reset needed.
+    #   D4-D7 are available as general GPIO; D0-D3 are reserved for MPSSE clock/data.
+    #   Reference: FtdiSharp GPIO.Write(), FTDI AN_108 section 3.6.1.
+    #
+    # AsyncBitBang (FT232R or explicit override): 1-byte direct pin state write.
+    #   Requires prior SetBitMode(AsyncBitBang). Mode switch handled below.
+    #
+    # Both paths use a Stopwatch spin-wait instead of Start-Sleep.
+    # Start-Sleep has a ~15ms minimum granularity on Windows; the spin-wait
+    # achieves sub-millisecond accuracy at the cost of one CPU core spinning
+    # for the duration of the move.
+
     if ($conn -and $conn.PSObject.Properties['Device'] -and $conn.Device) {
-        $log.WriteInfo("StepperMove: per-step write loop $Steps steps @ ${DelayMs}ms")
-        $stepBuf = [byte[]]@(0x00)
-        try {
-            for ($i = 0; $i -lt $Steps; $i++) {
-                $stepBuf[0] = $buf[$i]
-                [uint32]$written = 0
-                $conn.Device.Write($stepBuf, 1, [ref]$written) | Out-Null
-                Start-Sleep -Milliseconds $DelayMs
+
+        $sw          = [System.Diagnostics.Stopwatch]::new()
+        $targetTicks = [long]($DelayMs * ([System.Diagnostics.Stopwatch]::Frequency / 1000.0))
+
+        if ($gpioMethod -eq 'MPSSE' -or $gpioMethod -eq 'MpsseI2c') {
+            # MPSSE GPIO path: SET_BITS_LOW (0x80), value, direction
+            # Direction byte = PinMask (all bits in mask are outputs).
+            # No mode switch; device remains MPSSE-capable for I2C/SSD1306 after call.
+            $log.WriteInfo("StepperMove: MPSSE GPIO path, $Steps steps @ ${DelayMs}ms")
+            $mpsseCmd = [byte[]]@(0x80, 0x00, $PinMask)
+            try {
+                for ($i = 0; $i -lt $Steps; $i++) {
+                    $mpsseCmd[1] = $buf[$i]
+                    [uint32]$written = 0
+                    $sw.Restart()
+                    $conn.Device.Write($mpsseCmd, 3, [ref]$written) | Out-Null
+                    while ($sw.ElapsedTicks -lt $targetTicks) {}
+                }
+                $log.WriteInfo("StepperMove: completed $Steps steps (MPSSE)")
+            } catch [System.NotImplementedException] {
+                $log.WriteTrace("StepperMove stub: FT_Write not implemented (no hardware)")
+            } catch {
+                $log.WriteError("StepperMove FT_Write error: $($_.Exception.Message)")
+                throw
             }
-            $log.WriteInfo("StepperMove: completed $Steps steps")
-        } catch [System.NotImplementedException] {
-            $log.WriteTrace("StepperMove stub: FT_Write not implemented (no hardware)")
-        } catch {
-            $log.WriteError("StepperMove FT_Write error: $($_.Exception.Message)")
-            throw
+            # De-energize: set all coil pins low, keep direction mask
+            try {
+                $mpsseCmd[1] = 0x00
+                [uint32]$zw = 0
+                $conn.Device.Write($mpsseCmd, 3, [ref]$zw) | Out-Null
+                $log.WriteTrace("StepperMove: coils de-energized (MPSSE)")
+            } catch {
+                $log.WriteTrace("StepperMove de-energize stub: $($_.Exception.Message)")
+            }
+
+        } else {
+            # AsyncBitBang path (FT232R or devices not in MPSSE mode).
+            # Switch mode if needed; FT232H opened in MPSSE requires a reset first.
+            $activeMode = if ($conn.PSObject.Properties['ActiveMode']) { $conn.ActiveMode } else { '' }
+            if ($activeMode -ne 'AsyncBitBang') {
+                $log.WriteInfo("StepperMove: switching to AsyncBitBang (was '$activeMode')")
+                try {
+                    $conn.Device.ResetDevice() | Out-Null
+                    $log.WriteTrace("StepperMove: ResetDevice before mode switch")
+                    Start-Sleep -Milliseconds 50
+                    $conn.Device.Purge(3) | Out-Null
+                    Start-Sleep -Milliseconds 10
+                } catch {
+                    $log.WriteTrace("StepperMove: ResetDevice/Purge not available: $($_.Exception.Message)")
+                }
+                Set-PsGadgetFtdiMode -PsGadget $Ftdi -Mode AsyncBitBang -Mask $PinMask | Out-Null
+            }
+
+            $log.WriteInfo("StepperMove: AsyncBitBang path, $Steps steps @ ${DelayMs}ms")
+            $stepBuf = [byte[]]@(0x00)
+            try {
+                for ($i = 0; $i -lt $Steps; $i++) {
+                    $stepBuf[0] = $buf[$i]
+                    [uint32]$written = 0
+                    $sw.Restart()
+                    $conn.Device.Write($stepBuf, 1, [ref]$written) | Out-Null
+                    while ($sw.ElapsedTicks -lt $targetTicks) {}
+                }
+                $log.WriteInfo("StepperMove: completed $Steps steps (AsyncBitBang)")
+            } catch [System.NotImplementedException] {
+                $log.WriteTrace("StepperMove stub: FT_Write not implemented (no hardware)")
+            } catch {
+                $log.WriteError("StepperMove FT_Write error: $($_.Exception.Message)")
+                throw
+            }
+            try {
+                $stepBuf[0] = 0x00
+                [uint32]$zw = 0
+                $conn.Device.Write($stepBuf, 1, [ref]$zw) | Out-Null
+                $log.WriteTrace("StepperMove: coils de-energized (AsyncBitBang)")
+            } catch {
+                $log.WriteTrace("StepperMove de-energize stub: $($_.Exception.Message)")
+            }
         }
 
-        # De-energize coils after move to prevent heat at rest
-        try {
-            $stepBuf[0] = 0x00
-            [uint32]$zw = 0
-            $conn.Device.Write($stepBuf, 1, [ref]$zw) | Out-Null
-            $log.WriteTrace("StepperMove: coils de-energized")
-        } catch {
-            $log.WriteTrace("StepperMove de-energize stub: $($_.Exception.Message)")
-        }
     } else {
         # Stub mode: no device handle
         $log.WriteTrace("StepperMove stub: no Device handle (Steps=$Steps, Mode=$StepMode, Dir=$Direction)")
