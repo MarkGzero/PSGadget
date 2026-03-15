@@ -12,7 +12,7 @@ function New-PsGadgetFtdi {
 
     .DESCRIPTION
     Instantiates a PsGadgetFtdi object and opens the hardware connection in one
-    step.  The returned object is already open -- call .Scan(), .Display(),
+    step.  The returned object is already open -- call .ScanI2CBus(), .Display(),
     .SetPin() etc. directly.  Call .Close() when done, or wrap in try/finally
     for deterministic cleanup.
 
@@ -46,7 +46,7 @@ function New-PsGadgetFtdi {
     .EXAMPLE
     # Minimal - index workflow
     $dev = New-PsGadgetFtdi -Index 0
-    $dev.Scan() | Format-Table
+    $dev.ScanI2CBus() | Format-Table
     $dev.Display("Hello", 0)
     $dev.Close()
 

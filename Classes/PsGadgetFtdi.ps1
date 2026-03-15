@@ -299,8 +299,8 @@ class PsGadgetFtdi : System.IDisposable {
     # Requires an MPSSE-capable device (FT232H) and an open connection.
     # IoT backend uses .NET IoT I2cBus; D2XX backend uses MPSSE bit-bang.
     # Returns an array of [PSCustomObject]@{ Address; Hex } for each ACK.
-    [System.Object[]] Scan() {
-        $this.Logger.WriteInfo('Scan() - I2C bus scan 0x08-0x77')
+    [System.Object[]] ScanI2CBus() {
+        $this.Logger.WriteInfo('ScanI2CBus() - I2C bus scan 0x08-0x77')
         if (-not $this.IsOpen) {
             throw [System.InvalidOperationException]::new('Device not open. Call Connect() first.')
         }
@@ -309,7 +309,7 @@ class PsGadgetFtdi : System.IDisposable {
                 "I2C scan requires an MPSSE device (FT232H). This device uses GpioMethod=$($this.GpioMethod).")
         }
         $devices = Invoke-FtdiI2CScan -Connection $this._connection
-        $this.Logger.WriteInfo("Scan() found $($devices.Count) device(s)")
+        $this.Logger.WriteInfo("ScanI2CBus() found $($devices.Count) device(s)")
         return $devices
     }
 

@@ -215,7 +215,7 @@ function Test-PsGadgetEnvironment {
         }
 
         if ($caps.HasMpsse) {
-            Write-Verbose ("      I2C scan: `$dev.Scan()")
+            Write-Verbose ("      I2C scan: `$dev.ScanI2CBus()")
             Write-Verbose ("      Display : `$dev.Display('Hello world', 0)")
         }
     }
