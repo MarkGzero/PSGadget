@@ -251,7 +251,8 @@ class PsGadgetFtdi : System.IDisposable {
             $this._display = $null
         }
         if (-not $this._display -or -not $this._display.IsInitialized) {
-            Write-Host "GetDisplay: initializing SSD1306 0x$($Address.ToString('X2')) height=${Height}px. Default is 128x64 - use New-PsGadgetFtdi -DisplayHeight 32 for 128x32 modules."
+            $hint = if ($Height -eq 64) { ' (for 128x32 modules use: New-PsGadgetFtdi -DisplayHeight 32)' } else { '' }
+            Write-Host "[SSD1306] 0x$($Address.ToString('X2')) ready at 128x${Height}${hint}"
             $ssd = [PsGadgetSsd1306]::new($this._connection, $Address, $Height)
             $ssd.Initialize($false) | Out-Null
             if (-not $ssd.IsInitialized) {

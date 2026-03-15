@@ -507,7 +507,8 @@ function Invoke-PsGadgetI2CSsd1306 {
         $ssd = $Ftdi._i2cDevices[$cacheKey]
         Write-Verbose "Using cached SSD1306 ($DisplayHeight px) at 0x$($I2CAddress.ToString('X2'))"
     } else {
-        Write-Information "SSD1306: initializing at height=${DisplayHeight}px. Default is 128x64 - add -DisplayHeight 32 for 128x32 modules." -InformationAction Continue
+        $hint = if ($DisplayHeight -eq 64) { ' (for 128x32 modules add: -DisplayHeight 32)' } else { '' }
+        Write-Information "[SSD1306] 0x$($I2CAddress.ToString('X2')) ready at 128x${DisplayHeight}${hint}" -InformationAction Continue
         $ssd = [PsGadgetSsd1306]::new($Ftdi._connection, $I2CAddress, [int]$DisplayHeight)
         if (-not $ssd.Initialize($false)) {
             throw "SSD1306 Initialize() failed at address 0x$($I2CAddress.ToString('X2'))"
