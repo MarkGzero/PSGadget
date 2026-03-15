@@ -1,10 +1,11 @@
-# Example: Stepper Motor Control with FT232H (CBUS/MPSSE) or FT232RNL (CBUS)
+# Example: Stepper Motor Control with FT232H (ADBUS D4-D7 / MPSSE) or FT232RNL (CBUS)
 
 Drive a 5V geared stepper (28BYJ-48 or similar) via a KS0327/ULN2003 driver
 board using an FTDI USB adapter. Two hardware paths are covered:
 
-- **FT232H / MPSSE** — CBUS0-3 output; no EEPROM programming required.
-  This is the recommended path and is what most PSGadget kit builds use.
+- **FT232H / MPSSE** — ADBUS D4-D7 output (physical pins D4, D5, D6, D7 on the
+  breakout board); no EEPROM programming required. This is the recommended
+  path and is what most PSGadget kit builds use.
 - **FT232RNL / CBUS** — CBUS0-3 output; requires a one-time EEPROM write.
 
 Both paths use the same `Set-PsGadgetGpio` cmdlet at runtime.
@@ -13,32 +14,40 @@ Both paths use the same `Set-PsGadgetGpio` cmdlet at runtime.
 
 ## Table of Contents
 
-- [Who This Is For](#who-this-is-for)
-- [What You Need](#what-you-need)
-- [Hardware Background](#hardware-background)
-  - [Wiring - FT232H CBUS (recommended)](#wiring---ft232h-cbus-recommended)
-  - [Wiring - FT232RNL CBUS](#wiring---ft232rnl-cbus)
-  - [Coil sequencing](#coil-sequencing)
-  - [Power considerations](#power-considerations)
-- [Step 1 - Install Drivers and Verify Detection](#step-1---install-drivers-and-verify-detection)
-- [Step 2 - Program CBUS EEPROM (one-time, FT232R only)](#step-2---program-cbus-eeprom-one-time-ft232r-only)
-- [Step 3 - Verify GPIO Availability](#step-3---verify-gpio-availability)
-- [Step 4 - Smoke Test](#step-4---smoke-test)
-  - [FT232H / MPSSE path](#ft232h--mpsse-path)
-  - [FT232R / CBUS path](#ft232r--cbus-path)
-- [Step 5 - Invoke-PsGadgetStepper (Recommended)](#step-5---invoke-psgadgetstepper-recommended)
-- [Step 6 - Precise Motion Script (Manual API)](#step-6---precise-motion-script-manual-api)
-  - [Half-step function](#half-step-function)
-  - [Rotate by degrees](#rotate-by-degrees)
-- [Timing and Debugging](#timing-and-debugging)
-- [Troubleshooting](#troubleshooting)
-  - [Motor does not move](#motor-does-not-move)
-  - [Only one coil energizes](#only-one-coil-energizes)
-  - [Stepper shudders or stalls](#stepper-shudders-or-stalls)
-- [Quick Reference (Pro)](#quick-reference-pro)
-- [Speeding Up](#speeding-up)
-- [Exploring PSGadget Objects](#exploring-psgadget-objects)
-- [Practical Example: Laser Aiming Rig](#practical-example-laser-aiming-rig)
+- [Example: Stepper Motor Control with FT232H (ADBUS D4-D7 / MPSSE) or FT232RNL (CBUS)](#example-stepper-motor-control-with-ft232h-adbus-d4-d7--mpsse-or-ft232rnl-cbus)
+  - [Table of Contents](#table-of-contents)
+  - [Who This Is For](#who-this-is-for)
+  - [What You Need](#what-you-need)
+  - [Hardware Background](#hardware-background)
+    - [Wiring - FT232H ADBUS D4-D7 (recommended)](#wiring---ft232h-adbus-d4-d7-recommended)
+    - [Wiring - FT232RNL CBUS](#wiring---ft232rnl-cbus)
+    - [Coil sequencing](#coil-sequencing)
+    - [Power considerations](#power-considerations)
+  - [Step 1 - Install Drivers and Verify Detection](#step-1---install-drivers-and-verify-detection)
+  - [Step 2 - Program CBUS EEPROM (one-time, FT232R only)](#step-2---program-cbus-eeprom-one-time-ft232r-only)
+  - [Step 3 - Verify GPIO Availability](#step-3---verify-gpio-availability)
+  - [Step 4 - Smoke Test](#step-4---smoke-test)
+    - [FT232H / MPSSE path](#ft232h--mpsse-path)
+    - [FT232R / CBUS path](#ft232r--cbus-path)
+  - [Step 5 - Invoke-PsGadgetStepper (Recommended)](#step-5---invoke-psgadgetstepper-recommended)
+  - [Step 6 - Precise Motion Script (Manual API)](#step-6---precise-motion-script-manual-api)
+    - [Optional: use Async Bit‑Bang for smoother motion](#optional-use-async-bitbang-for-smoother-motion)
+    - [Half-step function](#half-step-function)
+    - [Rotate by degrees](#rotate-by-degrees)
+  - [Timing and Debugging](#timing-and-debugging)
+  - [Speeding Up](#speeding-up)
+    - [Cause 1: Windows timer resolution (biggest impact)](#cause-1-windows-timer-resolution-biggest-impact)
+    - [Cause 2: PowerShell cmdlet overhead per step](#cause-2-powershell-cmdlet-overhead-per-step)
+  - [Exploring PSGadget Objects](#exploring-psgadget-objects)
+    - [Why this works](#why-this-works)
+    - [How to interrogate any object](#how-to-interrogate-any-object)
+  - [Troubleshooting](#troubleshooting)
+    - [Motor does not move](#motor-does-not-move)
+    - [Only one coil energizes](#only-one-coil-energizes)
+    - [Stepper shudders or stalls](#stepper-shudders-or-stalls)
+    - [FT232H commissioning journal: what went wrong and how it was fixed](#ft232h-commissioning-journal-what-went-wrong-and-how-it-was-fixed)
+  - [Quick Reference (Pro)](#quick-reference-pro)
+  - [Practical Example: Laser Aiming Rig](#practical-example-laser-aiming-rig)
 
 ---
 
@@ -81,22 +90,29 @@ This example is written for:
 
 ## Hardware Background
 
-### Wiring - FT232H CBUS (recommended)
+### Wiring - FT232H ADBUS D4-D7 (recommended)
 
-Connect CBUS0-3 directly to ULN2003 IN1-IN4. No EEPROM programming needed.
+Connect D4-D7 directly to ULN2003 IN1-IN4. No EEPROM programming needed.
+Use `-PinOffset 4 -PinMask 0xF0` with `Invoke-PsGadgetStepper`.
 
-| FT232H pin | CBUS signal | ULN2003 input | Coil      |
-|-----------|-------------|---------------|-----------|
-| CBUS0     | `CBUS0`     | `IN1`         | Coil A    |
-| CBUS1     | `CBUS1`     | `IN2`         | Coil A'   |
-| CBUS2     | `CBUS2`     | `IN3`         | Coil B    |
-| CBUS3     | `CBUS3`     | `IN4`         | Coil B'   |
-| 5 V USB   |              | `5 V`         | Motor supply |
-| GND       |              | `GND`         | Common ground |
+| FT232H pin | ADBUS signal | ULN2003 input | Coil         |
+|------------|--------------|---------------|--------------|
+| D4         | `ADBUS4`     | `IN1`         | Coil A       |
+| D5         | `ADBUS5`     | `IN2`         | Coil A'      |
+| D6         | `ADBUS6`     | `IN3`         | Coil B       |
+| D7         | `ADBUS7`     | `IN4`         | Coil B'      |
+| 5 V USB    |              | `5 V`         | Motor supply |
+| GND        |              | `GND`         | Common ground |
 
-> **Engineer**: CBUS0-3 are driven by the MPSSE engine's high-byte port
-> (`0x82` command). All four bits are set atomically in a single 3-byte USB
-> transfer, which is what gives the FT232H path its clean step timing.
+> **Important**: D0-D3 (ADBUS0-3) are **reserved** by the MPSSE engine for
+> SCK/MOSI/MISO/CS. Wiring the stepper to D0-D3 produces no output - the
+> MPSSE engine retains control of those pins at all times.
+
+> **Engineer**: ADBUS D4-D7 are driven by the MPSSE SET_BITS_LOW command
+> (`0x80, value, direction`). All four bits are set atomically in a single
+> 3-byte USB write without switching out of MPSSE mode. The
+> `Invoke-PsGadgetStepper` MPSSE path sends this command per step, keeping
+> the device in MPSSE throughout the entire move.
 
 ### Wiring - FT232RNL CBUS
 
@@ -184,16 +200,20 @@ All four lines should read `FT_CBUS_IOMODE`.
 
 ## Step 3 - Verify GPIO Availability
 
-Confirm you can drive the pins (use the same numbers on either chip):
+Confirm you can drive the pins:
 
 ```powershell
-# drive all four high, then low
+# FT232H: D4-D7 (PinOffset 4) - verify via MPSSE SET_BITS_LOW
+Set-PsGadgetGpio -Index 0 -Pins @(4,5,6,7) -State HIGH -DurationMs 200
+Set-PsGadgetGpio -Index 0 -Pins @(4,5,6,7) -State LOW
+
+# FT232R: CBUS0-3 (requires EEPROM step from Step 2 first)
 Set-PsGadgetGpio -Index 1 -Pins @(0..3) -State HIGH -DurationMs 200
 Set-PsGadgetGpio -Index 1 -Pins @(0..3) -State LOW
 ```
 
-On an FT232R this toggles CBUS0‑3; on an FT232H it toggles CBUS0‑3. The
-ULN2003 board LEDs will light accordingly (they are tied to each IN pin).
+On an FT232H this drives ADBUS D4-D7 via MPSSE SET_BITS_LOW; on an FT232R
+this toggles CBUS0‑3. The ULN2003 board LEDs will light accordingly.
 
 ---
 
@@ -286,9 +306,11 @@ your measured value pass `-StepsPerRevolution` or set `$dev.StepsPerRevolution`.
 > `-Degrees` to rotate by angle. You do not need to set up bitbang mode or
 > build byte buffers yourself.
 
-> **Scripter**: wire `ADBUS0-3` (D0-D3 on the FT232R/FT232H breakout board)
-> to `IN1-IN4` on the ULN2003 board. These are the UART data lines in normal
-> use, not the CBUS pins. No EEPROM step is needed.
+> **Scripter**: For FT232H, wire D4, D5, D6, D7 on the breakout board to
+> IN1, IN2, IN3, IN4 on the ULN2003 board. Pass `-PinOffset 4 -PinMask 0xF0`
+> to `Invoke-PsGadgetStepper`. D0-D3 are reserved for MPSSE and will not
+> produce output even if wired. For FT232R, wire CBUS0-3 to IN1-IN4 (requires
+> EEPROM programming first; see Step 2).
 
 ```powershell
 Import-Module ./PSGadget.psd1 -Force
@@ -333,11 +355,13 @@ $dev.StepDegrees(180)    # uses 4082.5 instead of the default 4075.77
 $dev.Close()
 ```
 
-> **Engineer**: `Invoke-PsGadgetStepper` calls `Set-PsGadgetFtdiMode
-> -Mode AsyncBitBang` then bulk-writes the precomputed buffer with one
-> `FT_Write()`. Baud rate = 16000 / DelayMs so the D2XX timer paces byte
-> output without host-CPU involvement. The device is left in AsyncBitBang
-> mode after the call; call `Set-PsGadgetFtdiMode -Mode UART` to restore.
+> **Engineer**: On FT232H (`GpioMethod: MPSSE`), `Invoke-PsGadgetStepper`
+> stays in MPSSE mode throughout and writes each step as a 3-byte MPSSE
+> command `[0x80, coilByte, PinMask]` (SET_BITS_LOW on ADBUS). A Stopwatch
+> spin-wait provides the inter-step delay. The D2XX baud-rate timer does not
+> function for inter-step timing on FT232H in MPSSE mode. On FT232R
+> (`GpioMethod: CBUS`), the cmdlet switches to AsyncBitBang mode, which does
+> support the baud-rate timer.
 
 > **Pro**: `$dev.StepsPerRevolution = 0` (the initial default) tells the
 > method to call `Get-PsGadgetStepperDefaultStepsPerRev` at runtime, which
@@ -597,33 +621,36 @@ three-level function dispatch (public wrapper -> private backend -> MPSSE
 helper). Two calls per step adds ~3-6 ms of interpreter overhead before the
 `Start-Sleep` even runs.
 
-Bypass this entirely by writing the 3-byte MPSSE `0x82` command directly to
+Bypass this entirely by writing the 3-byte MPSSE `0x80` command directly to
 the raw FTD2XX_NET device handle:
 
 ```powershell
-# ACBUS byte for each half-step phase - bits 0-3 map to ACBUS0-3 / ULN2003 IN1-IN4
-$acbusSeq = [byte[]](0x01, 0x03, 0x02, 0x06, 0x04, 0x0C, 0x08, 0x09)
+# ADBUS byte for each half-step phase (D4-D7 wiring: bits 4-7 map to ULN2003 IN1-IN4)
+# Shift the standard sequence left 4 bits: 0x01->0x10, 0x03->0x30, etc.
+$adbusSeq = [byte[]](0x10, 0x30, 0x20, 0x60, 0x40, 0xC0, 0x80, 0x90)
 $written  = 0
 $rawFtdi  = $dev._connection.Device   # FTD2XX_NET.FTDI handle
 
 [Win32.WinTimer]::timeBeginPeriod(1)
 try {
-    for ($i = 0; $i -lt 4096; $i++) {
-        $rawFtdi.Write([byte[]](0x82, $acbusSeq[$i % 8], 0xFF), 3, [ref]$written) | Out-Null
+    for ($i = 0; $i -lt 4076; $i++) {
+        $rawFtdi.Write([byte[]](0x80, $adbusSeq[$i % 8], 0xF0), 3, [ref]$written) | Out-Null
         Start-Sleep -Milliseconds 2
     }
 } finally {
     [Win32.WinTimer]::timeEndPeriod(1)
-    $rawFtdi.Write([byte[]](0x82, 0x00, 0xFF), 3, [ref]$written) | Out-Null
+    $rawFtdi.Write([byte[]](0x80, 0x00, 0xF0), 3, [ref]$written) | Out-Null
 }
 ```
 
-Expected: ~4096 x 2 ms = **~8 s per revolution**, with no cmdlet overhead.
+Expected: ~4076 x 2 ms = **~8 s per revolution**, with no cmdlet overhead.
 
-> **Engineer**: `0x82` is the MPSSE "Set Data Bits High Byte" (ACBUS)
-> command. Byte 1 is the 8-bit output value; byte 2 is the direction mask
-> (0xFF = all ACBUS pins as outputs). One 3-byte USB write per step, no
-> read round-trip.
+> **Engineer**: `0x80` is the MPSSE SET_BITS_LOW command (FTDI AN_108 section
+> 3.6.1). It controls ADBUS D0-D7 directly without leaving MPSSE mode. Byte 1
+> is the output value; byte 2 is the direction mask (`0xF0` = D4-D7 as outputs,
+> D0-D3 left alone since MPSSE controls them). One 3-byte USB write per step,
+> no read round-trip. Note: `0x82` (SET_BITS_HIGH) controls ACBUS pins C0-C7
+> and will not drive the motor if wires are on D4-D7.
 
 > **Pro**: At 2 ms/step the motor is near its pull-in limit. If steps are
 > skipping under load, increase to 3 ms. Do NOT send all 4096 MPSSE commands
@@ -763,8 +790,9 @@ $dev._connection.Device.GetType().Assembly   # shows which DLL loaded it
 
 ### Only one coil energizes
 
-You may have miswired one of the CBUS pins. Check the mapping again and swap
-wires if necessary. The ULN2003 board outputs are labeled IN1–IN4.
+You may have miswired one of the control pins. Check the D4/D5/D6/D7 (FT232H)
+or CBUS0/1/2/3 (FT232R) mapping against IN1–IN4 on the ULN2003 board and
+swap wires if necessary.
 
 ### Stepper shudders or stalls
 
@@ -772,29 +800,138 @@ wires if necessary. The ULN2003 board outputs are labeled IN1–IN4.
   from overhead between steps, not a wiring problem. Verify the module is not
   printing per-step output (`Write-Host` inside the loop) and that the step
   table is precomputed (no `Where-Object` filter inside the loop).
-- **USB read round-trips** — if you're on an older version of the module, `Get-FtdiGpioPins`
-  may issue an `0x83` read command before every write (adds ~2 ms of USB latency
-  per step). The current module caches ACBUS state and skips the read. Confirm
-  you are on dev1 with the latest `Ftdi.Mpsse.ps1`.
-- Increase `Start-Sleep -Milliseconds` (try 5 ms or 10 ms) if the motor stalls under load.
+- **USB read round-trips** — if you're on an older version of the module,
+  `Get-FtdiGpioPins` may issue an `0x83` read command before every write
+  (adds ~2 ms of USB latency per step). The current module caches ADBUS/ACBUS
+  state and skips the read. Confirm you are on the latest `Ftdi.Mpsse.ps1`.
+- Increase `-DelayMs` (try 5 ms or 10 ms) if the motor stalls under load.
 - Reduce supply voltage if the motor overheats; the gearbox is fragile.
-- Use full-step sequence (`-FullStep` switch) for more consistent torque and smoother
-  motion -- on the 28BYJ-48 full-step is smoother than half-step in practice.
+- Use `-StepMode Full` for more consistent torque -- on the 28BYJ-48 full-step
+  is often smoother than half-step in practice.
+
+### FT232H commissioning journal: what went wrong and how it was fixed
+
+This section documents a real first-run sequence on an Adafruit FT232H
+(serial FTAXBFCQ) with a 28BYJ-48 / KS0327 ULN2003 kit. Five separate
+problems were encountered before the motor turned. Recording them here so
+the next person doesn't need to rediscover them.
+
+#### Problem 1: Wires on CBUS (C0-C3), cmdlet drives ADBUS (D-bus)
+
+**Symptom**: `Invoke-PsGadgetStepper` returned a correct summary object
+(4076 steps, 360 degrees) but no motor movement and no LED activity.
+
+**Cause**: The FT232H has two completely separate GPIO buses. `Invoke-PsGadgetStepper`
+targets ADBUS (the D-bus). The wires were on CBUS pins (C0-C3), which are a
+different physical port driven by different commands.
+
+**Fix**: Move wires from C0-C3 to D4-D7, and pass `-PinOffset 4 -PinMask 0xF0`.
+
+#### Problem 2: D0-D3 reserved for MPSSE engine
+
+**Symptom**: After moving wires to D0-D3, still no output.
+
+**Cause**: On an FT232H in MPSSE mode, ADBUS0-3 (D0/D1/D2/D3) are permanently
+claimed by the MPSSE engine as SCK/MOSI/MISO/CS. Writing any value to those
+bits has no visible effect on the pins.
+
+**Fix**: Use D4-D7 (ADBUS4-7). These are the free GPIO bits on ADBUS when
+MPSSE is active. Parameters: `-PinOffset 4 -PinMask 0xF0`.
+
+#### Problem 3: FT232H silently ignores SetBitMode(AsyncBitBang) while in MPSSE
+
+**Symptom**: All 4 ULN2003 LEDs lit briefly then went off simultaneously. No
+rotation. Duration of the whole "sequence" was ~20 ms.
+
+**Cause**: The MPSSE engine retains pin control. Calling `SetBitMode(1)` to
+switch to AsyncBitBang mode silently fails without a prior device reset;
+the chip stays in MPSSE and the step sequence is executed at USB bulk speed
+(all phases in microseconds).
+
+**Fix**: Added `ResetDevice()` + 50 ms pause + `Purge(3)` + 10 ms pause
+before `SetBitMode` in the AsyncBitBang path of `Invoke-PsGadgetStepperMove`.
+
+#### Problem 4: Bulk write ignores baud-rate timer on FT232H
+
+**Symptom**: Even after the reset fix, all LEDs flashed in ~20 ms. The
+per-step timing was completely ignored.
+
+**Cause**: On an FT232H in async bit-bang mode the baud-rate timer that paces
+byte output (which works on FT232R) is essentially non-functional. A bulk
+`Write(buf, N, ref written)` call flushes the entire buffer in one USB
+transfer; the chip clocks out every byte nearly simultaneously.
+
+**Fix**: Switched from a single bulk `Write()` to a per-step loop:
+```powershell
+foreach ($coilByte in $sequence) {
+    $device.Write([byte[]]@($coilByte), 1, [ref]$written)
+    Start-Sleep -Milliseconds $DelayMs
+}
+```
+Manual test with `Start-Sleep -Milliseconds 8` confirmed slow but definite
+motor movement, proving the wiring was correct.
+
+#### Problem 5: Start-Sleep has a ~15 ms floor on Windows
+
+**Symptom**: Motor moved but much too slowly. `Start-Sleep -Milliseconds 2`
+behaved as ~15 ms.
+
+**Cause**: The Windows multimedia timer default resolution is 15.625 ms. Any
+`Start-Sleep` call shorter than this is rounded up to the next timer tick,
+regardless of the requested value.
+
+**Fix**: Replaced `Start-Sleep` with a `[System.Diagnostics.Stopwatch]`
+spin-wait loop:
+```powershell
+$targetTicks = [long]($DelayMs * ([System.Diagnostics.Stopwatch]::Frequency / 1000.0))
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
+while ($sw.ElapsedTicks -lt $targetTicks) { }
+```
+This same pattern was already in use for servo PWM timing.
+
+#### Root cause fix: Use MPSSE SET_BITS_LOW instead of mode-switching
+
+**Key insight**: FtdiSharp's `GPIO.Write()` method (from the reference
+docs in `stepper_reference_temp_deletelater.md`) sends:
+```csharp
+byte[] bytes = new byte[] { 0x80, value, direction };
+```
+Command `0x80` is the MPSSE `SET_BITS_LOW` instruction (FTDI AN_108 section
+3.6.1). It sets the ADBUS output value and direction in one 3-byte write
+**without ever leaving MPSSE mode**. No `SetBitMode` call, no reset, no
+baud-rate timer required.
+
+**Final implementation**: `Invoke-PsGadgetStepperMove` dispatches on
+`conn.GpioMethod`:
+- **MPSSE** (FT232H): writes `[0x80, coilByte, PinMask]` per step; device
+  stays in MPSSE throughout. Stopwatch spin-wait for inter-step delay.
+- **AsyncBitBang** (FT232R): writes 1-byte pin state per step with
+  `ResetDevice + Purge` before mode switch as per Problem 3 fix.
+
+**Result**: Motor spun immediately and cleanly at `-DelayMs 2`.
+
+> **Verified working command** (FT232H, serial FTAXBFCQ, wires on D4-D7):
+> ```powershell
+> $ftd = New-PsGadgetFtdi -Index 0
+> Invoke-PsGadgetStepper -PsGadget $ftd -Degrees 360 -PinOffset 4 -PinMask 0xF0 -DelayMs 2
+> ```
 
 ---
 
 ## Quick Reference (Pro)
 
 ```powershell
-# Unified API - recommended path (FT232R or FT232H, ADBUS0-3 to ULN2003 IN1-IN4)
+# Unified API - recommended path
+# FT232H: wire D4/D5/D6/D7 to ULN2003 IN1-IN4; use -PinOffset 4 -PinMask 0xF0
+# FT232R: wire CBUS0-3 to ULN2003 IN1-IN4 (requires EEPROM step; see Step 2)
 Import-Module ./PSGadget.psd1 -Force
 
-# Step count
-Invoke-PsGadgetStepper -Index 0 -Steps 4076 -DelayMs 2
+# FT232H step count
+Invoke-PsGadgetStepper -Index 0 -Steps 4076 -PinOffset 4 -PinMask 0xF0 -DelayMs 2
 
-# Angle-based (default calibration: ~4075.77 half-steps/rev)
-Invoke-PsGadgetStepper -Index 0 -Degrees 90
-Invoke-PsGadgetStepper -Index 0 -Degrees 180 -Direction Reverse
+# FT232H angle-based (default calibration: ~4075.77 half-steps/rev)
+Invoke-PsGadgetStepper -Index 0 -Degrees 90 -PinOffset 4 -PinMask 0xF0
+Invoke-PsGadgetStepper -Index 0 -Degrees 180 -Direction Reverse -PinOffset 4 -PinMask 0xF0
 
 # Custom calibration
 Invoke-PsGadgetStepper -Index 0 -Degrees 360 -StepsPerRevolution 4082.5
@@ -809,13 +946,14 @@ $dev.Close()
 ```
 
 ```powershell
-# Manual MPSSE path (FT232H, ACBUS0-3, higher-level Set-PsGadgetGpio API)
+# Manual MPSSE path (FT232H, ADBUS D4-D7, higher-level Set-PsGadgetGpio API)
+# Note: use pin numbers 4,5,6,7 (offset from D4)
 Import-Module ./PSGadget.psd1 -Force
 $dev   = New-PsGadgetFtdi -Index 0
-# pre-computed high/low pin pairs for ACBUS half-step sequence
+# pre-computed high/low pin pairs for ADBUS D4-D7 half-step sequence
 $steps = @(
-    @(@(0),@(1,2,3)), @(@(0,1),@(2,3)), @(@(1),@(0,2,3)), @(@(1,2),@(0,3)),
-    @(@(2),@(0,1,3)), @(@(2,3),@(0,1)), @(@(3),@(0,1,2)), @(@(0,3),@(1,2))
+    @(@(4),@(5,6,7)), @(@(4,5),@(6,7)), @(@(5),@(4,6,7)), @(@(5,6),@(4,7)),
+    @(@(6),@(4,5,7)), @(@(6,7),@(4,5)), @(@(7),@(4,5,6)), @(@(4,7),@(5,6))
 )
 try {
     for ($i=0;$i -lt 4076;$i++) {
@@ -825,7 +963,7 @@ try {
         Start-Sleep -Milliseconds 3
     }
 } finally {
-    Set-PsGadgetGpio -PsGadget $dev -Pins @(0,1,2,3) -State LOW
+    Set-PsGadgetGpio -PsGadget $dev -Pins @(4,5,6,7) -State LOW
     $dev.Close()
 }
 ```
@@ -904,10 +1042,10 @@ $dev = New-PsGadgetFtdi -Index 0
 $script:HalfStepPos = 0
 $script:FullStepPos = 0
 
-# Half-step sequence: 8 phases, alternates 1-coil / 2-coil (finer resolution, 4096 steps/rev)
-$halfSeq = [byte[]](0x01, 0x03, 0x02, 0x06, 0x04, 0x0C, 0x08, 0x09)
-# Full-step sequence: 4 phases, always 2 coils (more torque, 2048 steps/rev)
-$fullSeq = [byte[]](0x03, 0x06, 0x0C, 0x09)
+# Half-step sequence D4-D7: 8 phases (bits 4-7 = IN1-IN4; standard seq shifted left 4)
+$halfSeq = [byte[]](0x10, 0x30, 0x20, 0x60, 0x40, 0xC0, 0x80, 0x90)
+# Full-step sequence D4-D7: 4 phases, always 2 coils (more torque, 2048 steps/rev)
+$fullSeq = [byte[]](0x30, 0x60, 0xC0, 0x90)
 
 $rawFtdi  = $dev._connection.Device   # FTD2XX_NET.FTDI handle - bypass cmdlet overhead
 
@@ -954,13 +1092,13 @@ function Move-Stepper {
     if ($useFullStep) {
         for ($i = 0; $i -lt $nSteps; $i++) {
             $script:FullStepPos = (($script:FullStepPos + $dir) % $seqLen + $seqLen) % $seqLen
-            $rawFtdi.Write([byte[]](0x82, $seq[$script:FullStepPos], 0xFF), 3, [ref]$w) | Out-Null
+            $rawFtdi.Write([byte[]](0x80, $seq[$script:FullStepPos], 0xF0), 3, [ref]$w) | Out-Null
             Start-Sleep -Milliseconds $DelayMs
         }
     } else {
         for ($i = 0; $i -lt $nSteps; $i++) {
             $script:HalfStepPos = (($script:HalfStepPos + $dir) % $seqLen + $seqLen) % $seqLen
-            $rawFtdi.Write([byte[]](0x82, $seq[$script:HalfStepPos], 0xFF), 3, [ref]$w) | Out-Null
+            $rawFtdi.Write([byte[]](0x80, $seq[$script:HalfStepPos], 0xF0), 3, [ref]$w) | Out-Null
             Start-Sleep -Milliseconds $DelayMs
         }
     }
@@ -971,7 +1109,7 @@ function Move-Stepper {
 
 function Stop-Stepper {
     $w = 0
-    $rawFtdi.Write([byte[]](0x82, 0x00, 0xFF), 3, [ref]$w) | Out-Null
+    $rawFtdi.Write([byte[]](0x80, 0x00, 0xF0), 3, [ref]$w) | Out-Null
 }
 
 function Invoke-Fire {
