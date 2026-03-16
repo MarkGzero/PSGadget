@@ -134,18 +134,25 @@ function Invoke-PsGadgetStepperMove {
         [ValidateRange(1, 1000)]
         [int]$DelayMs = 2,
 
-        # Output direction mask.  Bits correspond to ADBUS pins.
-        # Default 0x0F = ADBUS0-3 all outputs (IN1-IN4 via ULN2003).
+        # Output direction mask.  Bits correspond to the target GPIO bank pins.
+        # Default 0x0F = pins 0-3 all outputs (IN1-IN4 via ULN2003).
         [byte]$PinMask = 0x0F,
 
         # Shift IN1-IN4 bits left by this many positions.
-        # Use when motor is wired on upper ADBUS pins.
+        # Use when motor is wired on upper ADBUS pins (D4-D7).
         [ValidateRange(0, 4)]
-        [byte]$PinOffset = 0
+        [byte]$PinOffset = 0,
+
+        # Use ACBUS (C-bank) instead of ADBUS (D-bank) for the MPSSE step writes.
+        # ADBUS (default): SET_BITS_LOW  (0x80) -- pins D0-D7
+        # ACBUS:           SET_BITS_HIGH (0x82) -- pins C0-C7 (FT232H only)
+        # Required when stepper is wired to ACBUS C0-C3 alongside I2C on ADBUS D0/D1.
+        [switch]$AcBus
     )
 
     $log = $Ftdi.Logger
-    $log.WriteDebug("StepperMove: $Steps $StepMode steps / $Direction / delay=${DelayMs}ms / mask=0x$($PinMask.ToString('X2')) / offset=$PinOffset")
+    $bankLabel = if ($AcBus) { 'ACBUS' } else { 'ADBUS' }
+    $log.WriteDebug("StepperMove: $Steps $StepMode steps / $Direction / delay=${DelayMs}ms / mask=0x$($PinMask.ToString('X2')) / offset=$PinOffset / bank=$bankLabel")
 
     # --- build phase sequence ---
     $seq    = Get-PsGadgetStepSequence -StepMode $StepMode -Direction $Direction -PinOffset $PinOffset
@@ -164,10 +171,13 @@ function Invoke-PsGadgetStepperMove {
     # --- write per-step loop ---
     # Two hardware paths:
     #
-    # MPSSE (FT232H default): use the MPSSE SET_BITS_LOW command (0x80, value, direction).
-    #   Three bytes per step, device stays in MPSSE mode, no mode switch or reset needed.
-    #   D4-D7 are available as general GPIO; D0-D3 are reserved for MPSSE clock/data.
-    #   Reference: FtdiSharp GPIO.Write(), FTDI AN_108 section 3.6.1.
+    # MPSSE (FT232H default): three-byte MPSSE command per step, no mode switch needed.
+    #   ADBUS (default, -AcBus not set): SET_BITS_LOW  (0x80, value, direction)
+    #     D0-D3 reserved for MPSSE I2C; use D4-D7 with PinOffset=4 / PinMask=0xF0.
+    #   ACBUS (-AcBus switch):           SET_BITS_HIGH (0x82, value, direction)
+    #     C0-C7 independent of ADBUS; use when stepper is on C0-C3 alongside I2C.
+    #   Both keep the device in MPSSE mode; I2C (SSD1306) continues to work.
+    #   Reference: FTDI AN_108 section 3.6.1 (SET_DATA_BITS_LOW_BYTE / HIGH_BYTE).
     #
     # AsyncBitBang (FT232R or explicit override): 1-byte direct pin state write.
     #   Requires prior SetBitMode(AsyncBitBang). Mode switch handled below.
@@ -183,11 +193,14 @@ function Invoke-PsGadgetStepperMove {
         $targetTicks = [long]($DelayMs * ([System.Diagnostics.Stopwatch]::Frequency / 1000.0))
 
         if ($gpioMethod -eq 'MPSSE' -or $gpioMethod -eq 'MpsseI2c') {
-            # MPSSE GPIO path: SET_BITS_LOW (0x80), value, direction
-            # Direction byte = PinMask (all bits in mask are outputs).
+            # MPSSE GPIO path.  Command byte selects the GPIO bank:
+            #   0x80 (SET_BITS_LOW)  = ADBUS D0-D7  (default)
+            #   0x82 (SET_BITS_HIGH) = ACBUS C0-C7  (-AcBus)
+            # Direction byte = PinMask (bits in mask are outputs).
             # No mode switch; device remains MPSSE-capable for I2C/SSD1306 after call.
-            $log.WriteInfo("StepperMove: MPSSE GPIO path, $Steps steps @ ${DelayMs}ms")
-            $mpsseCmd = [byte[]]@(0x80, 0x00, $PinMask)
+            $mpsseCmdByte = if ($AcBus) { [byte]0x82 } else { [byte]0x80 }
+            $log.WriteInfo("StepperMove: MPSSE $bankLabel path, $Steps steps @ ${DelayMs}ms")
+            $mpsseCmd = [byte[]]@($mpsseCmdByte, 0x00, $PinMask)
             try {
                 for ($i = 0; $i -lt $Steps; $i++) {
                     $mpsseCmd[1] = $buf[$i]
@@ -196,7 +209,7 @@ function Invoke-PsGadgetStepperMove {
                     $conn.Device.Write($mpsseCmd, 3, [ref]$written) | Out-Null
                     while ($sw.ElapsedTicks -lt $targetTicks) {}
                 }
-                $log.WriteInfo("StepperMove: completed $Steps steps (MPSSE)")
+                $log.WriteInfo("StepperMove: completed $Steps steps (MPSSE/$bankLabel)")
             } catch [System.NotImplementedException] {
                 $log.WriteTrace("StepperMove stub: FT_Write not implemented (no hardware)")
             } catch {

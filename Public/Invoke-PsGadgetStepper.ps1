@@ -76,6 +76,12 @@ function Invoke-PsGadgetStepper {
     Shift coil byte left by N bits.  Use when motor is wired on upper ADBUS pins.
     Default 0 (IN1=bit0 = ADBUS0).
 
+    .PARAMETER AcBus
+    Target ACBUS (C-bank, pins C0-C7) instead of ADBUS (D-bank).
+    Required when the stepper is wired to ACBUS C0-C3 on an FT232H that is
+    also running I2C on ADBUS D0/D1 (e.g. combined stepper + SSD1306).
+    Uses MPSSE SET_BITS_HIGH (0x82) instead of SET_BITS_LOW (0x80).
+
     .EXAMPLE
     # Move forward 1000 half-steps (about 88 degrees)
     Invoke-PsGadgetStepper -Index 0 -Steps 1000
@@ -169,7 +175,10 @@ function Invoke-PsGadgetStepper {
 
         [Parameter(Mandatory = $false)]
         [ValidateRange(0, 4)]
-        [byte]$PinOffset = 0
+        [byte]$PinOffset = 0,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$AcBus
     )
 
     process {
@@ -226,7 +235,8 @@ function Invoke-PsGadgetStepper {
                 -StepMode  $StepMode `
                 -DelayMs   $DelayMs `
                 -PinMask   $PinMask `
-                -PinOffset $PinOffset
+                -PinOffset $PinOffset `
+                -AcBus:$AcBus
 
             # --- return summary ---
             return [PSCustomObject]@{
