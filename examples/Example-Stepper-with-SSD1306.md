@@ -1,15 +1,18 @@
 # Example: Stepper Motor with SSD1306 Display (FT232H)
 
-Drive a 28BYJ-48 stepper motor and show live position feedback on an SSD1306
-OLED display — both connected to the **same FT232H adapter** at the same time.
+Drive a 28BYJ-48 stepper motor and show status on an SSD1306 OLED display —
+both connected to the **same FT232H adapter** at the same time.
 
 This works because the FT232H has two independent GPIO banks:
 
 - **ADBUS D0/D1** — MPSSE I2C for the SSD1306 (SCL/SDA)
 - **ACBUS C0-C3** — GPIO output for the stepper (IN1-IN4 via ULN2003)
 
-The two banks never contend. No mode switching is required between display
-writes and stepper moves.
+The two banks are electrically independent and use different MPSSE commands,
+so no mode switching is required. However, both banks share one USB endpoint —
+**display writes must not be interleaved inside a stepper move** or the step
+timing loop will stall during the I2C transaction. The correct pattern is:
+write intent to display → execute full move → write confirmation.
 
 > **Note**: This example requires an **FT232H**. The FT232R has only one GPIO
 > bank (ADBUS, async bit-bang only) and cannot drive I2C, so the combined
@@ -30,7 +33,8 @@ writes and stepper moves.
 - [Step 3 - Display Splash and Confirm I2C](#step-3---display-splash-and-confirm-i2c)
 - [Step 4 - Smoke Test the Stepper](#step-4---smoke-test-the-stepper)
 - [Step 5 - Combined Move-and-Display Loop](#step-5---combined-move-and-display-loop)
-  - [Full rotation with live angle readout](#full-rotation-with-live-angle-readout)
+  - [USB serialization constraint](#usb-serialization-constraint)
+  - [Full rotation](#full-rotation)
   - [Bidirectional sweep](#bidirectional-sweep)
 - [Complete Examples](#complete-examples)
   - [Example 1 - Single rotation with display](#example-1---single-rotation-with-display)
@@ -40,6 +44,7 @@ writes and stepper moves.
   - [Stepper does not move, display works](#stepper-does-not-move-display-works)
   - [Display is blank, stepper works](#display-is-blank-stepper-works)
   - [Both fail to initialize](#both-fail-to-initialize)
+  - [Stepper pauses noticeably mid-move](#stepper-pauses-noticeably-mid-move)
   - [Stepper stalls mid-move](#stepper-stalls-mid-move)
 - [Quick Reference (Pro)](#quick-reference-pro)
 
@@ -103,7 +108,7 @@ writes and stepper moves.
 > The FT232H C-bank pins are 3.3V logic; the ULN2003 accepts 3.3V inputs
 > and drives the 5V motor coils on the other side.
 
-> **Engineer**: ACBUS C0-C3 are driven independently of ADBUS. The stepper backend uses the MPSSE SET_BITS_HIGH command (0x82, value, direction) for the C-bank, leaving ADBUS I2C operation completely undisturbed. No mode switch or ResetDevice call is needed between stepper moves and I2C writes.
+> **Engineer**: ACBUS C0-C3 are driven by MPSSE SET_BITS_HIGH (0x82) independently of ADBUS. No mode switch or ResetDevice call is needed between stepper moves and I2C writes. However, both banks share the USB endpoint — I2C writes interleaved inside the stepper spin-wait loop will stall step timing. Always sequence: display write → full move → display write.
 
 ### Power
 
@@ -208,43 +213,53 @@ each move so the motor does not overheat at rest.
 
 ## Step 5 - Combined Move-and-Display Loop
 
-### Full rotation with live angle readout
+### USB serialization constraint
+
+ADBUS (I2C) and ACBUS (stepper) are electrically independent, but both banks
+share the **same USB endpoint**. Every `Device.Write()` call — whether a
+3-byte MPSSE step command or a 130-byte I2C data write — is serialized through
+the same USB pipe.
+
+An I2C display write (~20-30ms, 3-4 USB round-trips) issued while the stepper
+spin-wait loop is running will block the loop for the duration of the
+transaction, causing the step timing to stall.
+
+**Rule**: display writes must never be interleaved inside a stepper move.
+
+The correct structure for every combined operation:
+
+```powershell
+# 1. Write intent to display (before move)
+$d.WriteText(">> Forward / 360 deg", 2, 'center', 1, $false)
+
+# 2. Execute the full move uninterrupted
+Invoke-PsGadgetStepper -PsGadget $dev -Steps $total -Direction Forward -AcBus
+
+# 3. Write confirmation (after move completes)
+$d.WriteText("Done", 2, 'center', 1, $false)
+```
+
+### Full rotation
 
 ```powershell
 $d = $dev.GetDisplay()
 $dev.ClearDisplay()
 
-$spr    = Get-PsGadgetStepperDefaultStepsPerRev -StepMode Half   # ~4075.77
-$total  = [int][Math]::Round($spr)    # one full revolution
-$chunk  = 256                          # steps per display update
-$angle  = 0.0
-$done   = 0
+$spr   = Get-PsGadgetStepperDefaultStepsPerRev -StepMode Half   # ~4075.77
+$total = [int][Math]::Round($spr)   # one full revolution
 
+# 1. Show intent before moving
 $d.WriteText("STEPPER",     0, 'center', 1, $false)
 $d.WriteText(">> Forward",  2, 'center', 1, $false)
-$d.WriteText("0.0 deg",     4, 'center', 2, $false)
+$d.WriteText("360 deg",     4, 'center', 2, $false)
 
-while ($done -lt $total) {
-    $move = [Math]::Min($chunk, $total - $done)
-    Invoke-PsGadgetStepper -PsGadget $dev -Steps $move -Direction Forward -AcBus
+# 2. Full uninterrupted move
+Invoke-PsGadgetStepper -PsGadget $dev -Steps $total -Direction Forward -AcBus
 
-    $done  += $move
-    $angle  = [Math]::Round($done / $spr * 360.0, 1)
-
-    $dev.ClearDisplay(4)
-    $dev.ClearDisplay(5)   # FontSize 2 occupies pages 4 and 5
-    $d.WriteText(("{0} deg" -f $angle), 4, 'center', 2, $false)
-}
-
+# 3. Confirm completion
 $dev.ClearDisplay(2)
-$d.WriteText("Done",  2, 'center', 1, $false)
-$d.WriteText("360 deg", 4, 'center', 2, $false)
+$d.WriteText("Done",    2, 'center', 1, $false)
 ```
-
-> **Engineer**: `ClearDisplay(4)` and `ClearDisplay(5)` clear only those two
-> physical pages. FontSize 2 text spans two pages (N and N+1), so both must be
-> cleared before rewriting. Clearing the full display each iteration would
-> produce a visible flash and doubles the I2C traffic.
 
 ### Bidirectional sweep
 
@@ -304,32 +319,20 @@ try {
     $d = $dev.GetDisplay()
     $d.ShowSplash()
 
-    $dev.ClearDisplay()
-    $d.WriteText("STEPPER", 0, 'center', 1, $false)
-    $d.WriteText("1 Revolution", 2, 'center', 1, $false)
-    $d.WriteText("Starting...", 4, 'center', 1, $false)
-
-    Start-Sleep -Milliseconds 500
-
     $spr   = Get-PsGadgetStepperDefaultStepsPerRev -StepMode Half
     $total = [int][Math]::Round($spr)
-    $chunk = 256
-    $done  = 0
 
-    while ($done -lt $total) {
-        $move  = [Math]::Min($chunk, $total - $done)
-        Invoke-PsGadgetStepper -PsGadget $dev -Steps $move -Direction Forward -AcBus
-
-        $done  += $move
-        $angle  = [Math]::Round($done / $spr * 360.0, 1)
-
-        $dev.ClearDisplay(4)
-        $dev.ClearDisplay(5)
-        $d.WriteText(("{0} deg" -f $angle), 4, 'center', 2, $false)
-    }
-
+    # Show intent before moving — no display writes during the move
     $dev.ClearDisplay()
-    $d.WriteText("Done", 3, 'center', 1, $false)
+    $d.WriteText("STEPPER",    0, 'center', 1, $false)
+    $d.WriteText(">> Forward", 2, 'center', 1, $false)
+    $d.WriteText("360 deg",    4, 'center', 2, $false)
+
+    Invoke-PsGadgetStepper -PsGadget $dev -Steps $total -Direction Forward -AcBus
+
+    # Confirm completion
+    $dev.ClearDisplay(2)
+    $d.WriteText("Done", 2, 'center', 1, $false)
 
 } finally {
     $dev.Close()
@@ -482,6 +485,18 @@ For 128×32 displays (4 pages only), use this layout instead:
   and call `$dev.Close()` if a previous session was left open.
 - Unplug and replug the USB cable, then reconnect.
 - Verify `Get-PsGadgetFtdi | Format-Table HasMpsse` shows `True`.
+
+### Stepper pauses noticeably mid-move
+
+Symptom: motor rotation is jerky or stutters at regular intervals.
+
+**Cause**: display writes are happening inside the stepper move (e.g. in a
+chunk loop that updates the display between each chunk). Each I2C write blocks
+the USB endpoint for ~20-30ms, stalling the step timing loop.
+
+**Fix**: move all display writes outside the `Invoke-PsGadgetStepper` call.
+Write intent before, run the full move, write confirmation after. See
+[USB serialization constraint](#usb-serialization-constraint).
 
 ### Stepper stalls mid-move
 
