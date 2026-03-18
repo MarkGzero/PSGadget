@@ -28,9 +28,9 @@ function Invoke-FtdiIotEnumerate {
 
         Write-Verbose "IoT FtCommon found $($rawDevices.Count) device(s)"
 
-        $isWindows     = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
-        $driverLabel   = if ($isWindows) { 'ftd2xx.dll (IoT)' } else { 'libftdi (IoT)' }
-        $platformLabel = if ($isWindows) { 'Windows' }          else { 'Unix'           }
+        $isWin32       = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+        $driverLabel   = if ($isWin32) { 'ftd2xx.dll (IoT)' } else { 'libftdi (IoT)' }
+        $platformLabel = if ($isWin32) { 'Windows' }          else { 'Unix'           }
 
         # Map FtDeviceType integer value to PsGadget friendly chip name.
         # Integer comparison avoids PowerShell enum comparison quirks.
@@ -113,12 +113,12 @@ function Invoke-FtdiIotOpen {
         # On Unix with native P/Invoke loaded: delegate to Invoke-FtdiUnixOpen.
         # Otherwise: throw so Connect-PsGadgetFtdi can create an appropriate stub.
         if (-not $DeviceInfo.HasMpsse) {
-            $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
-            if ($isWindows -and $script:D2xxLoaded) {
+            $isWin32 = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+            if ($isWin32 -and $script:D2xxLoaded) {
                 Write-Verbose "$($DeviceInfo.Type) is a CBUS device; using FTD2XX_NET backend to open"
                 return Invoke-FtdiWindowsOpen -DeviceInfo $DeviceInfo
             }
-            if (-not $isWindows -and $script:FtdiNativeAvailable) {
+            if (-not $isWin32 -and $script:FtdiNativeAvailable) {
                 Write-Verbose "$($DeviceInfo.Type) is a CBUS device; using native P/Invoke backend on Unix"
                 return Invoke-FtdiUnixOpen -Index $DeviceInfo.Index
             }
@@ -151,7 +151,7 @@ function Invoke-FtdiIotOpen {
 
         $ft232h        = [Iot.Device.Ft232H.Ft232HDevice]::new($rawFtDevice)
         $gpioCtrl      = $ft232h.CreateGpioController()
-        $isWindows     = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+        $isWin32       = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
 
         $connection = [PSCustomObject]@{
             Device         = $ft232h
@@ -166,7 +166,7 @@ function Invoke-FtdiIotOpen {
             GpioPins       = $DeviceInfo.GpioPins
             HasMpsse       = $DeviceInfo.HasMpsse
             MpsseEnabled   = $true
-            Platform       = if ($isWindows) { 'Windows (IoT)' } else { 'Unix (IoT)' }
+            Platform       = if ($isWin32) { 'Windows (IoT)' } else { 'Unix (IoT)' }
             Backend        = 'IoT'
         }
 
