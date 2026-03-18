@@ -20,7 +20,7 @@ $e = Test-PsGadgetEnvironment
 ## Device enumeration and connect
 
 ```powershell
-Get-PsGadgetFtdi | Format-Table Index, Type, SerialNumber, GpioMethod
+Get-FTDevice | Format-Table Index, Type, SerialNumber, GpioMethod
 
 # By serial number (recommended -- stable across USB port changes)
 $dev = New-PsGadgetFtdi -SerialNumber 'BG01X3GX'
@@ -29,7 +29,7 @@ $dev = New-PsGadgetFtdi -SerialNumber 'BG01X3GX'
 $dev = New-PsGadgetFtdi -Index 0
 
 # By type
-$sn  = (Get-PsGadgetFtdi | Where-Object { $_.Type -eq 'FT232H' })[0].SerialNumber
+$sn  = (Get-FTDevice | Where-Object { $_.Type -eq 'FT232H' })[0].SerialNumber
 $dev = New-PsGadgetFtdi -SerialNumber $sn
 ```
 
@@ -64,14 +64,14 @@ $dev.Close()
 ## SSD1306 OLED
 
 ```powershell
-$ftdi    = Connect-PsGadgetFtdi -Index 0
-$d       = Connect-PsGadgetSsd1306 -FtdiDevice $ftdi [-Address 0x3C]
-Clear-PsGadgetSsd1306 -Display $d
-Write-PsGadgetSsd1306 -Display $d -Text 'Line 1' -Page 0
-Write-PsGadgetSsd1306 -Display $d -Text 'Line 2' -Page 1
-Set-PsGadgetSsd1306Cursor -Display $d -Page 4 -Column 0
-Write-PsGadgetSsd1306 -Display $d -Text 'Bottom half' -Page 4
-$ftdi.Close()
+$dev = New-PsGadgetFtdi -Index 0
+$d   = $dev.GetDisplay([byte]0x3C)
+$d.Clear() | Out-Null
+$d.WriteText('Line 1', 0) | Out-Null
+$d.WriteText('Line 2', 1) | Out-Null
+$d.SetCursor(0, 4) | Out-Null
+$d.WriteText('Bottom half', 4) | Out-Null
+$dev.Close()
 ```
 
 Pages 0-7 top to bottom. Col 0-127. Text wraps at right edge.

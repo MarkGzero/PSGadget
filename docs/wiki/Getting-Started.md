@@ -56,7 +56,7 @@ The first import also creates `~/.psgadget/` with `logs/` and a default
 ## Step 1 -- Find Your Device
 
 ```powershell
-Get-PsGadgetFtdi | Format-Table
+Get-FTDevice | Format-Table
 ```
 
 Example output on Windows with one FT232H and one FT232R plugged in (Linux output is similar -- see [Linux Setup](#linux-setup)):
@@ -92,7 +92,7 @@ is blocked.
 
 ```powershell
 # With ftdi_sio loaded -- device appears as VCP, hidden by default
-Get-PsGadgetFtdi -ShowVCP
+Get-FTDevice -ShowVCP
 
 # Index  Type    LocationId    Driver          IsVcp
 # -----  ----    ----------    ------          -----
@@ -109,7 +109,7 @@ After unloading:
 
 ```powershell
 # Device now appears in default listing (no -ShowVCP needed)
-Get-PsGadgetFtdi
+Get-FTDevice
 
 # Index  Type    LocationId       Driver  IsVcp
 # -----  ----    ----------       ------  -----
@@ -227,14 +227,15 @@ Set-PsGadgetGpio -Index 1 -Pins @(0) -State HIGH
 Requires an FT232H (MPSSE) device. Wire SCL to ADBUS0 and SDA to ADBUS1.
 
 ```powershell
-$ftdi    = Connect-PsGadgetFtdi -Index 0
-$display = Connect-PsGadgetSsd1306 -FtdiDevice $ftdi   # default I2C address 0x3C
+$dev = New-PsGadgetFtdi -Index 0
+$d   = $dev.GetDisplay()   # default I2C address 0x3C
 
-Clear-PsGadgetSsd1306 -Display $display
-Write-PsGadgetSsd1306 -Display $display -Text "PSGadget" -Page 0 -Align center
-Write-PsGadgetSsd1306 -Display $display -Text (Get-Date -Format "HH:mm:ss") -Page 2
+$d.Initialize($false) | Out-Null
+$d.Clear() | Out-Null
+$d.WriteText("PSGadget", 0, "center", 1, $false) | Out-Null
+$d.WriteText((Get-Date -Format "HH:mm:ss"), 2) | Out-Null
 
-$ftdi.Close()
+$dev.Close()
 ```
 
 ---
@@ -265,7 +266,7 @@ $dev = New-PsGadgetFtdi -LocationId 197634   # connected immediately
 Set-PsGadgetGpio -SerialNumber "FT4ABCDE" -Pins @(0) -State HIGH
 ```
 
-Use `Get-PsGadgetFtdi | Select-Object SerialNumber, LocationId` to find
+Use `Get-FTDevice | Select-Object SerialNumber, LocationId` to find
 these values.
 
 ---

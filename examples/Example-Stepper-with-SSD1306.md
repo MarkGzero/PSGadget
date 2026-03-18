@@ -129,7 +129,7 @@ the ULN2003 board's 5V input. For continuous or fast rotation, use a dedicated
 ```powershell
 Import-Module C:\path\to\PSGadget\PSGadget.psd1 -Force -DisableNameChecking
 
-Get-PsGadgetFtdi | Format-Table Index, Type, SerialNumber, HasMpsse
+Get-FTDevice | Format-Table Index, Type, SerialNumber, HasMpsse
 ```
 
 Expected:
@@ -484,7 +484,7 @@ For 128×32 displays (4 pages only), use this layout instead:
 - Another process holds the D2XX handle. Close any PuTTY/TeraTerm sessions
   and call `$dev.Close()` if a previous session was left open.
 - Unplug and replug the USB cable, then reconnect.
-- Verify `Get-PsGadgetFtdi | Format-Table HasMpsse` shows `True`.
+- Verify `Get-FTDevice | Format-Table HasMpsse` shows `True`.
 
 ### Stepper pauses noticeably mid-move
 

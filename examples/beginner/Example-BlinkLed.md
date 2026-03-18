@@ -5,6 +5,17 @@ No prior hardware experience assumed.
 
 ---
 
+## Table of Contents
+
+- [What you need](#what-you-need)
+- [What are these parts?](#what-are-these-parts)
+- [Wiring](#wiring)
+- [Step by step](#step-by-step)
+- [Copy-paste script](#copy-paste-script)
+- [Troubleshooting](#troubleshooting)
+
+---
+
 ## What you need
 
 **Hardware**
@@ -16,7 +27,7 @@ No prior hardware experience assumed.
 
 **Software**
 - PowerShell 7 (download free from https://aka.ms/powershell)
-- PSGadget installed (run `Install-Module PSGadget -Scope CurrentUser`)
+- PSGadget installed (see [Getting Started](../../docs/wiki/Getting-Started.md) for clone and import instructions)
 - FTDI D2XX driver installed (Windows -- see [Getting Started](../../docs/wiki/Getting-Started.md))
 
 ---
@@ -57,11 +68,11 @@ power needs. Do not connect 5 V directly to the GPIO pins.
 **Step 2**: Open PowerShell and import PSGadget:
 
 ```powershell
-Import-Module PSGadget
+Import-Module ./PSGadget.psd1
 ```
 
 You should see no error. If you see a red error message, see
-[TROUBLESHOOTING.md](../../docs/TROUBLESHOOTING.md).
+[Troubleshooting](../../docs/wiki/Troubleshooting.md).
 
 **Step 3**: Check that PSGadget can see your board:
 
@@ -69,13 +80,14 @@ You should see no error. If you see a red error message, see
 Test-PsGadgetEnvironment
 ```
 
-Look for `Status : READY`. If it says `Fail`, read the `NextStep` line and
-run the command shown there.
+The console should print `Status    : READY` when checks pass. For scripts,
+test the returned object with `$result.Status -eq 'OK'`. If status is `Fail`,
+read the `NextStep` line and run the command shown there.
 
 **Step 4**: See your device listed:
 
 ```powershell
-Get-PsGadgetFtdi | Format-Table
+Get-FTDevice | Format-Table
 ```
 
 You should see a row with `Type = FT232H` and a serial number. Write down the
@@ -131,7 +143,7 @@ Save this as `blink.ps1` and run it any time:
 
 ```powershell
 #Requires -Version 5.1
-Import-Module PSGadget
+Import-Module ./PSGadget.psd1
 
 $result = Test-PsGadgetEnvironment
 if ($result.Status -ne 'OK') {

@@ -75,7 +75,8 @@ $dev.GetDisplay([byte]$address)
 ```
 
 Returns (and caches) a `PsGadgetSsd1306` instance. Subsequent calls return
-the same cached object unless re-initialized via `Connect-PsGadgetSsd1306 -Force`.
+the same cached object unless the connection is recreated or a different
+address is requested with `GetDisplay([byte]$address)`.
 FT232H (MPSSE) only.
 
 #### Display
@@ -148,7 +149,8 @@ Reads `count` bytes from the device. Returns `byte[]`.
 
 ## PsGadgetSsd1306
 
-Represents a connected SSD1306 OLED display. Create with `Connect-PsGadgetSsd1306`.
+Represents a connected SSD1306 OLED display. Create via
+`New-PsGadgetFtdi` then `$dev.GetDisplay()`.
 
 ### Properties
 

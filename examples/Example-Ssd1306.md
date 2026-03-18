@@ -162,7 +162,7 @@ but the SDA line will not be connected and `ScanI2CBus()` will return no devices
 ```powershell
 Import-Module C:\path\to\PSGadget\PSGadget.psd1 -Force -DisableNameChecking
 
-Get-PsGadgetFtdi | Format-Table Index, Type, SerialNumber, LocationId, HasMpsse
+Get-FTDevice | Format-Table Index, Type, SerialNumber, LocationId, HasMpsse
 ```
 
 Expected output:
@@ -258,7 +258,7 @@ $dev.ScanI2CBus() | Format-Table
 
 > **Scripter**: `ScanI2CBus()` probes addresses 0x08 through 0x77. If nothing appears,
 > check your VCC/GND wires first, then SCL/SDA. If you see 0x3D instead of 0x3C, pass
-> `-Address 0x3D` in subsequent calls.
+> `0x3D` to `$dev.GetDisplay(0x3D)` (or set `-I2CAddress 0x3D` when using `Invoke-PsGadgetI2C`).
 
 > **Engineer**: `ScanI2CBus()` calls `Invoke-FtdiI2CScan` which probes each address via
 > raw MPSSE I2C transactions over FTD2XX_NET. Each probe issues START, clocks out the address
@@ -599,7 +599,7 @@ if (-not $setup.IsReady) {
     return
 }
 
-Get-PsGadgetFtdi -Verbose | Format-Table Index, Type, SerialNumber, HasMpsse
+Get-FTDevice -Verbose | Format-Table Index, Type, SerialNumber, HasMpsse
 
 $dev = New-PsGadgetFtdi -Index 0
 
@@ -654,8 +654,8 @@ Work through this checklist in order:
    the **ON / I2C** position (see [I2C Mode Switch](#i2c-mode-switch)).
 4. **Check wire order** — ADBUS0 must go to SCL and ADBUS1 to SDA. Swapping these is the
    second most common mistake; the display won't ACK the address.
-5. **Try `-Address 0x3D`** — if `ScanI2CBus()` returns 0x3D instead of 0x3C, your module's
-   ADDR pin is pulled high.
+5. **Try `$dev.GetDisplay(0x3D)`** — if `ScanI2CBus()` returns 0x3D instead of 0x3C, your
+  module's ADDR pin is pulled high.
 6. **Check display height** — if pixels are scattered rather than blank, see
    [Display shows scattered or random pixels](#display-shows-scattered-or-random-pixels).
 
@@ -691,11 +691,11 @@ Failed to open device. Check USB and index.
   pointed at the device's COM port.
 - Close any previous `$dev` object in the same PS session: `$dev.Close()`.
 - Unplug and replug the USB cable.
-- Confirm the device index is correct: `Get-PsGadgetFtdi | Format-Table`.
+- Confirm the device index is correct: `Get-FTDevice | Format-Table`.
 
 ### Device appears as COM port (VCP mode)
 
-If `Get-PsGadgetFtdi` returns no results but the FT232H shows as `COM3` (or similar) in
+If `Get-FTDevice` returns no results but the FT232H shows as `COM3` (or similar) in
 Device Manager, the FTDI CDM driver has loaded the VCP (Virtual COM Port) driver instead
 of the D2XX driver.
 
@@ -716,7 +716,7 @@ Work through in order:
 3. **Wire swap** — try swapping SCL and SDA if you are not 100% sure of pin order.
 4. **Pull-up resistors** — some raw SSD1306 panels (not breakout modules) require external
    4.7kΩ pull-ups on SCL and SDA to 3.3V. Adafruit/SparkFun breakouts include them.
-5. **Confirm MPSSE** — `Get-PsGadgetFtdi | Format-Table HasMpsse` must show `True`.
+5. **Confirm MPSSE** — `Get-FTDevice | Format-Table HasMpsse` must show `True`.
 
 ### Display shows scattered or random pixels
 

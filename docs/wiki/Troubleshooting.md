@@ -50,7 +50,7 @@ If `Status` is `Fail`, `NextStep` tells you exactly what command to run.
 ## Symptom index
 
 - [Module imports but no devices are found](#no-devices-found)
-- [Device listed only under Get-PsGadgetFtdi -ShowVCP on Linux](#device-shows-as-vcp-only-linux)
+- [Device listed only under Get-FTDevice -ShowVCP on Linux](#device-shows-as-vcp-only-linux)
 - [Backend shows "Stub (no hardware access)"](#stub-backend)
 - [Status is Fail: native library not found (Linux/macOS)](#missing-native-library-linux-macos)
 - [Device found but Connect-PsGadgetFtdi throws an access error](#access-denied-or-device-busy)
@@ -66,7 +66,7 @@ If `Status` is `Fail`, `NextStep` tells you exactly what command to run.
 
 ## No devices found
 
-**Symptom**: `Get-PsGadgetFtdi` returns nothing, or `DeviceCount` is 0.
+**Symptom**: `Get-FTDevice` returns nothing, or `DeviceCount` is 0.
 
 **Check list**:
 
@@ -98,7 +98,7 @@ sudo rmmod ftdi_sio
 
 ## Device shows as VCP only (Linux)
 
-**Symptom**: `Get-PsGadgetFtdi` returns nothing, but `Get-PsGadgetFtdi -ShowVCP`
+**Symptom**: `Get-FTDevice` returns nothing, but `Get-FTDevice -ShowVCP`
 shows the device with `Driver: ftdi_sio (VCP)` and `LocationId: /dev/ttyUSBx`.
 
 **Cause**: The `ftdi_sio` kernel module has claimed the device as a virtual COM
@@ -117,7 +117,7 @@ Then reimport:
 
 ```powershell
 Import-Module PSGadget -Force
-Get-PsGadgetFtdi
+Get-FTDevice
 ```
 
 To confirm `ftdi_sio` is the culprit before unloading:
@@ -149,7 +149,7 @@ sudo rm /etc/modprobe.d/ftdi-d2xx.conf && sudo reboot
 ---
 
 > **Note**: `libftd2xx.so` must also be installed for D2XX to work. If the device
-> claims correctly after `rmmod` but `Get-PsGadgetFtdi` still returns nothing,
+> claims correctly after `rmmod` but `Get-FTDevice` still returns nothing,
 > see [Missing native library (Linux/macOS)](#missing-native-library-linuxmacos).
 
 ---
@@ -484,7 +484,7 @@ $ftdi.Scan()    # should include 0x3C or 0x3D in the list
 
 3. The default I2C address is `0x3C`. If your display has the address pin
    (SA0) pulled HIGH, the address is `0x3D`. Pass `-Address 0x3D` to
-   `Connect-PsGadgetSsd1306`.
+   `Invoke-PsGadgetI2C`, or call `$dev.GetDisplay(0x3D)`.
 
 4. Power: some generic SSD1306 modules run on 5 V but the I2C lines are
    5 V tolerant only if the display board has level shifters. If you see

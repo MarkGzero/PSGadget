@@ -72,7 +72,7 @@ This example is written for:
     the board’s VCCIO jumper is set to **5 V** (not 3.3 V) before proceeding –
     the ULN2003 inputs require full‑scale logic and the motor supply may also
     be taken from the same 5 V rail.
-  * For FT232H (or any MPSSE device) use CBUS0‑3 instead; no EEPROM step is
+  * For FT232H (or any MPSSE device) use ADBUS D4‑D7; no EEPROM step is
     required and the outputs are already 5 V if you set VCCIO accordingly.
 - KS0327 "Keyestudio" ULN2003 stepper motor driver board (or generic
   ULN2003‑based module) with 5‑wire 28BYJ‑48 stepper attached.
@@ -167,7 +167,7 @@ Each sub-array corresponds to the four pins IN1-IN4; 1 energizes the coil.
 
 ```powershell
 Import-Module PSGadget.psd1 -Force
-Get-PsGadgetFtdi | Format-Table Index, Type, SerialNumber, GpioMethod
+Get-FTDevice | Format-Table Index, Type, SerialNumber, GpioMethod
 ```
 
 Look for an entry like the one you posted earlier (`Type : FT232R` etc.).

@@ -8,13 +8,12 @@ by category. Use `Get-Help <FunctionName>` for inline PowerShell help.
 ## Contents
 
 - [Discovery](#discovery)
-  - [Get-PsGadgetFtdi](#get-psgadgetftdi)
+  - [Get-FTDevice](#get-ftdevice)
   - [Get-PsGadgetMpy](#get-psgadgetmpy)
 - [Connection](#connection)
   - [New-PsGadgetFtdi](#new-psgadgetftdi)
   - [Connect-PsGadgetFtdi](#connect-psgadgetftdi)
   - [Connect-PsGadgetMpy](#connect-psgadgetmpy)
-  - [Connect-PsGadgetSsd1306](#connect-psgadgetssd1306)
 - [GPIO](#gpio)
   - [Set-PsGadgetGpio](#set-psgadgetgpio)
   - [Set-PsGadgetFtdiMode](#set-psgadgetftdimode)
@@ -22,22 +21,25 @@ by category. Use `Get-Help <FunctionName>` for inline PowerShell help.
 - [EEPROM](#eeprom)
   - [Get-PsGadgetFtdiEeprom](#get-psgadgetftdieeprom)
 - [SSD1306 Display](#ssd1306-display)
-  - [Write-PsGadgetSsd1306](#write-psgadgetssd1306)
-  - [Clear-PsGadgetSsd1306](#clear-psgadgetssd1306)
-  - [Set-PsGadgetSsd1306Cursor](#set-psgadgetssd1306cursor)
+  - [PsGadgetFtdi Display Methods](#psgadgetftdi-display-methods)
+  - [Invoke-PsGadgetI2C (SSD1306)](#invoke-psgadgeti2c-ssd1306)
 - [Configuration](#configuration)
   - [Get-PsGadgetConfig](#get-psgadgetconfig)
   - [Set-PsGadgetConfig](#set-psgadgetconfig)
 - [Diagnostics](#diagnostics)
   - [Test-PsGadgetEnvironment](#test-psgadgetenvironment)
+  - [Get-PsGadgetLog](#get-psgadgetlog)
 
 ---
 
 ## Discovery
 
-### Get-PsGadgetFtdi
+### Get-FTDevice
 
 Enumerates all FTDI devices visible to the D2XX driver.
+
+**Primary name**: `Get-FTDevice`  
+**Backward-compatible alias**: `Get-PsGadgetFtdi`
 
 **Parameters**: none
 
@@ -62,10 +64,10 @@ twice -- once with `Driver = ftd2xx.dll` (use for PSGadget) and once as
 entry appends "A".
 
 ```powershell
-Get-PsGadgetFtdi | Format-Table
+Get-FTDevice | Format-Table
 
 # Find only D2XX-accessible devices
-Get-PsGadgetFtdi | Where-Object Driver -eq "ftd2xx.dll" | Format-Table Index, SerialNumber, LocationId
+Get-FTDevice | Where-Object Driver -eq "ftd2xx.dll" | Format-Table Index, SerialNumber, LocationId
 ```
 
 ---
@@ -105,7 +107,7 @@ type scope. The returned object is already open -- no `.Connect()` call needed.
 |-----------|------|----------|-------------|
 | `-SerialNumber` | string | BySerial | FTDI serial number (e.g. "BG01X3GX") |
 | `-Index` | int (0-127) | ByIndex | Zero-based device index |
-| `-LocationId` | string | ByLocation | USB hub+port address from `Get-PsGadgetFtdi` |
+| `-LocationId` | string | ByLocation | USB hub+port address from `Get-FTDevice` |
 
 **Returns**: `PsGadgetFtdi` object
 
@@ -147,7 +149,7 @@ $dev = New-PsGadgetFtdi -LocationId 197634
 Opens a raw device connection and returns a low-level connection object.
 Use `New-PsGadgetFtdi` instead for scripted GPIO work.
 `Connect-PsGadgetFtdi` is useful when you need the raw connection for
-`Set-PsGadgetGpio -Connection` or `Connect-PsGadgetSsd1306 -FtdiDevice`.
+`Set-PsGadgetGpio -Connection`.
 
 **Parameter sets**: ByIndex (default) | BySerial | ByLocation
 
@@ -163,10 +165,6 @@ Use `New-PsGadgetFtdi` instead for scripted GPIO work.
 $conn = Connect-PsGadgetFtdi -Index 0
 Set-PsGadgetGpio -Connection $conn -Pins @(0) -State HIGH
 $conn.Close()
-
-# Feed directly into SSD1306 init
-$ftdi    = Connect-PsGadgetFtdi -Index 0
-$display = Connect-PsGadgetSsd1306 -FtdiDevice $ftdi
 ```
 
 ---
@@ -192,31 +190,6 @@ Creates a `PsGadgetMpy` object for a MicroPython serial port.
 $mpy = Connect-PsGadgetMpy -SerialPort "/dev/ttyUSB0"
 $mpy.Invoke("import sys; print(sys.version)")
 $mpy.GetInfo()
-```
-
----
-
-### Connect-PsGadgetSsd1306
-
-Initializes an SSD1306 OLED display connected to an FT232H via I2C.
-
-**Parameter sets**: ByConnection (default) | PsGadget
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `-FtdiDevice` | System.Object | ByConnection | Connection object from `Connect-PsGadgetFtdi` |
-| `-PsGadget` | PsGadgetFtdi | PsGadget | Object from `New-PsGadgetFtdi` |
-| `-Address` | byte (0x08-0x77) | No | I2C address. Default: `0x3C` |
-| `-Force` | switch | No | Re-initialize even if already connected |
-
-**Returns**: `PsGadgetSsd1306` object, or `$null` on failure
-
-```powershell
-$ftdi    = Connect-PsGadgetFtdi -Index 0
-$display = Connect-PsGadgetSsd1306 -FtdiDevice $ftdi
-
-# Module with ADDR pin pulled high
-$display = Connect-PsGadgetSsd1306 -FtdiDevice $ftdi -Address 0x3D
 ```
 
 ---
@@ -431,65 +404,68 @@ gives approximately 21 characters per page at normal size.
 
 ---
 
-### Write-PsGadgetSsd1306
+### PsGadgetFtdi Display Methods
 
-Writes text to a specific page of the SSD1306 display.
+Use `New-PsGadgetFtdi` to create a connected device object, then get the display
+object through `.GetDisplay()`.
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `-Display` | System.Object | Yes | Display object from `Connect-PsGadgetSsd1306` |
-| `-Text` | string | Yes | Text to display |
-| `-Page` | int (0-7) | Yes | Target page (row) |
-| `-Align` | string | No | left (default), center, or right |
-| `-FontSize` | int | No | 1 (default, 6x8) or 2 (doubled width) |
-| `-Invert` | switch | No | Dark text on white background instead of white on dark |
+| Method | Description |
+|--------|-------------|
+| `.GetDisplay()` | Returns the cached `PsGadgetSsd1306` object (default address 0x3C) |
+| `.GetDisplay([byte] address)` | Returns/caches display object for a specific address |
+| `.Display(text, page, address)` | Convenience text write (left-aligned, FontSize 1) |
+| `.ClearDisplay()` | Clears all display pages |
 
-**Returns**: `[bool]` - `$true` on success
+**Common `PsGadgetSsd1306` methods**:
+
+| Method | Description |
+|--------|-------------|
+| `.Initialize($false)` | Initialize controller and framebuffer |
+| `.WriteText(text, page, align, fontSize, invert)` | Write text with formatting |
+| `.Clear()` | Clear the display |
+| `.SetCursor(column, page)` | Move cursor for precise placement |
+| `.DrawSymbol(name, page, column)` | Draw built-in symbol |
+| `.ShowSplash()` | Render startup splash and clear |
 
 ```powershell
-Write-PsGadgetSsd1306 -Display $display -Text "Hello World" -Page 0
-Write-PsGadgetSsd1306 -Display $display -Text "Centered"   -Page 2 -Align center
-Write-PsGadgetSsd1306 -Display $display -Text "Right"      -Page 4 -Align right
-Write-PsGadgetSsd1306 -Display $display -Text "BIG"        -Page 0 -FontSize 2 -Align center
-Write-PsGadgetSsd1306 -Display $display -Text "ALARM"      -Page 6 -Invert
+$dev = New-PsGadgetFtdi -Index 0
+$d   = $dev.GetDisplay()
+$d.Initialize($false) | Out-Null
+$d.WriteText("Hello World", 0, "center", 1, $false) | Out-Null
+$d.DrawSymbol("Info", 2, 0) | Out-Null
+$d.Clear() | Out-Null
 ```
 
 ---
 
-### Clear-PsGadgetSsd1306
+### Invoke-PsGadgetI2C (SSD1306)
 
-Clears the entire display or a single page.
+For cmdlet-style display operations, use `Invoke-PsGadgetI2C -I2CModule SSD1306`.
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `-Display` | System.Object | Yes | Display object from `Connect-PsGadgetSsd1306` |
-| `-Page` | int (0-7) | No | Clear only this page. Omit to clear all 8 pages. |
+**SSD1306 parameters**:
 
-**Returns**: `[bool]` - `$true` on success
-
-```powershell
-# Clear full display
-Clear-PsGadgetSsd1306 -Display $display
-
-# Clear page 3 only
-Clear-PsGadgetSsd1306 -Display $display -Page 3
-```
-
----
-
-### Set-PsGadgetSsd1306Cursor
-
-Moves the internal cursor to an exact column and page position for raw byte
-writes or precise text placement.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `-Display` | System.Object | Yes | Display object from `Connect-PsGadgetSsd1306` |
-| `-Column` | int (0-127) | Yes | Pixel column |
-| `-Page` | int (0-7) | Yes | Page (row) number |
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `-Text` | string | Write one line of text |
+| `-Page` | int | Target page (0-15; common displays use 0-7) |
+| `-Align` | string | `left`, `center`, or `right` |
+| `-FontSize` | int | 1 or 2 |
+| `-Invert` | switch | Render dark text on light background |
+| `-Symbol` | string | Built-in symbol: Warning, Alert, Checkmark, Error, Info, Lock, Unlock, Network |
+| `-Clear` | switch | Clear display (or selected page) |
+| `-DisplayHeight` | int | 32 or 64 |
+| `-Column` | int | Column offset for symbol/text placement |
+| `-Rotation` | int | 0, 90, 180, or 270 |
 
 ```powershell
-Set-PsGadgetSsd1306Cursor -Display $display -Column 32 -Page 3
+# Write centered text
+Invoke-PsGadgetI2C -Index 0 -I2CModule SSD1306 -Text "PSGadget" -Page 0 -Align center
+
+# Draw a symbol
+Invoke-PsGadgetI2C -Index 0 -I2CModule SSD1306 -Symbol Info -Page 2 -Column 0
+
+# Clear display
+Invoke-PsGadgetI2C -Index 0 -I2CModule SSD1306 -Clear
 ```
 
 ---
@@ -577,7 +553,7 @@ enumeration, and configuration file. Returns a structured object.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| Status | string | `OK` or `NOT READY` |
+| Status | string | `OK` or `Fail` |
 | Reason | string | First failing check, or `All checks passed` |
 | NextStep | string | Actionable guidance if not ready; empty when OK |
 | Platform | string | OS / PS version / .NET version |
@@ -585,7 +561,7 @@ enumeration, and configuration file. Returns a structured object.
 | BackendReady | bool | True if the selected backend loaded successfully |
 | NativeLibOk | bool | True if the platform native library is present |
 | NativeLibPath | string | Full path checked |
-| Devices | string[] | Formatted device list from Get-PsGadgetFtdi |
+| Devices | string[] | Formatted device list from Get-FTDevice |
 | DeviceCount | int | Number of enumerated devices |
 | ConfigPresent | bool | True if ~/.psgadget/config.json exists |
 | IsReady | bool | True if all checks passed |
@@ -611,23 +587,49 @@ Test-PsGadgetSetup
 
 ---
 
+### Get-PsGadgetLog
+
+Displays PSGadget session log files from `~/.psgadget/logs/`.
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `-List` | switch | No | List available log sessions with size and timestamp |
+| `-Tail` | int | No | Show only the last N lines of the latest log |
+| `-Follow` | switch | No | Stream the latest log in real time |
+
+```powershell
+# Show latest log file content
+Get-PsGadgetLog
+
+# Show last 30 lines
+Get-PsGadgetLog -Tail 30
+
+# List all log sessions
+Get-PsGadgetLog -List
+
+# Follow live output
+Get-PsGadgetLog -Follow
+```
+
+---
+
 ## Quick Reference Table
 
 | Function | Short Description |
 |----------|-------------------|
-| `Get-PsGadgetFtdi` | Enumerate FTDI devices |
+| `Get-FTDevice` | Enumerate FTDI devices |
 | `Get-PsGadgetMpy` | Enumerate MicroPython serial ports |
 | `New-PsGadgetFtdi` | Create PsGadgetFtdi object (OOP entry point) |
 | `Connect-PsGadgetFtdi` | Open raw FTDI connection |
 | `Connect-PsGadgetMpy` | Open MicroPython REPL connection |
-| `Connect-PsGadgetSsd1306` | Initialize SSD1306 OLED over I2C |
 | `Set-PsGadgetGpio` | Set GPIO pins HIGH or LOW |
 | `Set-PsGadgetFtdiMode` | Switch device operating mode |
 | `Set-PsGadgetFt232rCbusMode` | Program FT232R CBUS pins (one-time EEPROM) |
 | `Get-PsGadgetFtdiEeprom` | Read FTDI device EEPROM |
-| `Write-PsGadgetSsd1306` | Write text to OLED display |
-| `Clear-PsGadgetSsd1306` | Clear display or single page |
-| `Set-PsGadgetSsd1306Cursor` | Set OLED cursor position |
+| `Invoke-PsGadgetI2C` | High-level I2C dispatch (PCA9685 and SSD1306) |
 | `Get-PsGadgetConfig` | Read user configuration |
 | `Set-PsGadgetConfig` | Write user configuration |
+| `Get-PsGadgetLog` | View PSGadget session logs |
 | `Test-PsGadgetEnvironment` | Verify environment readiness; returns Status/Reason/NextStep |

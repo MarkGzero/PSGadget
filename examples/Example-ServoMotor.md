@@ -35,7 +35,7 @@ Two hardware approaches are covered:
   - [Raw MPSSE write path](#raw-mpsse-write-path)
   - [Async bit-bang streaming (multi-servo)](#async-bit-bang-streaming-multi-servo)
 - [Troubleshooting](#troubleshooting)
-  - [Device appears twice in Get-PsGadgetFtdi (VCP driver conflict)](#device-appears-twice-in-get-psgadgetftdi-vcp-driver-conflict)
+  - [Device appears twice in Get-FTDevice (VCP driver conflict)](#device-appears-twice-in-get-ftdevice-vcp-driver-conflict)
   - [FT232H signal is wrong frequency on scope (~20 Hz instead of 50 Hz)](#ft232h-signal-is-wrong-frequency-on-scope-20-hz-instead-of-50-hz)
   - [Servo does not move at all](#servo-does-not-move-at-all)
   - [Servo twitches or buzzes continuously](#servo-twitches-or-buzzes-continuously)
@@ -232,7 +232,7 @@ ACBUS to ADBUS.
 
 ```powershell
 Import-Module PSGadget.psd1 -Force
-Get-PsGadgetFtdi | Format-Table Index, Type, SerialNumber, GpioMethod
+Get-FTDevice | Format-Table Index, Type, SerialNumber, GpioMethod
 ```
 
 For FT232H you should see `GpioMethod : MPSSE`. For FT232R you should see
@@ -260,7 +260,7 @@ $dev.Close()
 #         access, so VCP must be disabled first.
 
 # Check: does the device appear twice?
-Get-PsGadgetFtdi -ShowVCP | Format-Table Index, Type, SerialNumber, Flags
+Get-FTDevice -ShowVCP | Format-Table Index, Type, SerialNumber, Flags
 # If the same serial number appears twice (once as D2XX, once as a COM port),
 # you have a VCP conflict. Fix it before running any servo code:
 
@@ -271,7 +271,7 @@ Get-PsGadgetFtdiEeprom -Index 0
 Set-PsGadgetFtdiEeprom -Index 0 -DisableVcp
 
 # Verify: after replug, should show only one D2XX entry with no COM port
-Get-PsGadgetFtdi -ShowVCP | Format-Table
+Get-FTDevice -ShowVCP | Format-Table
 Get-PsGadgetFtdiEeprom -Index 0   # IsVCP : False (FT232H) or RIsD2XX : True (FT232R)
 ```
 
@@ -596,9 +596,9 @@ $dev.Close()
 
 ## Troubleshooting
 
-### Device appears twice in Get-PsGadgetFtdi (VCP driver conflict)
+### Device appears twice in Get-FTDevice (VCP driver conflict)
 
-Symptom: `Get-PsGadgetFtdi -ShowVCP` shows the same device at two different
+Symptom: `Get-FTDevice -ShowVCP` shows the same device at two different
 indices — one as a D2XX device and one as a COM port (e.g. COM11). Serial
 numbers match except the VCP entry has a trailing `A`.
 
@@ -638,7 +638,7 @@ Set-PsGadgetFtdiEeprom -Index 0 -DisableVcp
 # Accept the prompt to cycle the USB port, or replug manually.
 
 # Verify: single D2XX entry, no COM port
-Get-PsGadgetFtdi -ShowVCP | Format-Table
+Get-FTDevice -ShowVCP | Format-Table
 Get-PsGadgetFtdiEeprom -Index 0   # IsVCP : False (FT232H) or RIsD2XX : True (FT232R)
 ```
 
@@ -693,7 +693,7 @@ With both fixes applied, expected scope: ~50 Hz, ~7.5% duty, 1.5 ms pulse.
 - **Check for VCP driver conflict first.** This is the most common cause of
   silent GPIO failure on both FT232H and FT232R. FT232R ships with VCP enabled
   by default (`RIsD2XX=False`); FT232H may also have `IsVCP=True` from the
-  factory. Run `Get-PsGadgetFtdi -ShowVCP | Format-Table` — if the device
+  factory. Run `Get-FTDevice -ShowVCP | Format-Table` — if the device
   appears twice (D2XX entry + COM port entry), see the section above.
 - Check power: the servo power (red) wire must be connected to an external
   5 V supply **and** that supply's GND must be connected to the FTDI GND.
@@ -701,7 +701,7 @@ With both fixes applied, expected scope: ~50 Hz, ~7.5% duty, 1.5 ms pulse.
 - Confirm signal polarity: the signal pin must go HIGH during the pulse, not
   LOW. Verify `Set-PsGadgetGpio -State HIGH` actually pulls ACBUS0 high by
   measuring with a multimeter (expect ~3.3 V when HIGH, ~0 V when LOW).
-- Verify the FTDI device listed with `Get-PsGadgetFtdi` has `GpioMethod : MPSSE`
+- Verify the FTDI device listed with `Get-FTDevice` has `GpioMethod : MPSSE`
   (FT232H). If it shows `CBUS`, you have an FT232R and must use the async
   bit-bang (ADBUS) wiring for anything beyond 3 positions.
 - Run the smoke test with a simple LED on ACBUS0 first to confirm the GPIO

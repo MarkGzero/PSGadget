@@ -9,6 +9,19 @@ detection, and understand the MPSSE layer underneath.
 
 ---
 
+## Table of Contents
+
+- [Hardware setup](#hardware-setup)
+- [MPSSE I2C internals](#mpsse-i2c-internals)
+- [I2C bus scan](#i2c-bus-scan)
+- [Interpreting the scan results](#interpreting-the-scan-results)
+- [Verifying ACK validation in write path](#verifying-ack-validation-in-write-path)
+- [GPIO read-modify-write behavior](#gpio-read-modify-write-behavior)
+- [Clock frequency selection](#clock-frequency-selection)
+- [Quick reference](#quick-reference)
+
+---
+
 ## Hardware setup
 
 | FT232H pin | I2C signal | Note |
@@ -113,8 +126,9 @@ terminates as a PowerShell error you can catch:
 
 ```powershell
 try {
-    # Connect-PsGadgetSsd1306 will throw if 0x3C does not ACK
-    $display = Connect-PsGadgetSsd1306 -FtdiDevice $ftdi -Address 0x3C
+    # WriteText will throw if 0x3C does not ACK
+    $d = $dev.GetDisplay([byte]0x3C)
+    $d.WriteText("Probe", 0) | Out-Null
 } catch {
     Write-Error "I2C init failed: $_"
 }
@@ -144,8 +158,8 @@ $dev.SetPins(@(0,1,2,3,4,5,6,7), 'LOW')
 
 ```powershell
 # Standard mode: 100 kHz (default)
-$ftdi = Connect-PsGadgetFtdi -Index 0
-$display = Connect-PsGadgetSsd1306 -FtdiDevice $ftdi   # uses 100 kHz
+$dev = New-PsGadgetFtdi -Index 0
+$display = $dev.GetDisplay()   # uses 100 kHz
 ```
 
 To change the I2C clock (for fast mode or slower devices), call
@@ -153,11 +167,11 @@ To change the I2C clock (for fast mode or slower devices), call
 
 ```powershell
 # Fast mode: 400 kHz
-Initialize-MpsseI2C -DeviceHandle $ftdi.Handle -ClockFrequency 400000
+Initialize-MpsseI2C -DeviceHandle $dev.Handle -ClockFrequency 400000
 ```
 
-Note: `Initialize-MpsseI2C` is a private function. Call it before
-`Connect-PsGadgetSsd1306` if you need a non-default frequency.
+Note: `Initialize-MpsseI2C` is a private function. Call it before the first
+`GetDisplay()` call if you need a non-default frequency.
 
 ---
 

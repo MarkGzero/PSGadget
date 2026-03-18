@@ -405,7 +405,7 @@ for `Type=simple`.
 > **Note:** As of v0.1.0, the daemon subsystem (`Start-PsGadgetDaemon`,
 > `Stop-PsGadgetDaemon`, `Get-PsGadgetDaemon`, `Send-PsGadgetCommand`) is
 > **planned but not yet implemented**. This document describes the intended design.
-> The underlying device functions (`Write-PsGadgetSsd1306`, `Set-PsGadgetGpio`, etc.)
+> The underlying device functions (`Invoke-PsGadgetI2C`, `Set-PsGadgetGpio`, etc.)
 > are implemented and form the backend that the daemon will delegate to.
 
 ---
