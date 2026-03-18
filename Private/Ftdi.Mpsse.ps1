@@ -674,7 +674,7 @@ function Send-MpsseI2CWrite {
                 # ------------------------------------------------------------------
                 # Data phase: build all data byte MPSSE commands in one buffer and
                 # issue a SINGLE $rawDevice.Write() call for the entire payload.
-                # Per-byte ACK reads are skipped — SSD1306 always ACKs data bytes,
+                # Per-byte ACK reads are skipped - SSD1306 always ACKs data bytes,
                 # and polling the RX buffer per byte is the dominant latency source.
                 # ------------------------------------------------------------------
                 $dataBuf = [System.Collections.Generic.List[byte]]::new($Data.Length * 13 + 1)
@@ -772,28 +772,8 @@ function Invoke-FtdiI2CScan {
 
     $found      = [System.Collections.Generic.List[PSCustomObject]]::new()
     $gpioMethod = if ($Connection.PSObject.Properties['GpioMethod']) { $Connection.GpioMethod } else { 'Stub' }
-    $isSharp    = $Connection.PSObject.Properties['IsSharp'] -and $Connection.IsSharp
 
-    if ($isSharp) {
-        # FtdiSharp path (PS 5.1 + PS 7 on Windows).
-        # [FtdiSharp.Protocols.I2C]::new(device).Scan() returns byte[] of ACK'd addresses.
-        Write-Verbose 'I2C scan via FtdiSharp (0x08-0x77)...'
-        $i2c = [FtdiSharp.Protocols.I2C]::new($Connection.SharpDevice)
-        try {
-            $addresses = $i2c.Scan()
-            foreach ($addr in $addresses) {
-                $found.Add([PSCustomObject]@{
-                    PSTypeName = 'PsGadget.I2cDevice'
-                    Address    = [int]$addr
-                    Hex        = ('0x{0:X2}' -f $addr)
-                })
-                Write-Verbose ('I2C device found: 0x{0:X2}' -f $addr)
-            }
-        } finally {
-            try { $i2c.Dispose() } catch {}
-        }
-
-    } elseif ($gpioMethod -eq 'IoT') {
+    if ($gpioMethod -eq 'IoT') {
         # IoT path - use .NET IoT I2cBus to probe each address.
         # CreateOrGetI2cBus() is cached; do not dispose the bus.
         Write-Verbose 'I2C scan via IoT I2cBus (0x08-0x77)...'

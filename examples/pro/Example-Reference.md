@@ -129,7 +129,6 @@ Config at `~/.psgadget/config.json`. Logs at `~/.psgadget/logs/psgadget.log`.
 |------------|---------|
 | `$script:IotBackendAvailable` | Iot.Device.Bindings loaded (PS 7.4+ / .NET 8+) |
 | `$script:D2xxLoaded` | FTD2XX_NET.dll loaded |
-| `$script:FtdiSharpAvailable` | FtdiSharp.dll loaded |
 
 DLL selection: `Private/Initialize-FtdiAssembly.ps1`.
 Enumeration dispatch: `Private/Ftdi.Backend.ps1` -> `Get-FtdiDeviceList`.

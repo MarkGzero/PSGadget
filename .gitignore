@@ -90,9 +90,7 @@ secrets.*
 *.secret
 *.secrets
 
-# CTF provisioning -- gadget keys must never be committed
-ctf_config.json
-flag_secret*
+# Device provisioning -- secrets and keys must never be committed
 gadget_key*
 
 # Local config overrides

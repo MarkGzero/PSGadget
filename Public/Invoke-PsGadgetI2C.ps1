@@ -30,7 +30,7 @@ function Invoke-PsGadgetI2C {
     When supplied the device is NOT closed after the call.
 
     .PARAMETER Index
-    FTDI device index (0-based) from Get-PsGadgetFtdi.
+    FTDI device index (0-based) from Get-FTDevice.
     Default is 0.
 
     .PARAMETER SerialNumber
@@ -42,7 +42,7 @@ function Invoke-PsGadgetI2C {
 
     .PARAMETER I2CModule
     The I2C module type.  Activates module-specific dynamic parameters.
-    Supported values: 'PCA9685'
+    Supported values: 'PCA9685', 'SSD1306'
 
     .PARAMETER Frequency
     PWM frequency in Hz.  Default is 50 (standard RC servo frequency).

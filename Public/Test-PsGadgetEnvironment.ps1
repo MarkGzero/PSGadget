@@ -48,16 +48,14 @@ function Test-PsGadgetEnvironment {
         $backendOk   = $true
     }
 
-    $sharpNote    = if ($script:FtdiSharpAvailable) { ' + FtdiSharp I2C/SPI' } else { '' }
     $readySuffix  = if ($backendOk) { ' - Ready' } else { ' - hardware commands unavailable' }
-    $backendLabel = "$backendName$sharpNote$readySuffix"
+    $backendLabel = "$backendName$readySuffix"
 
     Write-Verbose "PS version  : $psVersion"
     Write-Verbose ".NET version: $dotnet"
     Write-Verbose "Platform    : $platform"
     Write-Verbose "IotBackend  : $($script:IotBackendAvailable)"
     Write-Verbose "D2xxLoaded  : $($script:D2xxLoaded)"
-    Write-Verbose "FtdiSharp   : $($script:FtdiSharpAvailable)"
 
     # ------------------------------------------------------------------
     # Native library check

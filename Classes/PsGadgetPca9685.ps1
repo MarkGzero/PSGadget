@@ -167,7 +167,7 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
         if ($degrees -gt [PsGadgetPca9685]::DEGREE_MAX) { $degrees = [PsGadgetPca9685]::DEGREE_MAX }
 
         # Map degrees -> pulse width in microseconds
-        # e.g. 0° -> 500µs, 90° -> 1500µs, 180° -> 2500µs at standard RC range
+        # e.g. 0 deg -> 500us, 90 deg -> 1500us, 180 deg -> 2500us at standard RC range
         $pulseUs = $this.PulseMinUs + [int][math]::Round(
             ([double]$degrees / [double][PsGadgetPca9685]::DEGREE_MAX) *
             [double]($this.PulseMaxUs - $this.PulseMinUs)
@@ -175,7 +175,7 @@ class PsGadgetPca9685 : PsGadgetI2CDevice {
 
         # Convert microseconds to 12-bit PWM step count.
         # offCount = pulseUs * frequency * 4096 / 1_000_000
-        # e.g. at 50Hz: 2500µs -> 2500 * 50 * 4096 / 1000000 = 512
+        # e.g. at 50Hz: 2500us -> 2500 * 50 * 4096 / 1000000 = 512
         $offCount = [int][math]::Round(
             [double]$pulseUs * [double]$this.Frequency * [double][PsGadgetPca9685]::PWM_STEPS / 1000000.0
         )

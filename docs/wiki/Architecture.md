@@ -267,7 +267,6 @@ Script-scope flags set after loading:
 |------|------|---------|
 | `$script:IotBackendAvailable` | bool | .NET IoT DLLs loaded and verified |
 | `$script:D2xxLoaded` | bool | FTD2XX_NET.dll loaded and FT_OK constant accessible |
-| `$script:FtdiSharpAvailable` | bool | FtdiSharp.dll loaded |
 | `$script:FtdiInitialized` | bool | Any backend loaded successfully |
 
 ---

@@ -23,7 +23,6 @@ function Initialize-FtdiAssembly {
     # Initialise flags; set to $true only on successful load below
     $script:IotBackendAvailable  = $false
     $script:D2xxLoaded           = $false
-    $script:FtdiSharpAvailable   = $false
 
     try {
         $psVersion  = $PSVersionTable.PSVersion.Major
@@ -336,19 +335,6 @@ function Initialize-FtdiAssembly {
                     }
                 }
 
-                # Load FtdiSharp for MPSSE I2C/SPI (used by SSD1306 and other I2C devices)
-                $sharpPath = Join-Path (Join-Path (Join-Path $ModuleRoot 'lib') 'ftdisharp') 'FtdiSharp.dll'
-                if (Test-Path $sharpPath) {
-                    try {
-                        [void][Reflection.Assembly]::LoadFrom($sharpPath)
-                        $null = [FtdiSharp.FtdiDevices]
-                        $null = [FtdiSharp.Protocols.I2C]
-                        $script:FtdiSharpAvailable = $true
-                        Write-Verbose "FtdiSharp.dll loaded - I2C/SPI protocol support available"
-                    } catch {
-                        Write-Verbose "FtdiSharp.dll load failed: $_"
-                    }
-                }
             }
 
             # $script:FtdiInitialized drives stub/real branching in Invoke-FtdiWindowsEnumerate.
@@ -391,20 +377,6 @@ function Initialize-FtdiAssembly {
                 Write-Warning "FTD2XX_NET.dll not found at: $dllPath"
                 Write-Verbose "Operating in stub mode - real FTDI operations will not be available"
                 return $false
-            }
-
-            # Load FtdiSharp for MPSSE I2C/SPI (SSD1306 and other I2C devices)
-            $sharpPath = Join-Path (Join-Path (Join-Path $ModuleRoot 'lib') 'ftdisharp') 'FtdiSharp.dll'
-            if (Test-Path $sharpPath) {
-                try {
-                    [void][Reflection.Assembly]::LoadFrom($sharpPath)
-                    $null = [FtdiSharp.FtdiDevices]
-                    $null = [FtdiSharp.Protocols.I2C]
-                    $script:FtdiSharpAvailable = $true
-                    Write-Verbose "FtdiSharp.dll loaded - I2C/SPI protocol support available"
-                } catch {
-                    Write-Verbose "FtdiSharp.dll load failed (I2C will use raw MPSSE): $_"
-                }
             }
 
             $script:FtdiInitialized = $script:D2xxLoaded

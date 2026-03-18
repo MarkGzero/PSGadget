@@ -11,7 +11,7 @@ Control LEDs, drive an OLED screen, and talk to microcontrollers from PowerShell
 ```powershell
 Import-Module ./PSGadget.psd1
 Test-PsGadgetEnvironment -Verbose
-Get-PsGadgetFtdi
+Get-FTDevice
 Set-PsGadgetGpio -Index 0 -Pins @(0) -State HIGH
 ```
 

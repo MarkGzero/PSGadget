@@ -6,7 +6,7 @@
 # PSGadget.psm1 picks this file up automatically via the Private/*.ps1 glob.
 #
 # Design decisions:
-#   - PAGE addressing mode (0x20, 0x02) — cursor commands 0xB0+page / 0x00 / 0x10 stay valid.
+#   - PAGE addressing mode (0x20, 0x02) - cursor commands 0xB0+page / 0x00 / 0x10 stay valid.
 #   - Init sequence is sent as ONE batched I2C command write (single USB transaction).
 #   - Page and full-display writes use two I2C transactions each (cursor/window + data).
 #   - No per-command Start-Sleep calls; 5ms settling sleep after the init sequence only.
@@ -31,7 +31,7 @@ function Send-Ssd1306Command {
     )
 
     try {
-        # 0x00 = Co=0 D/C#=0 — single control byte that applies to all following command bytes.
+        # 0x00 = Co=0 D/C#=0 - single control byte that applies to all following command bytes.
         $payload = [byte[]]::new($commands.Length + 1)
         $payload[0] = [byte]0x00
         [System.Array]::Copy($commands, 0, $payload, 1, $commands.Length)
@@ -65,7 +65,7 @@ function Send-Ssd1306Data {
     )
 
     try {
-        # 0x40 = Co=0 D/C#=1 — single control byte indicating all following bytes are data.
+        # 0x40 = Co=0 D/C#=1 - single control byte indicating all following bytes are data.
         $payload = [byte[]]::new($data.Length + 1)
         $payload[0] = [byte]0x40
         [System.Array]::Copy($data, 0, $payload, 1, $data.Length)
@@ -115,7 +115,7 @@ function Initialize-Ssd1306 {
         [byte]$segRemap = if ($rotation -eq 180) { 0xA0 } else { 0xA1 }
         [byte]$comScan  = if ($rotation -eq 180) { 0xC0 } else { 0xC8 }
 
-        # Full SSD1306 initialization sequence — HORIZONTAL addressing mode (0x20 0x00).
+        # Full SSD1306 initialization sequence - HORIZONTAL addressing mode (0x20 0x00).
         # Commands are sent one byte per I2C transaction (matching the proven reference
         # implementation). Some SSD1306 clones do not handle multi-byte streaming mode
         # (Co=0) reliably during init; per-byte writes are universally compatible.
@@ -185,7 +185,7 @@ function Write-Ssd1306Page {
 
     try {
         # HORIZONTAL addressing mode: set column window (0x21 + start + end) and
-        # page window (0x22 + start + end) — each as a single I2C transaction so the
+        # page window (0x22 + start + end) - each as a single I2C transaction so the
         # SSD1306 receives the command byte and its 2 argument bytes together.
         Send-Ssd1306Command -device $device -commands ([byte[]](0x21, 0x00, 0x7F)) | Out-Null
         Send-Ssd1306Command -device $device -commands ([byte[]](0x22, [byte]$physPage, [byte]$physPage)) | Out-Null

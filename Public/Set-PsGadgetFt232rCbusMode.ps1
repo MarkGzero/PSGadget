@@ -40,7 +40,7 @@ function Set-PsGadgetFt232rCbusMode {
         FT_CBUS_BITBANG_RD   Bit-bang read strobe
 
     .PARAMETER Index
-    Zero-based device index (from Get-PsGadgetFtdi).
+    Zero-based device index (from Get-FTDevice).
 
     .PARAMETER SerialNumber
     Alternative to Index: specify the target device by serial number string.

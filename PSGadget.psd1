@@ -20,7 +20,7 @@
     FunctionsToExport = @(
         'New-PsGadgetFtdi',
         'Test-PsGadgetEnvironment',
-        'Get-PsGadgetFtdi',
+        'Get-FTDevice',
         'Connect-PsGadgetFtdi',
         'Get-PsGadgetMpy',
         'Connect-PsGadgetMpy',
@@ -42,7 +42,7 @@
     # No cmdlets, variables, or aliases exported
     CmdletsToExport = @()
     VariablesToExport = @()
-    AliasesToExport = @('Test-PsGadgetSetup')
+    AliasesToExport = @('Test-PsGadgetSetup', 'Get-PsGadgetFtdi')
     
     # Files included in this module
     FileList = @(
@@ -53,6 +53,7 @@
         'Classes/PsGadgetFtdi.ps1',
         'Classes/PsGadgetMpy.ps1',
         'Classes/PsGadgetPca9685.ps1',
+        'Private/Ftdi.PInvoke.ps1',
         'Private/Stepper.Backend.ps1',
         'Private/Ftdi.Backend.ps1',
         'Private/Ftdi.Cbus.ps1',
@@ -66,6 +67,7 @@
         'Private/Invoke-NativeProcess.ps1',
         'Private/Mpy.Backend.ps1',
         'Private/Send-PsGadgetI2CWrite.ps1',
+        'Private/Ssd1306.Backend.ps1',
         'Public/Connect-PsGadgetFtdi.ps1',
         'Public/Connect-PsGadgetMpy.ps1',
         'Public/Get-PsGadgetConfig.ps1',
@@ -75,7 +77,8 @@
         'Public/Install-PsGadgetMpyScript.ps1',
         'Public/Invoke-PsGadgetStepper.ps1',
         'Public/Invoke-PsGadgetI2CScan.ps1',
-        'Public/Get-PsGadgetFtdi.ps1',
+        'Public/Invoke-PsGadgetI2C.ps1',
+        'Public/Get-FTDevice.ps1',
         'Public/Get-PsGadgetMpy.ps1',
         'Public/New-PsGadgetFtdi.ps1',
         'Public/Test-PsGadgetEnvironment.ps1',
@@ -98,7 +101,7 @@
         PSData = @{
             Tags = @('FTDI', 'Hardware', 'GPIO', 'UART', 'I2C', 'SPI', 'PsGadget',
                      'MicroPython', 'ESP32', 'ESP-NOW', 'IoT', 'FT232H', 'FT232R',
-                     'SSD1306', 'OLED', 'CTF', 'Telemetry')
+                     'SSD1306', 'OLED', 'Telemetry')
             LicenseUri   = 'https://opensource.org/licenses/MIT'
             ProjectUri   = 'https://github.com/MarkGzero/PsGadget'
             IconUri      = ''

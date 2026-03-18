@@ -635,14 +635,14 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
             # Start clean
             [System.Array]::Clear($this.FrameBuffer, 0, $this.FrameBuffer.Length)
 
-            # 2-pixel border — top and bottom rows
+            # 2-pixel border - top and bottom rows
             for ($x = 0; $x -lt $this.LogicalWidth; $x++) {
                 $this.SetLogicalPixel($x, 0, $true)
                 $this.SetLogicalPixel($x, 1, $true)
                 $this.SetLogicalPixel($x, $this.LogicalHeight - 2, $true)
                 $this.SetLogicalPixel($x, $this.LogicalHeight - 1, $true)
             }
-            # 2-pixel border — left and right columns (corners already set above)
+            # 2-pixel border - left and right columns (corners already set above)
             for ($y = 2; $y -lt ($this.LogicalHeight - 2); $y++) {
                 $this.SetLogicalPixel(0,                       $y, $true)
                 $this.SetLogicalPixel(1,                       $y, $true)
@@ -650,9 +650,9 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
                 $this.SetLogicalPixel($this.LogicalWidth - 1,  $y, $true)
             }
 
-            # "PsGadget" — always font size 2: double width (each column repeated twice)
+            # "PsGadget" - always font size 2: double width (each column repeated twice)
             # + double height (ExpandNibble: each pixel row becomes 2 rows, 16 px tall total).
-            # Size is independent of display height — works the same on 128x32 and 128x64.
+            # Size is independent of display height - works the same on 128x32 and 128x64.
             [string]$label  = 'PsGadget'
 
             # textWidth at 2x: each glyph column is rendered twice side-by-side
@@ -684,7 +684,7 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
                 $lx += $g.Count * 2
             }
 
-            # One bulk push — border + text in a single display update
+            # One bulk push - border + text in a single display update
             $this.FlushAll() | Out-Null
 
             Start-Sleep -Seconds 3

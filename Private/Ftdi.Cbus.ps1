@@ -82,7 +82,7 @@ function Get-FtdiFt232hEeprom {
     The device must not already be opened by another handle.
 
     .PARAMETER Index
-    Zero-based device index (from Get-PsGadgetFtdi).
+    Zero-based device index (from Get-FTDevice).
 
     .PARAMETER SerialNumber
     Optional fallback when OpenByIndex fails.
@@ -211,7 +211,7 @@ function Get-FtdiFt232rEeprom {
     The device must not already be opened by another handle.
 
     .PARAMETER Index
-    Zero-based device index (from Get-PsGadgetFtdi).
+    Zero-based device index (from Get-FTDevice).
 
     .EXAMPLE
     Get-FtdiFt232rEeprom -Index 0
@@ -381,7 +381,7 @@ function Set-FtdiFt232rCbusPinMode {
         FT_CBUS_BITBANG_RD   - Bit-bang read strobe
 
     .PARAMETER Index
-    Zero-based device index (from Get-PsGadgetFtdi).
+    Zero-based device index (from Get-FTDevice).
 
     .PARAMETER Pins
     One or more CBUS pin numbers to reconfigure (0-3). CBUS4 is not available for
@@ -721,7 +721,7 @@ function Set-FtdiFt232hEepromMode {
     Change takes effect after USB replug or CyclePort.
 
     .PARAMETER Index
-    Zero-based device index (from Get-PsGadgetFtdi).
+    Zero-based device index (from Get-FTDevice).
 
     .PARAMETER SerialNumber
     Optional fallback when OpenByIndex fails.

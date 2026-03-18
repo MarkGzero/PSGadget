@@ -13,18 +13,18 @@
 #     derived constructor body. Derived constructors must NOT re-create Logger.
 #   - There is no abstract keyword; direct instantiation is possible but
 #     Initialize() will throw at runtime since Initialize([bool]) is not
-#     defined on this class — it is defined on each derived device class.
+#     defined on this class - it is defined on each derived device class.
 #   - $this.Initialize($false) in Initialize() resolves to the derived
 #     class override at runtime (dynamic dispatch).
 
 class PsGadgetI2CDevice {
     [PsGadgetLogger]$Logger
     [System.Object]$FtdiDevice
-    [System.Object]$I2cDevice   # FtdiSharp.Protocols.I2C instance when available; preferred over raw MPSSE
+    [System.Object]$I2cDevice   # I2C device instance when available (IoT path)
     [byte]$I2CAddress
     [bool]$IsInitialized
 
-    # Parameterless constructor — called automatically before every derived
+    # Parameterless constructor - called automatically before every derived
     # constructor body. Sets Logger so derived constructors can call
     # $this.Logger.WriteInfo() on their first line.
     PsGadgetI2CDevice() {
@@ -32,7 +32,7 @@ class PsGadgetI2CDevice {
         $this.IsInitialized = $false
     }
 
-    # I2CWrite: send bytes to the device, preferring FtdiSharp when available.
+    # I2CWrite: send bytes to the device via IoT or raw MPSSE.
     # All internal write operations in derived classes go through this method.
     [bool] I2CWrite([byte[]]$data) {
         try {
@@ -48,13 +48,13 @@ class PsGadgetI2CDevice {
         }
     }
 
-    # Initialize() no-arg overload — defined once here for all derived classes.
+    # Initialize() no-arg overload - defined once here for all derived classes.
     # Dispatches to the derived class Initialize([bool]$force) at runtime.
     [bool] Initialize() {
         return $this.Initialize($false)
     }
 
-    # BeginInitialize — shared guard called at the top of every derived
+    # BeginInitialize - shared guard called at the top of every derived
     # Initialize([bool]$force) implementation.
     #
     # Returns $true  = transport is ready; proceed with device-specific init.
@@ -72,7 +72,7 @@ class PsGadgetI2CDevice {
         }
         try {
             # Initialize MPSSE I2C only when using raw D2XX bit-bang path.
-            # FtdiSharp and .NET IoT backends manage their own MPSSE / I2C init.
+            # .NET IoT backend manages its own I2C init; D2XX uses raw MPSSE.
             # Skip if Set-PsGadgetFtdiMode already ran Initialize-MpsseI2C this session.
             if ($null -eq $this.I2cDevice) {
                 if ($this.FtdiDevice.GpioMethod -ne 'MpsseI2c') {
