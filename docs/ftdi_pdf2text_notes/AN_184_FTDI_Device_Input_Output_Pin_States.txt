@@ -1,0 +1,2704 @@
+===== PAGE 1 =====
+Application Note
+
+           AN_184
+
+FTDI Device Input Output Pin States
+
+                                     Version 3.5
+
+                               Issue Date: 21-11-2023
+
+            This application note describes the reset, suspend and active states of the
+            input / output pins of the following devices: FT232R, FT245R, FT232RN,
+          FT245RN,   FT232H,   FT2232H/FT2232H-56Q,   FT4232H/FT42323H-56Q,
+          FT232HP/FT233HP,  FT2232HP/FT2233HP,  FT4232HP/FT4233HP,  FT2232D,
+          FT200XD, FT201X, FT220X, FT221X, FT230X, FT234XD, FT231X, FT240X,
+           FT120, FT121, FT122, FT313H, FT4222H & FT260
+
+Use of FTDI devices in life support and/or safety applications is entirely at the user’s risk, and the user
+   agrees to defend, indemnify and hold harmless FTDI from any and all damages, claims, suits or
+                              expense resulting from such use.
+
+                Future Technology Devices International Limited (FTDI)
+                     Unit 1, 2 Seaward Place, Glasgow G41 1HH, United Kingdom
+                        Tel.: +44 (0) 141 429 2777  Fax: + 44 (0) 141 429 2758
+                         Web Site: http://ftdichip.com
+                   Copyright © Future Technology Devices International Limited
+
+===== PAGE 2 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+Table of Contents
+1 Introduction ................................................................... 4
+
+  1.1   Applicable Documents ........................................................... 4
+2 FT232R/FT232RN – I/O Pins .......................................... 5
+
+  2.1   FT232R/FT232RN - CBUS Selected Function .......................... 6
+3 FT245R/FT245RN – I/O Pins .......................................... 7
+
+4 FT232H– I/O Pins ........................................................... 8
+
+  4.1   FT232H - Selected Functions .................................................. 9
+5 FT232HP/FT233HP ....................................................... 10
+
+  5.1   FT232HP/FT233HP - Selected Functions .............................. 11
+6 FT2232H/FT2232H-56Q ............................................... 12
+
+  6.1   FT2232H/FT2232H-56Q – Channel A Pins ............................ 12
+
+  6.2   FT2232H/FT2232H-56Q – Channel B Pins ............................ 13
+
+  6.3   FT2232H / FT2232H -56Q - Selected Functions ................... 14
+7 FT2232HP / FT2233HP ................................................. 15
+
+  7.1   FT2232HP / FT2233HP - Channel A pins .............................. 15
+
+  7.2   FT2232HP / FT2233HP - Channel B pins .............................. 16
+
+  7.3   FT2232HP / FT2233HP – Selected Functions ....................... 17
+8 FT4232H / FT4232H -56Q ............................................. 18
+
+  8.1   FT4232H / FT4232H -56Q – Channel A Pins ......................... 18
+
+  8.2   FT4232H / FT4232H -56Q – Channel B Pins ......................... 18
+
+  8.3   FT4232H / FT4232H -56Q – Channel C Pins ......................... 19
+
+  8.4   FT4232H / FT4232H -56Q – Channel D Pins ......................... 19
+
+  8.5   FT4232H / FT4232H -56Q - Selected Functions ................... 20
+9 FT4232HP / FT4233HP ................................................. 21
+
+  9.1   FT4232HP / FT4233HP – Channel A Pins ............................. 21
+
+  9.2   FT4232HP / FT4233HP – Channel B Pins ............................. 21
+
+  9.3   FT4232HP / FT4233HP – Channel C Pins ............................. 22
+                                                                              1
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 3 =====
+a                                                                                Application Note
+7         FTDI                  AN_184 FTDI Device Input Output Pin States
+
+4           Chip                                                                                Version 3.5
+—\.
+
+Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+9.4    FT4232HP / FT4233HP — Channel D PINS .......ccseeeeeeceeeeennnnees 22
+9.5    FT4232HP / FT4233HP — Selected Functions ......cccccnsnnenennees 23
+10 FT2232D — Channel A PINS... ....ccesceeeeeeeneeeneeeeeeeeeeeeeeeenes24
+10.1) FT2232D — Channel B PINS .......ccccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee 24
+10.2 FT2232D - Selected Functions — Channel A.......ccsceseeseeneeneeee 25
+10.3. FT2232D - Selected Function — Channel B........sccseeseeneeneeneene 26
+8 FT20OXD — I/O PIMS......csecceeeeneseeeeseeseeeeseeeeeeesseeeeeesanneens27
+Q FT2ZO1X — I/O PINS. wcccccssceceeesneseeeeeneseeeeseeeeeesneneeeesanooens28
+LO FT220X — I/O PINS... cccecceeeeeeeeeneseeeeeeeeeeeeeeneeeeeeeneeeneeennns29
+LI FT221X — I/O PINS... cccccceeeceeeeeneseeeeeeeeeeeeeeeeeeeeeeneeeneeenees30
+12 FT230X — I/O PINS... ccccesccneceeeeeneseeeesneeeeeeeeneeeeeeeeoeneeenens31
+13 FT231X — I/O PINS... ccceccsceseeeeeneseeeeeneeeeeeseneeeeeeeneeeneeennns32
+14 FT234XD — I/O PINS... wees ceeeceeeeeneseeeeeeeeeeeeeeeeeeeeeeneeeneeennes33
+15 FT240X — I/O PINS... ccceseeneceeeeensseeeeeneeeeeeseneeeeeesneoeneesnnes34
+16 FT120 — I/O PIMNS wu. .cccceeeseneceeeeeneseeeesneeeeeeeeneoeeeeeneoeneeenans35
+17 FT121 — I/O PINS wun ccccceeeeeneeeeeeeneseeeeeeeseeeeeeneeeeeesneeeneeennes36
+18 FT122 — I/O PINS wun cccecceeeeneceeeeeeeseeeeseeeeeeeeeneeeeeesneeeneeennns37
+19 FTS13H — I/O PINS... cccccscceeceeeeencseeeeeneeeeeeeeneeeeeeseoeneeenans38
+20 FT4222H Rev A — I/O PINS... ..ccccsececeeeeneeeeeeneeeeeeeseseeneean39
+20.1 Configuration MOde 0... ..cccccccecsseeeeceesceeeeceeeseeeseseeseeeesneeeenenens39
+20.2 Configuration MOde 1.....ccccscceseceeenseeseeeesceeeeseeeeseeseeeseneeeenenens40
+20.3 Configuration MOde 2....ccccccceeceeceeceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeseenene41
+20.4 Configuration MOde 3.....ccccccceeeseeeeceeseeeeeeeeeseeeneeeseeeeseeeeesenens42
+21 FT4222H Rev B, C, D — I/O PINS... .cccsesseeceeeennseeeeeneneeeeean43
+21.1 Configuration MOde O......cccccccecseeeeseesceeeeceeeeseeeeseeseeessneeeesenens43
+21.2 Configuration MOde 1.....cccccccecsceesnceeseeeeeeeeeseeeeseesaeessneeeanenens44
+21.3 Configuration MOde 2....ccccccceeceeceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeseenene45
+21.4     Nfiguration MOGC 3 ...reeeee eee ees46
+
+Product Page
+Document Feedback                                                 Copyright © Future Technology Devices International Limited
+
+===== PAGE 4 =====
+a                                                                                Application Note
+|         FTDI                  AN_184 FTDI Device Input Output Pin States
+
+s§            Chip                                                                                                               Version 3.5
+
+Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+23 Contact INfOrmatiONn .......cccecsseeeseeeeeeeeeeseeeesnseeeensenseseesees FO
+Appendix A — References ...cccssscceesnseesnseeesnseesnseessnsensnseesenss FQ
+Document REFEreNCes ....ccccscceeseeeeseeeeeeeeeceeeseeeeeneeeasensasenseeeeeaeeeesenens49
+Acronyms and AbbreviatiOns........cccccccsseceesceeseseeseeeeseeeeeseesesenseeeanes49
+Appendix B -— List of Tables and Figures. ........:sccsssseseessseee2 DO
+List Of Table@S......ccccccecsceeecseesneeeseeeeseeeeeseeeeeeesaeeeeneeeaneneaneeeaeeeaaeeegnenens 50
+List Of FIQUIFES ....ccccceeeceeenseeeeeeeseeeeeneeeeseeeeneesaeeeeneeeaneneeneeeneeeeneeeasenens 50
+Appendix C — ReVISION HIStOFy ......sccceeeseeseeeeeneseeeeeeeseeeeeeees OL
+
+3
+Product Page
+Document Feedback                                                 Copyright © Future Technology Devices International Limited
+
+===== PAGE 5 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+1 Introduction
+
+This application note explains the various states of input and output pins of the following FTDI devices:
+
+FT232R, FT245R, FT232RN, FT245RN, FT232H, FT2232H, FT2232H-56Q, FT4232H, FT4232H-56Q,
+FT232HP, FT233HP, FT2232HP, FT2233HP, FT4232HP, FT4233HP,  FT2232D, FT200XD,  FT201X,
+FT220X, FT221X, FT230X, FT231X, FT234XD, FT240X, FT120, FT121, FT122, FT313H, FT4222H and
+FT260.
+
+Note: The convention used throughout this document for active low signals is the signal name followed
+by a #.
+
+1.1 Applicable Documents
+
+The following data sheets can be downloaded by clicking on the appropriate links below:
+
+FT232R USB UART IC Data Sheet
+
+FT245R USB FIFO Data Sheet
+
+FT232RN USB UART IC Data Sheet
+
+FT245RN USB FIFO Data Sheet
+FT232H Single Channel Hi-Speed USB to Multipurpose UART/FIFO IC Data Sheet
+
+FT2232H Hi-Speed Dual USB UART/FIFO IC Data Sheet
+
+FT4232H Hi-Speed Quad USB UART IC Data Sheet
+FT233HP/FT232HP High Speed USB Bridge with Type-C/PD3.0 Controller
+
+FT2233HP/FT2232HP High Speed USB Bridge with Type-C/PD3.0 Controller
+
+FT4233HP/FT4232HP High Speed USB Bridge with Type-C/PD3.0 Controller
+
+FT2232D Dual USB UART/FIFO IC Data Sheet
+FT200XD Full-Speed USB to I2C bridge in 10 pin DFN package Data Sheet
+
+FT201X Full-Speed USB to I2C bridge Data Sheet
+
+FT220X Full-Speed USB to 4-bit SPI/FT1248 bridge Data Sheet
+
+FT221X Full-Speed USB to 8-bit SPI/FT1248 bridge Data Sheet
+FT230X Full-Speed USB to basic UART Data Sheet
+
+FT231X Full-Speed USB to full handshake UART Data Sheet
+
+FT234XD Full-Speed USB to basic UART Data Sheet
+FT240X Full-Speed USB to 8-bit FIFO Data Sheet
+
+FT120 USB Full-Speed Device Controller Data Sheet
+
+FT121 USB Full-Speed Device Controller Data Sheet
+
+FT122 USB Full-Speed Device Controller Data Sheet
+FT313H Hi-Speed Host Controller
+
+FT4222H Hi-Speed Quad SPI/I2C IC Data Sheet
+
+FT260 Full speed HID Class USB to UART/I2C Datasheet
+
+                                                                              4
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 6 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+2 FT232R/FT232RN – I/O Pins
+
+                                  FT232R/FT232RN
+Pin Name     Pin       Pin    RESET#   SUSPEND    SUSPEND       During          Active
+         Number  Number   Low     (Pull Down     (Pull Down   Enumeration       (device
+           (QFN)   (SSOP)           IO Pins in     IO Pins in    (out of reset    enumerated
+                                USB           USB          prior to       after EEPROM
+                                    Suspend -     Suspend –  EEPROM read)      read)
+                                     Not Set)          Set)
+                                                 Selected                                          Selected
+ CBUS 0      22       23      TriSt- PU                     TriSt-PD       Driving Low                                                 Function                                          Function
+                                                 Selected                                          Selected
+ CBUS 1      21       22      TriSt- PU                     TriSt-PD       Driving Low
+                                                 Function                                          Function
+                                                 Selected                                          Selected CBUS 2      10       13      TriSt- PU                     TriSt-PD       Driving Low
+                                                 Function                                          Function
+                                                 Selected                                          Selected
+ CBUS 3      11       14         TriSt                       TriSt-PD          Input                                                 Function                                          Function
+                                                 Selected                                          Selected CBUS 4       9        12         TriSt                       TriSt-PD          Input
+                                                 Function                                          Function
+   TXD       30        1       TriSt- PU     Output        TriSt-PD         Output           Output
+  DTR#       31        2       TriSt- PU     Output        TriSt-PD         Output           Output
+  RTS#       32        3       TriSt- PU     Output        TriSt-PD         Output           Output
+  RXD        2        5       TriSt- PU    Input - PU       TriSt-PD          TriSt- PU         Input- PU
+   RI#        3        6       TriSt- PU    Input - PU       TriSt-PD          TriSt- PU         Input – PU
+  DSR#       6        9       TriSt- PU    Input - PU       TriSt-PD          TriSt- PU         Input – PU
+  DCD#       7        10      TriSt- PU    Input - PU       TriSt-PD          TriSt- PU         Input – PU
+  CTS#       8        11      TriSt- PU    Input - PU       TriSt-PD          TriSt- PU         Input - PU
+                         Table 2.1 FT232R/FT232RN I/O States
+
+                                                                              5
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 7 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+2.1 FT232R/FT232RN - CBUS Selected Function
+
+                                   FT232R/FT232RN
+
+                             TX &                               I/O
+     TX  PWR   RXLE   TXLE          SLEE   CLK   CLK   CLK   CL         BitBang   BitBangPin                           RXLE                           Mo
+    DN  ON#   D#    D#          P#    48    24    12   K6       WRn     RDn                          D#                                 de
+
+                                         CBUS
+
+0
+
+                                         CBUS
+
+1
+
+                                          CBUS
+
+2
+
+                                          CBUS
+
+3
+
+                                          CBUS
+
+4
+
+                  Table 2.2 FT232R/FT232RN CBUS Selected Functions
+
+                                                                              6
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 8 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+3 FT245R/FT245RN – I/O Pins
+
+                                 FT245R/FT245RN
+   Pin       Pin       Pin    RESET#  SUSPENDED    SUSPEND       During        Active
+ Name   Number  Number   Low      (Pull Down    (Pull Down IO  Enumeration     (device
+          (QFN)   (SSOP)            IO Pins in     Pins in USB    (out of reset  enumerated
+                               USB Suspend    Suspend –       prior to         after
+                                                    - Not Set)         Set)       EEPROM     EEPROM
+                                                                        read)         read)
+                                        TriSt-  RXF#      22       23                RXF#           TriSt-PD       Driving Low      Output
+                             PU
+                                        TriSt-
+  TXE#      21       22                TXE#           TriSt-PD       Driving Low      Output                             PU
+                                        TriSt-  RD#       10       13               RD#           TriSt-PD       Driving Low       Input
+                             PU
+  WR       11       14        TriSt      WR#           TriSt-PD          Input          Input
+PWREN#      9        12        TriSt     PWREN#         TriSt-PD          Input      PWREN#
+                                                      TriSt- PU                                          Input- PU                                        TriSt-
+   D0       30        1                    driving when       TriSt-PD         Output       driving when                             PU
+                                 RD# is low                            RD# is low
+                                                      TriSt- PU                                        Input - PU
+                                        TriSt-   D1        2        5                    driving when       TriSt-PD          TriSt- PU      driving when
+                             PU                                 RD# is low                            RD# is low
+                                                      TriSt- PU                                        Input - PU
+                                        TriSt-   D2       32        3                    driving when       TriSt-PD         Output       driving when
+                             PU                                 RD# is low                            RD# is low
+                                                      TriSt- PU                                        Input - PU                                        TriSt-
+   D3        8        11                   driving when       TriSt-PD          TriSt- PU      driving when                             PU
+                                 RD# is low                            RD# is low
+                                                      TriSt- PU                                        Input - PU
+                                        TriSt-   D4       31        2                    driving when       TriSt-PD         Output       driving when
+                             PU                                 RD# is low                            RD# is low
+                                                      TriSt- PU                                        Input - PU                                        TriSt-
+   D5        6        9                    driving when       TriSt-PD          TriSt- PU      driving when                             PU
+                                 RD# is low                            RD# is low
+                                                      TriSt- PU                                        Input - PU
+                                        TriSt-   D6        7        10                   driving when       TriSt-PD          TriSt- PU      driving when
+                             PU                                 RD# is low                            RD# is low
+                                                      TriSt- PU                                        Input - PU
+                                        TriSt-   D7        3        6                    driving when       TriSt-PD          TriSt- PU      driving when
+                             PU                                 RD# is low                            RD# is low
+                         Table 3.1 FT245R/FT245RN I/O States
+
+                                                                              7
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 9 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+4 FT232H– I/O Pins
+
+                                      FT232H
+
+  Pin      Pin    RESET#   Default     SUSPEND    SUSPEND      During         Active
+Number  Name    Low                 (Pull Down IO   (Pull Down   Enumeration      (device
+                                           Pins in USB    IO Pins in    (out of reset   enumerated
+                                     Suspend - Not     USB         prior to      after EEPROM
+                                               Set)       Suspend –    EEPROM        read)
+                                                             Set)         read)
+   13    ADBUS0      TriSt      TXD         Function         TriSt-PD        Output          Function
+   14    ADBUS1    TriSt -PU    RXD         Function         TriSt-PD       Input-PU         Function
+   15    ADBUS2      TriSt      RTS#        Function         TriSt-PD        Output          Function
+   16    ADBUS3    TriSt -PU    CTS#        Function         TriSt-PD       Input-PU         Function
+   17    ADBUS4      TriSt     DTR#        Function         TriSt-PD        Output          Function
+   18    ADBUS5    TriSt -PU    DSR#        Function         TriSt-PD       Input-PU         Function
+   19    ADBUS6    TriSt -PU    DCD#        Function         TriSt-PD       Input-PU         Function
+   20    ADBUS7    TriSt -PU     RI#         Function         TriSt-PD       Input-PU         Function
+        ACBUS0                TriSt-PU       Function/                                         Function/   21                  TriSt-PU                                    TriSt-PD        TriSt-PU                                                     Selection                                          Selection
+        ACBUS1                TriSt-PU       Function/                                         Function/   25                  TriSt-PU                                    TriSt-PD         TriSt- PU                                                     Selection                                          Selection
+        ACBUS2                TriSt-PU       Function/                                         Function/   26                  TriSt-PU                                    TriSt-PD         TriSt- PU
+                                                     Selection                                          Selection
+        ACBUS3                TriSt-PU       Function/                                         Function/   27                  TriSt-PU                                    TriSt-PD         TriSt- PU                                                     Selection                                          Selection
+        ACBUS4                TriSt-PU       Function/                                         Function/   28                  TriSt-PU                                    TriSt-PD         TriSt- PU
+                                                     Selection                                          Selection
+        ACBUS5                TriSt-PU       Function/                                         Function/   29                  TriSt-PU                                    TriSt-PD         TriSt- PU
+                                                     Selection                                          Selection
+        ACBUS6                TriSt-PU       Function/                                         Function/   30                  TriSt-PU                                    TriSt-PD         TriSt- PU                                                     Selection                                          Selection
+        ACBUS7                TriSt-PD     Input-PD or                                    Input-PD or   31                  TriSt-PD                                    TriSt-PD        TriSt-PD
+                                       MPSSE                                 MPSSE
+        ACBUS8                TriSt-PU       Function/                                         Function/   32                  TriSt-PU                                    TriSt-PD         TriSt- PU                                                     Selection                                          Selection
+        ACBUS9                TriSt-PU       Function/                                         Function/   33                  TriSt-PU                                    TriSt-PD         TriSt- PU                                                     Selection                                          Selection
+                              Table 4.1 FT232H I/O States
+
+                                                                              8
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 10 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                               Version 3.5
+
+                                                 Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+ 4.1 FT232H - Selected Functions
+
+                                       FT232H
+
+     Pin                                Pin functions (depends on configuration)
+
+             ASYNC    245                                               Fast     CPU   FT1248
+Pin     Pin       Serial    FIFO     245    ASYNC    SYNC                Serial     Style
+ #   Name    RS232   SYNC    FIFO    Bit-bang  Bit-bang  MPSSE   interface   FIFO
+13   ADBUS0    TXD      D0      D0       D0       D0     TCK/SK     FSDI     D0    MIOSI0
+14   ADBUS1    RXD      D1      D1       D1       D1     TDI/DO    FSCLK     D1    MIOSI1
+15   ADBUS2    RTS#     D2      D2       D2       D2     TDO/DI    FSDO     D2    MIOSI2
+                                                            TMS/C
+16   ADBUS3    CTS#     D3      D3       D3       D3               FSCTS     D3    MIOSI3                                                            S
+                                                                         **17   ADBUS4    DTR#     D4      D4       D4       D4     GPIOL0             D4    MIOSI4
+                                                                                       TriSt-UP
+                                                                         **18   ADBUS5    DSR#     D5      D5       D5       D5     GPIOL1             D5    MIOSI5
+                                                                                       TriSt-UP
+                                                                         **19   ADBUS6   DCD#     D6      D6       D6       D6     GPIOL2             D6    MIOSI6
+                                                                                       TriSt-UP
+                                                                         **
+20   ADBUS7     RI#      D7      D7       D7       D7     GPIOL3             D7    MIOSI7                                                                                       TriSt-UP
+                  *                                         GPIOH      **
+21   ACBUS0            RXF#    RXF#    ACBUS0   ACBUS0                    CS#    SCLK               TXDEN                                           0      ACBUS0
+                 **                                         GPIOH      **25   ACBUS1            TXE#    TXE#   WRSTB#  WRSTB#                      A0     SS_N
+              ACBUS1                                           1      ACBUS1
+                 **                                         GPIOH      **26   ACBUS2            RD#     RD#    RDSTB#   RDSTB#                   RD#    MISO
+              ACBUS2                                           2      ACBUS2
+                  *                                         GPIOH      **
+27   ACBUS3           WR     WR     ACBUS3   ACBUS3                  WR   ACBUS3              RXLED#                                           3      ACBUS3
+                  *                                         GPIOH             Note
+28   ACBUS4           SIWU#   SIWU#   SIWU#   SIWU#           SIWU#          ACBUS4              TXLED#                                           4                1
+                                                                                  **
+                 **     CLKOU               **        **     GPIOH      **29   ACBUS5                    ACBUS5                                      ACBU   ACBUS5
+              ACBUS5      T              ACBUS5   ACBUS5     5      ACBUS5                                                                                S5
+                                                                                  **                 **                                         GPIOH      **
+30   ACBUS6            OE#    ACBUS6   ACBUS6   ACBUS6                    ACBU   ACBUS6              ACBUS6                                           6      ACBUS6
+                                                                                S6
+                                                                ***             PWRSAV  PWRSA  PWRSAV   PWRSAV   PWRSAV                   PWRS  PWRSAV
+31   ACBUS7                                                GPIOH   PWRSAV#              #      V#      #       #       #                      AV#     #
+                                                                 7
+                          **                                   **                 **
+                 **                **        **        **                 **32   ACBUS8            ACBUS                             ACBUS             ACBU   ACBUS8
+              ACBUS8           ACBUS8   ACBUS8   ACBUS8           ACBUS8                           8                                    8                 S8
+                          **                                   **                 **
+                 **                **        **        **                 **33   ACBUS9            ACBUS                             ACBUS             ACBU   ACBUS9
+              ACBUS9           ACBUS9   ACBUS9   ACBUS9           ACBUS9                           9                                    9                 S9
+                           Table 4.2 FT232H Selected Functions
+
+ Pins marked * are EEPROM selectable.
+
+ Pins marked ** default to tri-stated inputs with an internal 75KΩ (approx.) pull up resistor to VCCIO.
+
+ Pin marked *** default to GPIO line with an internal 75KΩ pull down resistor to GND. This pin can be
+ enabled USBVCC mode instead of GPIO mode using the EEPROM.
+
+ Note 1: To wake up the USB device in this mode, put ACBUS0 from “HIGH” to “LOW”, set ACBUS1 To
+ “HIGH”, and put ACBUS3 from “HIGH” to “LOW”
+
+                                                                              9
+ Product Page
+ Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 11 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+5 FT232HP/FT233HP
+
+                                  FT232HP (56 pin)
+                                  FT233HP (64 pin)
+  Pin       Pin       Pin    RESET#  Default   SUSPEND   SUSPEND     During        Active
+Number  Number   Name    Low               (Pull Down      (Pull    Enumeration     (device
+(56 pin   (64 Pin                            IO Pins in   Down IO   (out of reset  enumerated
+ - QFN)   -QFN/                             Suspend -     Pins in       prior to         after
+         LQFP)                              Not Set)     USB     EEPROM     EEPROM
+                                                       Suspend      read)         read)
+                                                     – Set)
+  23       28    ADBUS0     TriSt     TXD       Function      TriSt-PD       Output        Function
+               ADBUS1    TriSt -    RXD  24       29                                        Function      TriSt-PD      Input-PU       Function
+                             PU
+  25       30    ADBUS2     TriSt    RTS#      Function      TriSt-PD       Output        Function
+               ADBUS3    TriSt -    CTS#  26       31                                        Function      TriSt-PD      Input-PU       Function                             PU
+  27       32    ADBUS4     TriSt    DTR#      Function      TriSt-PD       Output        Function
+               ADBUS5    TriSt -   DSR#  29       34                                        Function      TriSt-PD      Input-PU       Function                             PU
+               ADBUS6    TriSt -   DCD#  30       35                                        Function      TriSt-PD      Input-PU       Function                             PU
+               ADBUS7    TriSt -     RI#  31       36                                        Function      TriSt-PD      Input-PU       Function
+                             PU
+               ACBUS0                TriSt-      Function/                                    Function/  32       37                 TriSt-PU                              TriSt-PD       TriSt-PU                                     PU        Selection                                     Selection
+               ACBUS1                TriSt-      Function/                                    Function/  33       38                 TriSt-PU                              TriSt-PD       TriSt- PU
+                                     PU        Selection                                     Selection
+               ACBUS2                TriSt-      Function/                                    Function/  34       39                 TriSt-PU                              TriSt-PD       TriSt- PU
+                                     PU        Selection                                     Selection
+               ACBUS3                TriSt-      Function/                                    Function/  35       40                 TriSt-PU                              TriSt-PD       TriSt- PU                                     PU        Selection                                     Selection
+               ACBUS4                TriSt-      Function/                                    Function/  37       42                 TriSt-PU                              TriSt-PD       TriSt- PU
+                                     PU        Selection                                     Selection
+               ACBUS5                TriSt-      Function/                                    Function/  38       43                 TriSt-PU                              TriSt-PD       TriSt- PU                                     PU        Selection                                     Selection
+               ACBUS6                TriSt-      Function/                                    Function/  39       44                 TriSt-PU                              TriSt-PD       TriSt- PU                                     PU        Selection                                     Selection
+               ACBUS7                TriSt-    Input-PD or                               Input-PD or  42       47                 TriSt-PD                              TriSt-PD      TriSt-PD
+                                    PD      MPSSE                             MPSSE
+               ACBUS8                TriSt-      Function/                                    Function/  43       48                 TriSt-PU                              TriSt-PD       TriSt- PU                                     PU        Selection                                     Selection
+               ACBUS9                TriSt-      Function/                                    Function/  44       49                 TriSt-PU                              TriSt-PD       TriSt- PU
+                                     PU        Selection                                     Selection
+                        Table 5.1 FT232HP/ FT233HP I/O States
+
+                                                                            10
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 12 =====
+Application Note
+                             AN_184 FTDI Device Input Output Pin States
+                                                                                                                  Version 3.5
+
+                                                   Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+  5.1 FT232HP/FT233HP - Selected Functions
+
+                                    FT232HP (56 pin)
+                                    FT233HP (64 pin)
+
+        Pin                                 Pin functions (depends on configuration)
+
+56   64          ASYNC   245                   SYNC                Fast     CPU   FT1248
+Pin   Pin     Pin      Serial   FIFO    245    ASYNC      Bit-                 Serial     Style
+ #   #   Name   RS232  SYNC   FIFO    Bit-bang   bang   MPSSE   interface   FIFO
+23   28   ADBUS0    TXD     D0     D0      D0      D0     TCK/SK     FSDI     D0     MIOSI0
+24   29   ADBUS1    RXD     D1     D1      D1      D1     TDI/DO    FSCLK     D1     MIOSI1
+25   30   ADBUS2   RTS#    D2     D2      D2      D2     TDO/DI    FSDO     D2     MIOSI2
+26   31   ADBUS3   CTS#    D3     D3      D3      D3     TMS/CS    FSCTS     D3     MIOSI3
+                                                                           **
+27   32   ADBUS4   DTR#    D4     D4      D4      D4     GPIOL0             D4     MIOSI4                                                                                         TriSt-UP
+                                                                           **
+29   34   ADBUS5   DSR#    D5     D5      D5      D5     GPIOL1             D5     MIOSI5                                                                                         TriSt-UP
+                                                                           **30   35   ADBUS6   DCD#    D6     D6      D6      D6     GPIOL2             D6     MIOSI6
+                                                                                         TriSt-UP
+                                                                           **31   36   ADBUS7    RI#     D7     D7      D7      D7     GPIOL3             D7     MIOSI7
+                                                                                         TriSt-UP
+                       *                                                    **
+32   37   ACBUS0           RXF#   RXF#    ACBUS0   ACBUS0   GPIOH0            CS#     SCLK                   TXDEN                                            ACBUS0
+                      **                           WRSTB               **
+33   38   ACBUS1           TXE#   TXE#   WRSTB#           GPIOH1              A0     SS_N                  ACBUS1                        #              ACBUS1
+                      **                                                   **
+34   39   ACBUS2          RD#    RD#    RDSTB#  RDSTB#  GPIOH2            RD#    MISO                  ACBUS2                                            ACBUS2
+                       *                                                    **35   40   ACBUS3         WR    WR    ACBUS3   ACBUS3   GPIOH3           WR    ACBUS3
+                  RXLED#                                            ACBUS3
+                       *     SIWU                                                Note37   42   ACBUS4                SIWU#   SIWU#   SIWU#   GPIOH4   SIWU#           ACBUS4
+                   TXLED#   #                                                1
+                                                                                    **
+                      **     CLKO              **       **                 **38   43   ACBUS5                 ACBUS5                     GPIOH5            ACBUS  ACBUS5
+                  ACBUS5   UT            ACBUS5   ACBUS5           ACBUS5                                                                                     5
+                                                                                    **
+                      **                                                   **39   44   ACBUS6          OE#   ACBUS6   ACBUS6   ACBUS6   GPIOH6            ACBUS  ACBUS6
+                  ACBUS6                                            ACBUS6                                                                                     6
+                 PWRSAV  PWRS  PWRSAV  PWRSAV  PWRSAV    ***             PWRS   PWRSAV42   47   ACBUS7                                                PWRSAV#
+                 #     AV#    #      #      #     GPIOH7            AV#     #
+                              **                                                    **                      **              **       **       **       **        **
+43   48   ACBUS8          ACBU                                             ACBUS  ACBUS8                  ACBUS8         ACBUS8   ACBUS8   ACBUS8  ACBUS8   ACBUS8
+                             S8                                                     8
+                              **                                                    **                      **              **       **       **       **        **
+44   49   ACBUS9          ACBU                                             ACBUS  ACBUS9                  ACBUS9         ACBUS9   ACBUS9   ACBUS9  ACBUS9   ACBUS9
+                             S9                                                     9
+                       Table 5.2 FT232HP/ FT233HP Selected Functions
+
+   Pins marked * are EEPROM selectable.
+
+   Pins marked ** default to tri-stated inputs with an internal 75KΩ (approx.) pull up resistor to VCCIO.
+
+   Pin marked *** default to GPIO line with an internal 75KΩ pull down resistor to GND. This pin can be
+   enabled USBVCC mode instead of GPIO mode using the EEPROM.
+
+  Note 1: To wake up the USB device in this mode, put ACBUS0 from “HIGH” to “LOW”, set ACBUS1 To
+   “HIGH”, and put ACBUS3 from “HIGH” to “LOW”
+
+                                                                               11
+    Product Page
+   Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 13 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+6 FT2232H/FT2232H-56Q
+
+6.1 FT2232H/FT2232H-56Q – Channel A Pins
+
+                                      FT2232H
+                                         Channel A
+  Pin       Pin       Pin    RESET#  Default  SUSPEND  SUSPEND      During         Active
+Number  Number  Name    Low                 (Pull        (Pull     Enumeration      (device
+(56 pin   (64 Pin                       Down IO   Down IO    (out of reset   enumerated
+- VQFN)    - QFN/                                 Pins in     Pins in        prior to          after
+         LQFP)                            Suspend     USB      EEPROM     EEPROM
+                                                              - Not    Suspend –      read)         read)
+                                                   Set)        Set)
+  12       16    ADBUS0     TriSt     TXD      Function     TriSt-PD       TXD           Function
+
+  13       17    ADBUS1   TriSt-PU    RXD     Function     TriSt-PD       RXD          Function
+
+  14       18    ADBUS2     TriSt    RTS#     Function     TriSt-PD       RTS#          Function
+
+  15       19    ADBUS3   TriSt-PU   CTS#     Function     TriSt-PD       CTS#          Function
+
+  17       21    ADBUS4     TriSt    DTR#     Function     TriSt-PD      DTR#          Function
+
+  18       22    ADBUS5   TriSt-PU   DSR#     Function     TriSt-PD      DSR#          Function
+
+  19       23    ADBUS6   TriSt-PU   DCD#     Function     TriSt-PD      DCD#          Function
+
+  20       24    ADBUS7   TriSt-PU    RI#      Function     TriSt-PD        RI#           Function
+
+  22       26    ACBUS0     TriSt    TXDEN    Function     TriSt-PD      TXDEN         Function
+
+  23       27    ACBUS1   TriSt-PU   TriSt-PU    Function     TriSt-PD        TriSt-PU         Function
+
+  24       28    ACBUS2   TriSt-PU   TriSt-PU    Function     TriSt-PD        TriSt-PU         Function
+
+  25       29    ACBUS3   TriSt-PU  RXLED#    Function     TriSt-PD        TriSt-PU         Function
+
+  26       30    ACBUS4   TriSt-PU  TXLED#    Function     TriSt-PD        TriSt-PU         Function
+
+  27       32    ACBUS5   TriSt-PU   TriSt-PU    Function     TriSt-PD        TriSt-PU         Function
+
+  28       33    ACBUS6   TriSt-PU   TriSt-PU    Function     TriSt-PD        TriSt-PU         Function
+
+  29       34    ACBUS7   TriSt-PU   TriSt-PU    Function     TriSt-PD        TriSt-PU         Function
+                      Table 6.1 FT2232H(-56Q) I/O States Channel A
+
+                                                                            12
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 14 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+6.2 FT2232H/FT2232H-56Q – Channel B Pins
+
+                                      FT2232H
+                                         Channel B
+  Pin       Pin       Pin    RESET#  Default  SUSPEND  SUSPEND      During         Active
+Number  Number  Name    Low                  (Pull        (Pull     Enumeration     (device
+(56 Pin   (64 Pin                        Down IO   Down IO    (out of reset   enumerated
+- VQFN)    - QFN/                                 Pins in     Pins in        prior to          after
+         LQFP)                            Suspend     USB      EEPROM     EEPROM
+                                                               - Not    Suspend –      read)         read)
+                                                   Set)        Set)
+  32       38    BDBUS0     TriSt     TXD      Function     TriSt-PD       TXD          Function
+
+  33       39    BDBUS1   TriSt-PU    RXD     Function     TriSt-PD       RXD          Function
+
+  34       40    BDBUS2     TriSt    RTS#     Function     TriSt-PD       RTS#          Function
+
+  35       41    BDBUS3   TriSt-PU   CTS#     Function     TriSt-PD       CTS#          Function
+
+  37       43    BDBUS4     TriSt    DTR#     Function     TriSt-PD      DTR#          Function
+
+  38       44    BDBUS5   TriSt-PU   DSR#     Function     TriSt-PD      DSR#          Function
+
+  39       45    BDBUS6   TriSt-PU   DCD#     Function     TriSt-PD      DCD#          Function
+
+  40       46    BDBUS7   TriSt-PU    RI#      Function     TriSt-PD        RI#           Function
+
+  42       48     BCBUS0     TriSt    TXDEN    Function     TriSt-PD      TXDEN         Function
+
+  46       52     BCBUS1   TriSt-PU   TriSt-PU    Function     TriSt-PD        TriSt-PU        Function
+
+  47       53     BCBUS2   TriSt-PU   TriSt-PU    Function     TriSt-PD        TriSt-PU        Function
+
+  48       54     BCBUS3   TriSt-PU   TriSt-PU    Function     TriSt-PD        TriSt-PU        Function
+
+  49       55     BCBUS4   TriSt-PU   TriSt-PU    Function     TriSt-PD        TriSt-PU        Function
+
+  51       57     BCBUS5   TriSt-PU   TriSt-PU    Function     TriSt-PD        TriSt-PU        Function
+
+  52       58     BCBUS6   TriSt-PU   TriSt-PU    Function     TriSt-PD        TriSt-PU        Function
+
+  53       59     BCBUS7   TriSt-PD   TriSt-PD    Function     TriSt-PD       TriSt-PD        Function
+                     Table 6.2 FT2232H(-56Q) I/O States Channel B
+
+                                                                            13
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 15 =====
+Application Note
+                            AN_184 FTDI Device Input Output Pin States
+                                                                                                                 Version 3.5
+
+                                                   Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+  6.3 FT2232H / FT2232H -56Q - Selected Functions
+
+                                        FT2232H
+
+        Pin                                Pin functions (depends on configuration)
+
+                                                                                           Host
+56   64           ASYNC    245           ASYNC  SYNC               Fast     CPU    Bus
+Pin   Pin     Pin      Serial     FIFO     245      Bit-      Bit-                Serial     Style   Emulati
+#   #    Name   (RS232)   SYNC    FIFO    bang    bang   MPSSE   interface   FIFO     on
+                                            Channel A
+ 12    16   ADBUS0    TXD       D0       D0      D0      D0     TCK/SK              D0      AD0
+ 13    17   ADBUS1    RXD       D1       D1      D1      D1     TDI/DO              D1      AD1
+ 14    18   ADBUS2    RTS#      D2       D2      D2      D2     TDO/DI              D2      AD2
+ 15    19   ADBUS3    CTS#      D3       D3      D3      D3    TMS/CS              D3      AD3
+                                                                          USES
+ 17    21   ADBUS4    DTR#      D4       D4      D4      D4     GPIOL0              D4      AD4                                                                       CHANNEL B
+ 18    22   ADBUS5   DSR#      D5       D5      D5      D5     GPIOL1              D5      AD5
+ 19    23   ADBUS6   DCD#      D6       D6      D6      D6     GPIOL2              D6      AD6
+ 20    24   ADBUS7     RI#       D7       D7      D7      D7     GPIOL3              D7      AD7
+ 22    26   ACBUS0   TXDEN     RXF#     RXF#     **       **     GPIOH0             CS#      A8
+                                            WRSTB   WRSTB
+ 23    27   ACBUS1     **       TXE#     TXE#                    GPIOH1               A0      A9                                         #      #
+                                               RDSTB   RDSTB
+ 24    28   ACBUS2     **      RD#     RD#                     GPIOH2             RD#     A10                                         #      #
+ 25    29   ACBUS3   RXLED#    WR#    WR#     **       **     GPIOH3            WR#     A11
+                                                                                SIWU
+ 26    30   ACBUS4   TXLED#    SIWUA    SIWUA   SIWUA   SIWUA   GPIOH4                        A12                                                                                    A
+ 27    32   ACBUS5     **      CLKOUT     **      **       **     GPIOH5                **      A13
+ 28    33   ACBUS6     **      OE#       **      **       **     GPIOH6                **      A14
+ 29    34   ACBUS7     **        **        **       **      **     GPIOH7                **      A15
+                                            Channel B
+ 32    38   BDBUS0    TXD               D0      D0      D0     TCK/SK      FSDI      D0     CS#
+ 33    39   BDBUS1    RXD               D1      D1      D1     TDI/DO     FSCLK     D1      ALE
+ 34    40   BDBUS2    RTS#               D2      D2      D2     TDO/DI     FSDO      D2     RD#
+ 35    41   BDBUS3    CTS#               D3      D3      D3    TMS/CS     FSCTS     D3    WR#
+ 37    43   BDBUS4    DTR#               D4      D4      D4     GPIOL0              D4     IORDY
+ 38    44   BDBUS5   DSR#               D5      D5      D5     GPIOL1              D5    CLKOUT
+ 39    45   BDBUS6   DCD#               D6      D6      D6     GPIOL2              D6       I/O0
+ 40    46   BDBUS7     RI#               D7      D7      D7     GPIOL3              D7       I/O1
+ 42    48   BCBUS0   TXDEN              RXF#     **       **     GPIOH0             CS#      **
+                                            WRSTB   WRSTB
+ 46    52   BCBUS1     **               TXE#                    GPIOH1               A0      **                                         #      #
+                                               RDSTB   RDSTB
+ 47    53   BCBUS2     **              RD#                     GPIOH2             RD#      **                                         #      #
+ 48    54   BCBUS3   RXLED#           WR#     **       **     GPIOH3            WR#     **
+                                                                                SIWU
+ 49    55   BCBUS4   TXLED#             SIWUB   SIWUB   SIWUB   GPIOH4    SIWUB               **                                                                                    B
+ 51    57   BCBUS5     **                 **       **       **     GPIOH5               **       **
+ 52    58   BCBUS6     **                  **       **       **     GPIOH6               **       **
+                   PWRSAV   PWRSAV   PWRSA   PWRSA   PWRSA                    PWRS   PWRSAV
+ 53    59   BCBUS7                                                GPIOH7   PWRSAV#                   #       #       V#     V#     V#                       AV#     #
+                        Table 6.3 FT2232H(-56Q) Selected Functions
+
+   Pins marked ** default to tri-stated inputs with an internal 75KΩ (approx.) pull up resistor to VCCIO.
+
+                                                                               14
+   Product Page
+   Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 16 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+7 FT2232HP / FT2233HP
+
+    7.1  FT2232HP / FT2233HP - Channel A pins
+
+                                  FT2232HP (68 pin)
+                               FT2233HP (76 pin/80 pin)
+                                         Channel A
+  Pin Number       Pin    RESET#   Default  SUSPEND   SUSPEND      During         Active
+             Name    Low                  (Pull     (Pull Down   Enumeration      (device
+68   76   80                         Down IO   IO Pins in    (out of reset   enumerated
+Pin  Pin  Pin                                  Pins in      USB          prior to          after
+ #   #   #                             Suspend   Suspend –    EEPROM      EEPROM
+                                                          - Not Set)      Set)         read)          read)
+ 6    8    8    ADBUS0      TriSt     TXD      Function      TriSt-PD        TXD           Function
+
+ 7    9    9    ADBUS1    TriSt-PU    RXD      Function      TriSt-PD       RXD           Function
+
+ 11   13   13   ADBUS2      TriSt    RTS#     Function      TriSt-PD       RTS#          Function
+
+ 12   14   14   ADBUS3    TriSt-PU   CTS#     Function      TriSt-PD       CTS#          Function
+
+ 13   15   15   ADBUS4      TriSt    DTR#     Function      TriSt-PD       DTR#          Function
+
+ 14   16   16   ADBUS5    TriSt-PU   DSR#     Function      TriSt-PD       DSR#          Function
+
+ 15   17   17   ADBUS6    TriSt-PU   DCD#     Function      TriSt-PD      DCD#          Function
+
+ 16   18   18   ADBUS7    TriSt-PU    RI#      Function      TriSt-PD        RI#           Function
+
+ 17   19   19   ACBUS0      TriSt    TXDEN    Function      TriSt-PD       TXDEN          Function
+
+ 18   20   21   ACBUS1    TriSt-PU   TriSt-PU    Function      TriSt-PD        TriSt-PU         Function
+
+ 19   21   22   ACBUS2    TriSt-PU   TriSt-PU    Function      TriSt-PD        TriSt-PU         Function
+
+ 20   22   23   ACBUS3    TriSt-PU  RXLED#    Function      TriSt-PD        TriSt-PU         Function
+
+ 21   23   24   ACBUS4    TriSt-PU  TXLED#    Function      TriSt-PD        TriSt-PU         Function
+
+ 22   24   25   ACBUS5    TriSt-PU   TriSt-PU    Function      TriSt-PD        TriSt-PU         Function
+
+ 23   25   26   ACBUS6    TriSt-PU   TriSt-PU    Function      TriSt-PD        TriSt-PU         Function
+
+ 24   26   27   ACBUS7    TriSt-PU   TriSt-PU    Function      TriSt-PD        TriSt-PU         Function
+                  Table 7.1 FT2232HP / FT2233HP I/O States Channel A
+
+                                                                            15
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 17 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+    7.2  FT2232HP / FT2233HP - Channel B pins
+
+                                  FT2232HP (68 pin)
+                              FT2233HP (76 pin / 80 pin)
+                                         Channel B
+  Pin Number       Pin    RESET#   Default  SUSPEND   SUSPEND      During         Active
+             Name    Low                  (Pull     (Pull Down   Enumeration      (device
+68   76   80                         Down IO   IO Pins in    (out of reset   enumerated
+Pin  Pin  Pin                                  Pins in      USB          prior to          after
+ #   #   #                             Suspend   Suspend –    EEPROM      EEPROM
+                                                          - Not Set)      Set)         read)          read)
+ 34   36   37   BDBUS0      TriSt     TXD      Function      TriSt-PD        TXD           Function
+
+ 35   37   38   BDBUS1    TriSt-PU    RXD      Function      TriSt-PD       RXD           Function
+
+ 36   38   39   BDBUS2      TriSt    RTS#     Function      TriSt-PD       RTS#          Function
+
+ 37   39   40   BDBUS3    TriSt-PU   CTS#     Function      TriSt-PD       CTS#          Function
+
+ 38   40   41   BDBUS4      TriSt    DTR#     Function      TriSt-PD       DTR#          Function
+
+ 40   42   43   BDBUS5    TriSt-PU   DSR#     Function      TriSt-PD       DSR#          Function
+
+ 41   42   44   BDBUS6    TriSt-PU   DCD#     Function      TriSt-PD      DCD#          Function
+
+ 42   44   45   BDBUS7    TriSt-PU    RI#      Function      TriSt-PD        RI#           Function
+
+ 45   48   50   BCBUS0      TriSt    TXDEN    Function      TriSt-PD       TXDEN          Function
+
+ 46   49   51   BCBUS1    TriSt-PU   TriSt-PU    Function      TriSt-PD        TriSt-PU         Function
+
+ 47   50   52   BCBUS2    TriSt-PU   TriSt-PU    Function      TriSt-PD        TriSt-PU         Function
+
+ 48   51   53   BCBUS3    TriSt-PU  RXLED#    Function      TriSt-PD        TriSt-PU         Function
+
+ 49   52   54   BCBUS4    TriSt-PU  TXLED#    Function      TriSt-PD        TriSt-PU         Function
+
+ 50   53   55   BCBUS5    TriSt-PU   TriSt-PU    Function      TriSt-PD        TriSt-PU         Function
+
+ 52   56   58   BCBUS6    TriSt-PU   TriSt-PU    Function      TriSt-PD        TriSt-PU         Function
+
+ 53   57   59   BCBUS7    TriSt-PD   TriSt-PD    Function      TriSt-PD        TriSt-PD         Function
+                  Table 7.2 FT2232HP / FT2233HP I/O States Channel B
+
+                                                                            16
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 18 =====
+Application Note
+                             AN_184 FTDI Device Input Output Pin States
+                                                                                                                  Version 3.5
+
+                                                    Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+      7.3  FT2232HP / FT2233HP – Selected Functions
+
+                                     FT2232HP (68 pin)
+                                  FT2233HP (76 pin/80 pin)
+
+           Pin                                 Pin functions (depends on configuration)
+
+                                                                                            Host
+68   76   80          ASYNC   245         ASYNC  SYNC               Fast     CPU     Bus
+Pin   Pin   Pin     Pin      Serial   FIFO   245      Bit-      Bit-                Serial     Style   Emulati
+#   #   #    Name   (RS232)  SYNC   FIFO   bang    bang   MPSSE   interface   FIFO     on
+                                            Channel A
+ 6    8     8   ADBUS0    TXD     D0     D0      D0      D0     TCK/SK              D0      AD0
+ 7    9     9   ADBUS1    RXD     D1     D1      D1      D1     TDI/DO              D1      AD1
+ 11   13    13   ADBUS2    RTS#     D2     D2      D2      D2     TDO/DI              D2      AD2
+ 12   14    14   ADBUS3    CTS#     D3     D3      D3      D3    TMS/CS              D3      AD3
+ 13   15    15   ADBUS4    DTR#     D4     D4      D4      D4     GPIOL0     USES      D4      AD4
+                                                                         CHANNEL B
+ 14   16    16   ADBUS5   DSR#     D5     D5      D5      D5     GPIOL1              D5      AD5
+ 15   17    17   ADBUS6   DCD#     D6     D6      D6      D6     GPIOL2              D6      AD6
+ 16   18    18   ADBUS7     RI#      D7     D7      D7      D7     GPIOL3              D7      AD7
+ 17   19    19   ACBUS0   TXDEN    RXF#   RXF#     **       **     GPIOH0             CS#      A8
+                                             WRSTB   WRSTB 18   20    21   ACBUS1     **     TXE#   TXE#                    GPIOH1               A0       A9                                          #      #
+                                                RDSTB   RDSTB 19   21    22   ACBUS2     **     RD#   RD#                    GPIOH2             RD#      A10                                          #      #
+ 20   22    23   ACBUS3   RXLED#   WR#   WR#     **       **     GPIOH3           WR#     A11
+                                 SIWU
+ 21   23    24   ACBUS4   TXLED#          SIWUA   SIWUA   SIWUA   GPIOH4             SIWUA     A12                                    A
+                                  CLKO 22   24    25   ACBUS5     **               **      **       **     GPIOH5                **      A13                                    UT
+ 23   25    26   ACBUS6     **     OE#     **      **       **     GPIOH6                **      A14
+ 24   26    27   ACBUS7     **       **      **      **      **     GPIOH7                **      A15
+                                            Channel B
+ 34   36    37   BDBUS0    TXD            D0      D0      D0     TCK/SK     FSDI      D0     CS#
+ 35   37    38   BDBUS1    RXD            D1      D1      D1     TDI/DO     FSCLK     D1       ALE
+ 36   38    39   BDBUS2    RTS#            D2      D2      D2     TDO/DI     FSDO      D2     RD#
+ 37   39    40   BDBUS3    CTS#            D3      D3      D3    TMS/CS    FSCTS     D3     WR#
+ 38   40    41   BDBUS4    DTR#            D4      D4      D4     GPIOL0              D4     IORDY
+ 40   42    43   BDBUS5   DSR#            D5      D5      D5     GPIOL1              D5    CLKOUT
+ 41   42    44   BDBUS6   DCD#            D6      D6      D6     GPIOL2              D6       I/O0
+ 42   44    45   BDBUS7     RI#            D7      D7      D7     GPIOL3              D7       I/O1
+ 45   48    50   BCBUS0   TXDEN           RXF#     **       **     GPIOH0             CS#      **
+                                             WRSTB   WRSTB 46   49    51   BCBUS1     **            TXE#                    GPIOH1               A0      **                                          #      #
+                                                RDSTB   RDSTB 47   50    52   BCBUS2     **           RD#                    GPIOH2             RD#      **                                          #      #
+ 48   51    53   BCBUS3   RXLED#         WR#     **       **     GPIOH3           WR#      **
+ 49   52    54   BCBUS4   TXLED#          SIWUB   SIWUB   SIWUB   GPIOH4    SIWUB    SIWUB     **
+ 50   53    55   BCBUS5     **              **      **       **     GPIOH5               **       **
+ 52   56    58   BCBUS6     **              **      **       **     GPIOH6               **       **
+                               PWRS   PWRS   PWRSA   PWRSA                    PWRS   PWRSAV 53   57    59   BCBUS7  PWRSAV#                                  GPIOH7   PWRSAV#                                 AV#    AV#     V#     V#                      AV#     #
+                      Table 7.3 FT2232HP / FT2233HP Selected Functions
+
+    Pins marked ** default to tri-stated inputs with an internal 75KΩ (approx.) pull up resistor to VCCIO.
+
+                                                                               17
+    Product Page
+    Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 19 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+8 FT4232H / FT4232H -56Q
+
+8.1 FT4232H / FT4232H -56Q – Channel A Pins
+
+                                      FT4232H
+                                         Channel A
+  Pin       Pin       Pin    RESET#  Default  SUSPEND  SUSPEND     During         Active
+Number  Number  Name    Low                  (Pull        (Pull     Enumeration     (device
+(56 Pin   (64 Pin                        Down IO   Down IO   (out of reset   enumerated
+- VQFN)    - QFN/                                 Pins in      Pins in       prior to          after
+          LQFP)                            Suspend -    USB      EEPROM     EEPROM
+                                            Not Set)   Suspend       read)         read)
+                                                    – Set)
+   12       16    ADBUS0   TriSt-PU    TXD      TXD        TriSt-PD       TXD         TXD
+
+   13       17    ADBUS1   TriSt-PU   RXD      RXD        TriSt-PD       RXD         RXD
+
+   14       18    ADBUS2   TriSt-PU   RTS#     RTS#       TriSt-PD      RTS#        RTS#
+
+   15       19    ADBUS3   TriSt-PU   CTS#     CTS#       TriSt-PD      CTS#        CTS#
+
+   17       21    ADBUS4   TriSt-PU   DTR#     DTR#       TriSt-PD      DTR#        DTR#
+
+   18       22    ADBUS5   TriSt-PU   DSR#    DSR#       TriSt-PD      DSR#        DSR#
+
+   19       23    ADBUS6   TriSt-PU   DCD#    DCD#       TriSt-PD      DCD#       DCD#
+
+   20       24    ADBUS7   TriSt-PU    RI#      Selection     TriSt-PD        RI#           Selection
+                     Table 8.1 FT4232H(-56Q) I/O States Channel A
+
+8.2 FT4232H / FT4232H -56Q – Channel B Pins
+
+                                      FT4232H
+                                         Channel B
+  Pin       Pin       Pin    RESET#  Default  SUSPEND  SUSPEND     During         Active
+Number  Number  Name    Low                  (Pull        (Pull     Enumeration     (device
+(56 Pin   (64 Pin                       Down IO   Down IO   (out of reset   enumerated
+- VQFN)    - QFN/                                 Pins in      Pins in       prior to          after
+          LQFP)                            Suspend -    USB      EEPROM     EEPROM
+                                            Not Set)   Suspend –      read)         read)
+                                                               Set)
+   22       26    BDBUS0   TriSt-PU    TXD      TXD        TriSt-PD       TXD         TXD
+
+   23       27    BDBUS1   TriSt-PU   RXD      RXD       TriSt-PD       RXD         RXD
+
+   24       28    BDBUS2   TriSt-PU   RTS#     RTS#       TriSt-PD      RTS#        RTS#
+
+   25       29    BDBUS3   TriSt-PU   CTS#     CTS#       TriSt-PD      CTS#        CTS#
+
+   26       30    BDBUS4   TriSt-PU   DTR#     DTR#       TriSt-PD      DTR#        DTR#
+
+   27       32    BDBUS5   TriSt-PU   DSR#    DSR#       TriSt-PD      DSR#        DSR#
+
+   28       33    BDBUS6   TriSt-PU   DCD#    DCD#       TriSt-PD      DCD#       DCD#
+
+   29       34    BDBUS7   TriSt-PU    RI#      Selection     TriSt-PD        RI#           Selection
+                     Table 8.2 FT4232H(-56Q) I/O States Channel B
+
+                                                                            18
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 20 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+8.3 FT4232H / FT4232H -56Q – Channel C Pins
+
+                                      FT4232H
+                                         Channel C
+  Pin       Pin       Pin    RESET#  Default  SUSPEND  SUSPEND     During         Active
+Number  Number  Name    Low                  (Pull        (Pull     Enumeration     (device
+(56 Pin   (64 Pin                        Down IO   Down IO   (out of reset   enumerated
+- VQFN)    - QFN/                                 Pins in      Pins in       prior to          after
+          LQFP)                            Suspend -    USB      EEPROM     EEPROM
+                                            Not Set)    Suspend       read)         read)
+                                                    – Set)
+   32       38    CDBUS0   TriSt-PU    TXD      TXD        TriSt-PD       TXD         TXD
+
+   33       39    CDBUS1   TriSt-PU   RXD      RXD        TriSt-PD       RXD         RXD
+
+   34       40    CDBUS2   TriSt-PU   RTS#     RTS#       TriSt-PD      RTS#        RTS#
+
+   35       41    CDBUS3   TriSt-PU   CTS#     CTS#       TriSt-PD      CTS#        CTS#
+
+   37       43    CDBUS4   TriSt-PU   DTR#     DTR#       TriSt-PD      DTR#        DTR#
+
+   38       44    CDBUS5   TriSt-PU   DSR#    DSR#       TriSt-PD      DSR#        DSR#
+
+   39       45    CDBUS6   TriSt-PU   DCD#    DCD#       TriSt-PD      DCD#       DCD#
+
+   40       46    CDBUS7   TriSt-PU    RI#      Selection     TriSt-PD        RI#           Selection
+                     Table 8.3 FT4232H(-56Q) I/O States Channel C
+
+8.4 FT4232H / FT4232H -56Q – Channel D Pins
+
+                                      FT4232H
+                                         Channel D
+  Pin       Pin     Pin Name  RESET#  Default  SUSPEND  SUSPEND     During        Active
+Number  Number             Low                 (Pull       (Pull    Enumeration     (device
+(56 Pin   (64 Pin                         Down IO  Down IO   (out of reset  enumerated
+- VQFN)    - QFN/                                   Pins in     Pins in       prior to         after
+         LQFP)                              Suspend    USB     EEPROM     EEPROM
+                                                                  - Not    Suspend      read)         read)
+                                                      Set)     – Set)
+  42       48      DDBUS0    TriSt-PU    TXD      TXD       TriSt-PD      TXD         TXD
+
+  46       52      DDBUS1    TriSt-PU   RXD     RXD       TriSt-PD      RXD         RXD
+
+  47       53      DDBUS2    TriSt-PU   RTS#     RTS#      TriSt-PD      RTS#        RTS#
+
+  48       54      DDBUS3    TriSt-PU   CTS#     CTS#      TriSt-PD      CTS#        CTS#
+
+  49       55      DDBUS4    TriSt-PU   DTR#    DTR#      TriSt-PD      DTR#       DTR#
+
+  51       57      DDBUS5    TriSt-PU   DSR#    DSR#      TriSt-PD     DSR#       DSR#
+
+  52       58      DDBUS6    TriSt-PU   DCD#    DCD#      TriSt-PD     DCD#       DCD#
+
+  53       59      DDBUS7    TriSt-PD    RI#     Selection    TriSt-PD       RI#          Selection
+                     Table 8.4 FT4232H(-56Q) I/O States Channel D
+
+                                                                            19
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 21 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+8.5 FT4232H / FT4232H -56Q - Selected Functions
+
+                                     FT4232H
+
+          Pins                            Pin functions (depend on configuration)
+  56    64              ASYNC
+  Pin    Pin                   Serial    ASYNC Bit-   SYNC Bit-
+  #    #    Pin Name   (RS232)      bang       bang              MPSSE
+                                         Channel A
+  12     16    ADBUS0      TXD         D0         D0                  TCK/SK
+  13     17    ADBUS1      RXD         D1         D1                  TDI/DO
+  14     18    ADBUS2     RTS#        D2         D2                  TDO/DI
+  15     19    ADBUS3     CTS#        D3         D3                 TMS/CS
+  17     21    ADBUS4     DTR#        D4         D4                  GPIOL0
+  18     22    ADBUS5     DSR#        D5         D5                  GPIOL1
+  19     23    ADBUS6     DCD#        D6         D6                  GPIOL2
+                              RI#/
+  20     24    ADBUS7                 D7         D7                  GPIOL3                         TXDEN*
+                                         Channel B
+  22     26    BDBUS0      TXD         D0         D0                  TCK/SK
+  23     27    BDBUS1      RXD         D1         D1                  TDI/DO
+  24     28    BDBUS2     RTS#        D2         D2                  TDO/DI
+  25     29    BDBUS3     CTS#        D3         D3                 TMS/CS
+  26     30    BDBUS4     DTR#        D4         D4                  GPIOL0
+  27     32    BDBUS5     DSR#        D5         D5                  GPIOL1
+  28     33    BDBUS6     DCD#        D6         D6                  GPIOL2
+                              RI#/  29     34    BDBUS7                 D7         D7                  GPIOL3
+                         TXDEN*
+                                         Channel C
+  32     38    CDBUS0      TXD         D0         D0         RS232 or Bit-Bang interface
+  33     39    CDBUS1      RXD         D1         D1         RS232 or Bit-Bang interface
+  34     40    CDBUS2     RTS#        D2         D2         RS232 or Bit-Bang interface
+  35     41    CDBUS3     CTS#        D3         D3         RS232 or Bit-Bang interface
+  37     43    CDBUS4     DTR#        D4         D4         RS232 or Bit-Bang interface
+  38     44    CDBUS5     DSR#        D5         D5         RS232 or Bit-Bang interface
+  39     45    CDBUS6     DCD#        D6         D6         RS232 or Bit-Bang interface
+                              RI#/  40     46    CDBUS7                 D7         D7         RS232 or Bit-Bang interface
+                         TXDEN*
+                                         Channel D
+  42     48    DDBUS0      TXD         D0         D0         RS232 or Bit-Bang interface
+  46     52    DDBUS1      RXD         D1         D1         RS232 or Bit-Bang interface
+  47     53    DDBUS2     RTS#        D2         D2         RS232 or Bit-Bang interface
+  48     54    DDBUS3     CTS#        D3         D3         RS232 or Bit-Bang interface
+  49     55    DDBUS4     DTR#        D4         D4         RS232 or Bit-Bang interface
+  51     57    DDBUS5     DSR#        D5         D5         RS232 or Bit-Bang interface
+  52     58    DDBUS6     DCD#        D6         D6         RS232 or Bit-Bang interface
+                              RI#/  53     59    DDBUS7                 D7         D7         RS232 or Bit-Bang interface
+                         TXDEN*
+                      Table 8.5 FT4232H(-56Q) Selected Functions
+
+Pins marked * are EEPROM selectable.
+
+                                                                            20
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 22 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+9 FT4232HP / FT4233HP
+
+    9.1  FT4232HP / FT4233HP – Channel A Pins
+
+                                  FT4232HP (68 pin)
+                              FT4233HP (76 pin / 80 pin)
+                                         Channel A
+  Pin Number       Pin    RESET#   Default  SUSPEND   SUSPEND      During         Active
+             Name    Low                  (Pull     (Pull Down   Enumeration      (device
+68   76   80                         Down IO   IO Pins in    (out of reset   enumerated
+Pin  Pin  Pin                                  Pins in      USB          prior to          after
+ #   #   #                             Suspend   Suspend –    EEPROM      EEPROM
+                                                          - Not Set)      Set)         read)          read)
+ 6    8    8    ADBUS0      TriSt     TXD      Function      TriSt-PD        TXD           Function
+
+ 7    9    9    ADBUS1    TriSt-PU    RXD      Function      TriSt-PD       RXD           Function
+
+ 11   13   13   ADBUS2      TriSt    RTS#     Function      TriSt-PD       RTS#          Function
+
+ 12   14   14   ADBUS3    TriSt-PU   CTS#     Function      TriSt-PD       CTS#          Function
+
+ 13   15   15   ADBUS4      TriSt    DTR#     Function      TriSt-PD       DTR#          Function
+
+ 14   16   16   ADBUS5    TriSt-PU   DSR#     Function      TriSt-PD       DSR#          Function
+
+ 15   17   17   ADBUS6    TriSt-PU   DCD#     Function      TriSt-PD      DCD#          Function
+
+ 16   18   18   ADBUS7    TriSt-PU    RI#      Function      TriSt-PD        RI#           Function
+                  Table 9.1 FT4232HP / FT4233HP I/O States Channel A
+
+    9.2  FT4232HP / FT4233HP – Channel B Pins
+
+                                  FT4232HP (68 pin)
+                              FT4233HP (76 pin / 80 pin)
+                                         Channel B
+  Pin Number       Pin    RESET#   Default  SUSPEND   SUSPEND      During         Active
+             Name    Low                  (Pull     (Pull Down   Enumeration      (device
+68   76   80                         Down IO   IO Pins in    (out of reset   enumerated
+Pin  Pin  Pin                                  Pins in      USB          prior to          after
+ #   #   #                             Suspend   Suspend –    EEPROM      EEPROM
+                                                          - Not Set)      Set)         read)          read)
+ 17   19   19   BDBUS0      TriSt     TXD      Function      TriSt-PD        TXD           Function
+
+ 18   20   21   BDBUS1    TriSt-PU    RXD      Function      TriSt-PD       RXD           Function
+
+ 19   21   22   BDBUS2    TriSt-PU   RTS#     Function      TriSt-PD       RTS#          Function
+
+ 20   22   23   BDBUS3    TriSt-PU   CTS#     Function      TriSt-PD       CTS#          Function
+
+ 21   23   24   BDBUS4    TriSt-PU   DTR#     Function      TriSt-PD       DTR#          Function
+
+ 22   24   25   BDBUS5    TriSt-PU   DSR#     Function      TriSt-PD       DSR#          Function
+
+ 23   25   26   BDBUS6    TriSt-PU   DCD#     Function      TriSt-PD      DCD#          Function
+
+ 24   26   27   BDBUS7    TriSt-PU    RI#      Function      TriSt-PD        RI#           Function
+                  Table 9.2 FT4232HP / FT4233HP I/O States Channel B
+
+                                                                            21
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 23 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+    9.3  FT4232HP / FT4233HP – Channel C Pins
+
+                                  FT4232HP (68 pin)
+                              FT4233HP (76 pin / 80 pin)
+                                         Channel C
+  Pin Number       Pin    RESET#   Default  SUSPEND   SUSPEND      During         Active
+             Name    Low                  (Pull     (Pull Down   Enumeration      (device
+68   76   80                         Down IO   IO Pins in    (out of reset   enumerated
+Pin  Pin  Pin                                  Pins in      USB          prior to          after
+ #   #   #                             Suspend   Suspend –    EEPROM      EEPROM
+                                                          - Not Set)      Set)         read)          read)
+34   36   37   CDBUS0      TriSt     TXD      Function      TriSt-PD        TXD           Function
+
+35   37   38   CDBUS1    TriSt-PU    RXD      Function      TriSt-PD       RXD           Function
+
+36   38   39   CDBUS2      TriSt    RTS#     Function      TriSt-PD       RTS#          Function
+
+37   39   40   CDBUS3    TriSt-PU   CTS#     Function      TriSt-PD       CTS#          Function
+
+38   40   41   CDBUS4      TriSt    DTR#     Function      TriSt-PD       DTR#          Function
+
+40   42   43   CDBUS5    TriSt-PU   DSR#     Function      TriSt-PD       DSR#          Function
+
+41   43   44   CDBUS6    TriSt-PU   DCD#     Function      TriSt-PD      DCD#          Function
+
+42   44   45   CDBUS7    TriSt-PU    RI#      Function      TriSt-PD        RI#           Function
+                  Table 9.3 FT4232HP / FT4233HP I/O States Channel C
+
+    9.4  FT4232HP / FT4233HP – Channel D Pins
+
+                                  FT4232HP (68 pin)
+                              FT4233HP (76 pin / 80 pin)
+                                         Channel D
+  Pin Number       Pin    RESET#   Default  SUSPEND   SUSPEND      During         Active
+             Name    Low                  (Pull     (Pull Down   Enumeration      (device
+68   76   80                         Down IO   IO Pins in    (out of reset   enumerated
+Pin  Pin  Pin                                  Pins in      USB          prior to          after
+ #   #   #                             Suspend   Suspend –    EEPROM      EEPROM
+                                                          - Not Set)      Set)         read)          read)
+45   48   50   DDBUS0      TriSt     TXD      Function      TriSt-PD        TXD           Function
+
+46   49   51   DDBUS1    TriSt-PU    RXD      Function      TriSt-PD       RXD           Function
+
+47   50   52   DDBUS2    TriSt-PU   RTS#     Function      TriSt-PD       RTS#          Function
+
+48   51   53   DDBUS3    TriSt-PU   CTS#     Function      TriSt-PD       CTS#          Function
+
+49   52   54   DDBUS4    TriSt-PU   DTR#     Function      TriSt-PD       DTR#          Function
+
+50   53   55   DDBUS5    TriSt-PU   DSR#     Function      TriSt-PD       DSR#          Function
+
+51   56   58   DDBUS6    TriSt-PU   DCD#     Function      TriSt-PD      DCD#          Function
+
+52   57   59   DDBUS7    TriSt-PU    RI#      Function      TriSt-PD        RI#           Function
+                  Table 9.4 FT4232HP / FT4233HP I/O States Channel D
+
+                                                                            22
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 24 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+    9.5  FT4232HP / FT4233HP – Selected Functions
+
+                                FT4232HP (68 pin)
+                             FT4233HP (76 pin / 80 pin)
+           Pins                            Pin functions (depend on configuration)
+68  76   80
+Pin  Pin  Pin            ASYNC Serial  ASYNC Bit-   SYNC Bit-
+ #   #   #    Pin Name     (RS232)       bang       bang            MPSSE
+                                        Channel A
+ 6    8    8    ADBUS0        TXD          D0         D0               TCK/SK
+ 7    9    9    ADBUS1       RXD          D1         D1               TDI/DO
+11   13   13    ADBUS2       RTS#         D2         D2               TDO/DI
+12   14   14    ADBUS3       CTS#         D3         D3              TMS/CS
+13   15   15    ADBUS4       DTR#         D4         D4               GPIOL0
+14   16   16    ADBUS5      DSR#         D5         D5               GPIOL1
+15   17   17    ADBUS6      DCD#         D6         D6               GPIOL2
+16   18   18    ADBUS7     RI#/ TXDEN*      D7         D7               GPIOL3
+                                        Channel B
+17   19   19    BDBUS0        TXD          D0         D0               TCK/SK
+18   20   21    BDBUS1       RXD          D1         D1               TDI/DO
+19   21   22    BDBUS2       RTS#         D2         D2               TDO/DI
+20   22   23    BDBUS3       CTS#         D3         D3              TMS/CS
+21   23   24    BDBUS4       DTR#         D4         D4               GPIOL0
+22   24   25    BDBUS5      DSR#         D5         D5               GPIOL1
+23   25   26    BDBUS6      DCD#         D6         D6               GPIOL2
+24   26   27    BDBUS7     RI#/ TXDEN*      D7         D7               GPIOL3
+                                        Channel C
+34   36   37    CDBUS0        TXD          D0         D0      RS232 or Bit-Bang interface
+35   37   38    CDBUS1       RXD          D1         D1      RS232 or Bit-Bang interface
+36   38   39    CDBUS2       RTS#         D2         D2      RS232 or Bit-Bang interface
+37   39   40    CDBUS3       CTS#         D3         D3      RS232 or Bit-Bang interface
+38   40   41    CDBUS4       DTR#         D4         D4      RS232 or Bit-Bang interface
+40   42   43    CDBUS5      DSR#         D5         D5      RS232 or Bit-Bang interface
+41   43   44    CDBUS6      DCD#         D6         D6      RS232 or Bit-Bang interface
+42   44   45    CDBUS7     RI#/ TXDEN*      D7         D7      RS232 or Bit-Bang interface
+                                        Channel D
+45   48   50    DDBUS0       TXD          D0         D0      RS232 or Bit-Bang interface
+46   49   51    DDBUS1       RXD          D1         D1      RS232 or Bit-Bang interface
+47   50   52    DDBUS2       RTS#         D2         D2      RS232 or Bit-Bang interface
+48   51   53    DDBUS3       CTS#         D3         D3      RS232 or Bit-Bang interface
+49   52   54    DDBUS4       DTR#         D4         D4      RS232 or Bit-Bang interface
+50   53   55    DDBUS5      DSR#         D5         D5      RS232 or Bit-Bang interface
+51   56   58    DDBUS6      DCD#         D6         D6      RS232 or Bit-Bang interface
+52   57   59    DDBUS7     RI#/ TXDEN*      D7         D7      RS232 or Bit-Bang interface
+                   Table 9.5 FT4232HP / FT4233HP Selected Functions
+
+Pins marked * are EEPROM selectable.
+
+                                                                            23
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 25 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+10 FT2232D – Channel A Pins
+
+                                        FT2232D
+                                            Channel A
+     Pin     Pin Name   RESET#   Default   SUSPEND    SUSPEND      During         Active
+  Number             Low                (Pull Down    (Pull Down   Enumeration      (device
+                                        IO Pins in    IO Pins in    (out of reset   enumerated
+                                         Suspend -     USB          prior to          after
+                                           Not Set)    Suspend –    EEPROM      EEPROM
+                                                               Set)         read)          read)
+     24      ADBUS0       TriSt     TXD       Function        TriSt- PD           TriSt           Function
+
+     23      ADBUS1     TriSt-PU    RXD       Function        TriSt- PD        TriSt-PU         Function
+
+     22      ADBUS2       TriSt     RTS#       Function        TriSt- PD           TriSt           Function
+
+     21      ADBUS3     TriSt-PU   CTS#       Function        TriSt- PD        TriSt-PU         Function
+
+     20      ADBUS4       TriSt    DTR#       Function        TriSt- PD           TriSt           Function
+
+     19      ADBUS5     TriSt-PU   DSR#      Function        TriSt- PD        TriSt-PU         Function
+
+     17      ADBUS6     TriSt-PU   DCD#      Function        TriSt- PD        TriSt-PU         Function
+
+     16      ADBUS7     TriSt-PU    RI#       Function        TriSt- PD        TriSt-PU         Function
+
+     15      ACBUS0        TriSt    TXDEN      Function        TriSt- PD           TriSt           Function
+
+     13      ACBUS1        TriSt    SLEEP#      Function        TriSt- PD           TriSt           Function
+
+     12      ACBUS2     TriSt-PU  RXLED#     Function        TriSt- PD        TriSt-PU         Function
+
+     11      ACBUS3     TriSt-PU   TXLED#     Function        TriSt- PD        TriSt-PU         Function
+                        Table 10.1 FT2232D I/O States Channel A
+
+10.1 FT2232D – Channel B Pins
+
+                                        FT2232D
+                                            Channel B
+     Pin       Pin    RESET#   Default    SUSPEND    SUSPEND       During          Active
+  Number   Name    Low                  (Pull Down    (Pull Down   Enumeration      (device
+                                      IO Pins in    IO Pins in    (out of reset    enumerated
+                                       Suspend -      USB          prior to      after EEPROM
+                                         Not Set)     Suspend –     EEPROM         read)
+                                                              Set)          read)
+     40     BDBUS0     TriSt      TXD        Function         TriSt- PD           TriSt           Function
+
+     39     BDBUS1   TriSt-PU    RXD        Function         TriSt- PD         TriSt-PU          Function
+
+     38     BDBUS2     TriSt     RTS#        Function         TriSt- PD           TriSt           Function
+
+     37     BDBUS3   TriSt-PU    CTS#        Function         TriSt- PD         TriSt-PU          Function
+
+     36     BDBUS4     TriSt     DTR#        Function         TriSt- PD           TriSt           Function
+
+     35     BDBUS5   TriSt-PU   DSR#       Function         TriSt- PD         TriSt-PU          Function
+
+     33     BDBUS6   TriSt-PU   DCD#       Function         TriSt- PD         TriSt-PU          Function
+
+     32     BDBUS7   TriSt-PU     RI#        Function         TriSt- PD         TriSt-PU          Function
+
+     30     BCBUS0     TriSt     TXDEN       Function         TriSt- PD           TriSt           Function
+
+     29     BCBUS1     TriSt     SLEEP#       Function         TriSt- PD           TriSt           Function
+
+     28     BCBUS2   TriSt-PU   RXLED#      Function         TriSt- PD         TriSt-PU          Function
+
+     27     BCBUS3   TriSt-PU   TXLED#      Function         TriSt- PD         TriSt-PU          Function
+                        Table 10.2 FT2232D I/O States Channel B
+
+                                                                            24
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 26 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+10.2 FT2232D - Selected Functions – Channel A
+
+                                          Pin Definitions by Chip Mode **Note 1
+       Generic                 232     245   Enhanced       MPSSE    MCU Host   Fast Opto-  CPU FIFO
+Pin#   Pin               UART    FIFO  Asynchronous    **Note 3   Bus         Isolated     Interface
+      name               Mode          and                         Emulation   Serial      Mode
+                                 Synchronous              Mode      Mode
+                                        Serial                      **Note 4
+24     ADBUS0     TXD     D0         D0          TCK/SK    **Note 2      D0         D0
+                                                 AD0
+23     ADBUS1    RXD     D1         D1           TDI/D0      AD1        D1         D1
+22     ADBUS2    RTS#     D2         D2          TDO/DI      AD2        D2         D2
+21     ADBUS3    CTS#     D3         D3         TMS/CS      D3                   D3
+                                                 AD3
+20     ADBUS4    DTR#     D4         D4          GPIOL0      AD4        D4         D4
+19     ADBUS5    DSR#    D5         D5          GPIOL1      AD5        D5         D5
+17     ADBUS6   DCD#    D6         D6          GPIOL2      AD6        D6         D6
+16     ADBUS7     RI#     D7         D7          GPIOL3      AD7        D7         D7
+15     ACBUS0    TXDEN   RXF#   WR# **Note 5     GPIOH0       I/O0       CS#       CS#
+13     ACBUS1   SLEEP#   TXE#   RD# **Note 5     GPIOH1       I/O1         A0         A0
+12     ACBUS2   RXLED#   RD#   WR# **Note 6     GPIOH2      IORDY      RD#       RD#
+24     ADBUS0     TXD     D0         D0          TCK/SK    **Note 2      D0
+                                                 AD0
+11     ACBUS3   TXLED#   WR    RD# **Note 6     GPIOH3      OSC      WR#      WR#
+                    Table 10.3 Pin Definition by Chip Mode - Channel A
+
+Note 1: 232 UART, 245 FIFO, CPU FIFO Interface, and Fast Opto-Isolated modes are enabled in the
+external EEPROM. Enhanced Asynchronous and Synchronous Bit-Bang modes, MPSSE, and MCU Host Bus
+Emulation modes are enabled using the driver command set bit mode.
+
+Note 2: Channel A can be configured in another IO mode if channel B is in Fast Opto-Isolated Serial Mode.
+If both Channel A and Channel B are in Fast Opto-Isolated Serial Mode all of the IO will be on Channel B.
+
+Note 3: MPSSE is Channel A only.
+
+Note 4: MCU Host Bus Emulation requires both Channels.
+
+Note 5: The Bit-Bang Mode (synchronous and asynchronous) WR# and RD# strobes are on these pins
+when the main Channel mode is 245 FIFO, CPU FIFO interface, or Fast Opto-Isolated Serial Modes.
+
+Note 6: The Bit-Bang Mode (synchronous and asynchronous) WR# and RD# strobes are on these pins
+when the main Channel mode is 232 UART Mode.
+
+                                                                             25
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 27 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+10.3 FT2232D - Selected Function – Channel B
+
+                                         Pin Definitions by Chip Mode **Note 1
+       Generic
+Pin#   Pin        232     245   Enhanced       MPSSE    MCU Host   Fast      CPU FIFO
+      name     UART    FIFO  Asynchronous    **Note 3   Bus        Opto-      Interface
+               Mode          and                         Emulation   Isolated   Mode
+                                 Synchronous              Mode        Serial
+                                        Serial                      **Note 4   Mode
+40     BDBUS0   TXD      D0    D0              A8         FSDI       D0       D0
+39     BDBUS1   RXD      D1    D1              A9         FSCLK      D1       D1
+38     BDBUS2   RTS#     D2    D2              A10       FSDO      D2       D2
+37     BDBUS3   CTS#     D3    D3              A11        FSCTS      D3       D3
+36     BDBUS4   DTR#     D4    D4              A12        **Note 2   D4       D4
+35     BDBUS5   DSR#     D5    D5              A13       D5                  D5
+33     BDBUS6   DCD#    D6    D6              A14       D6                  D6
+32     BDBUS7   RI#      D7    D7              A15       D7                  D7
+30     BCBUS0   TXDEN    RXF#  WR# **Note 7    CS#       CS#                CS#
+29     BCBUS1   SLEEP#   TXE#  RD# **Note 7     ALE        A0                   A0
+28     BCBUS2   RXLED#   RD#   WR# **Note 6    RD#      RD#               RD#
+27     BCBUS3   TXLED#   WR    RD# **Note 6    WR#      WR#              WR#
+                    Table 10.4 Pin Definition by Chip Mode - Channel B
+
+Note 1: 232 UART, 245 FIFO, CPU FIFO Interface, and Fast Opto-Isolated modes are enabled in the
+external EEPROM. Enhanced Asynchronous and Synchronous Bit-Bang modes, MPSSE, and MCU Host
+Bus Emulation modes are enabled using the driver command set bit mode.
+
+Note 2:  Channel A can be configured in another IO mode if channel B is in Fast Opto-Isolated Serial
+Mode. If both Channel A and Channel B are in Fast Opto-Isolated Serial Mode all of the IO will be on
+Channel B.
+
+Note 3: MPSSE is Channel A only.
+
+Note 4: MCU Host Bus Emulation requires both Channels.
+
+Note 5: The Bit-Bang Mode (synchronous and asynchronous) WR# and RD# strobes are on these pins
+when the main Channel mode is 245 FIFO, CPU FIFO interface, or Fast Opto-Isolated Serial Modes.
+
+Note 6: The Bit-Bang Mode (synchronous and asynchronous) WR# and RD# strobes are on these pins
+when the main Channel mode is 232 UART Mode.
+
+Note 7: The Bit-Bang Mode (synchronous and asynchronous) WR# and RD# strobes are on these pins
+when the main Channel mode is 245 FIFO, CPU FIFO interface. Bit-Bang mode is not available on
+Channel B when Fast Opto-Isolated Serial Mode is enabled.
+
+                                                                             26
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 28 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+8 FT200XD – I/O Pins
+
+                                     FT200XD
+  Pin       Pin    RESET#     SUSPEND       SUSPEND         During             Active
+Name  Number    Low     (Pull Down IO      (Pull Down IO     Enumeration         (device
+                             Pins in USB         Pins in USB      (out of reset    enumerated after
+                          Suspend - Not    Suspend – Set)   prior to EEPROM   EEPROM read)
+                              Set)                                   read)
+ SDA       8       TriSt-PU       SDA              TriSt-PD          SDA            SDA
+ SCL       6       TriSt-PU        SCL              TriSt-PD           SCL              SCL
+CBUS0      5       TriSt-PU        Function            TriSt-PD            TriSt-PU             Function
+                             Table 8.1 FT200XD I/O States
+
+Note 1: When used in Input Mode, the input pins are pulled to VCCIO via internal 75kΩ (approx.)
+resistors. These pins can be programmed to gently pull low during USB suspend (PWREN# = “1”) by
+setting an option in the MTP memory.
+
+Note 2: Clock stretching is not supported.
+
+                                                                            27
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 29 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+9 FT201X – I/O Pins
+
+                                       FT201X
+
+  Pin       Pin        Pin    RESET# Low   SUSPEND    SUSPEND       During         Active
+ Name   Number  Number                   (Pull Down    (Pull Down   Enumeration     (device
+         (QFN)    (SSOP)               IO Pins in     IO Pins in    (out of reset   enumerate
+                                   USB           USB          prior to       d after
+                                       Suspend -     Suspend –    EEPROM     EEPROM
+                                        Not Set)          Set)          read)         read)
+  SDA       2         4          TriSt-PU       SDA         TriSt-PD        SDA         SDA
+  SCL       16        2          TriSt-PU        SCL          TriSt-PD         SCL          SCL
+CBUS 0      12        15         TriSt-PU        Function       TriSt-PD         TriSt-PU        Function
+CBUS 1      11        14         TriSt-PU        Function       TriSt-PD         TriSt-PU        Function
+CBUS 2      5         7          TriSt-PU        Function       TriSt-PD         TriSt-PU        Function
+CBUS 3      14        16         TriSt-PU        Function       TriSt-PD         TriSt-PU        Function
+CBUS 4      4         6          TriSt-PU        Function       TriSt-PD         TriSt-PU        Function
+CBUS 5      15        1          TriSt-PU        Function       TriSt-PD         TriSt-PU        Function
+                              Table 9.1 FT201X I/O States
+
+Note 1: When used in Input Mode, the input pins are pulled to VCCIO via internal 75kΩ (approx.)
+resistors. These pins can be programmed to gently pull low during USB suspend (PWREN# = “1”) by
+setting an option in the MTP memory.
+
+Note 2: Clock stretching is not supported.
+
+                                                                            28
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 30 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+10 FT220X – I/O Pins
+
+                                       FT220X
+
+Pin Name     Pin       Pin    RESET#   SUSPEND    SUSPEND       During          Active
+         Number  Number   Low     (Pull Down     (Pull Down   Enumeration       (device
+           (QFN)   (SSOP)           IO Pins in     IO Pins in    (out of reset    enumerated
+                                USB           USB          prior to       after EEPROM
+                                    Suspend -     Suspend –  EEPROM read)      read)
+                                     Not Set)          Set)
+MIOSIO[0]     15        1
+                                    TriSt-PU    MIOSIO[0]       TriSt-PD       MIOSIO[0]       MIOSIO[0]
+
+MIOSIO[1]     2        4
+                                    TriSt-PU    MIOSIO[1]       TriSt-PD       MIOSIO[1]       MIOSIO[1]
+
+MIOSIO[2]     16        2
+                                    TriSt-PU    MIOSIO[2]       TriSt-PD       MIOSIO[2]       MIOSIO[2]
+
+MIOSIO[3]     4        6
+                                    TriSt-PU    MIOSIO[3]       TriSt-PD       MIOSIO[3]       MIOSIO[3]
+
+   CLK       12       15               CLK (Input-
+                                    TriSt-PU                     TriSt-PD    CLK (Input-PU)   CLK (Input-PU)                                              PU)
+  CS#       11       14             CS# (Input-                                    TriSt-PU                     TriSt-PD    CS# (Input-PU)  CS# (Input-PU)
+                                              PU)
+  MISO       5        7
+                                    TriSt-PU     MISO         TriSt-PD        MISO          MISO
+
+ CBUS3      14       16
+                                    TriSt-PU      Function        TriSt-PD         TriSt-PU          Function
+
+                             Table 10.1 FT220X I/O States
+
+Note: When used in Input Mode, the input pins are pulled to VCCIO via internal 75kΩ (approx.)
+resistors. These pins can be programmed to gently pull low during USB suspend (PWREN# = “1”) by
+setting an option in the MTP memory.
+
+                                                                            29
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 31 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+11 FT221X – I/O Pins
+
+                                       FT221X
+Pin Name     Pin       Pin    RESET#   SUSPEND    SUSPEND       During          Active
+         Number  Number   Low     (Pull Down     (Pull Down   Enumeration       (device
+           (QFN)   (SSOP)           IO Pins in     IO Pins in    (out of reset    enumerated
+                                USB           USB          prior to       after EEPROM
+                                    Suspend -     Suspend –  EEPROM read)      read)
+                                     Not Set)          Set)
+MIOSIO[0]     17       20
+                                    TriSt-PU    MIOSIO[0]       TriSt-PD       MIOSIO[0]       MIOSIO[0]
+
+MIOSIO[1]     1        4
+                                    TriSt-PU                     TriSt-PD
+                                          MIOSIO[1]                   MIOSIO[1]       MIOSIO[1]
+MIOSIO[2]     19        2
+                                    TriSt-PU    MIOSIO[2]       TriSt-PD       MIOSIO[2]       MIOSIO[2]
+
+MIOSIO[3]     6        9
+                                    TriSt-PU    MIOSIO[3]       TriSt-PD       MIOSIO[3]       MIOSIO[3]
+
+MIOSIO[4]     18        1
+                                    TriSt-PU    MIOSIO[4]       TriSt-PD       MIOSIO[4]       MIOSIO[4]
+
+MIOSIO[5]     4        7
+                                    TriSt-PU    MIOSIO[5]       TriSt-PD       MIOSIO[5]       MIOSIO[5]
+
+MIOSIO[6]     5        8
+                                    TriSt-PU    MIOSIO[6]       TriSt-PD       MIOSIO[6]       MIOSIO[6]
+
+MIOSIO[7]     2        5
+                                    TriSt-PU    MIOSIO[7]       TriSt-PD       MIOSIO[7]       MIOSIO[7]
+
+   CLK       15       18                                    TriSt-PD
+                                    TriSt-PU     Input-PU                       Input-PU      CLK(Input-PU)
+
+  CS#       14       17                                    TriSt-PD
+                                    TriSt-PU     Input-PU                       Input-PU      CS#(Input-PU)
+
+  MISO       7        10                                    TriSt-PD
+                                    TriSt-PU     MISO                     MISO          MISO
+
+ CBUS3      16       19                                    TriSt-PD
+                                    TriSt-PU      Function                        Function          Function
+
+                             Table 11.1 FT221X I/O States
+
+Note: When used in Input Mode, the input pins are pulled to VCCIO via internal 75kΩ (approx.)
+resistors. These pins can be programmed to gently pull low during USB suspend (PWREN# = “1”) by
+setting an option in the MTP memory.
+
+                                                                            30
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 32 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+12 FT230X – I/O Pins
+
+                                       FT230X
+  Pin      Pin       Pin    RESET#   SUSPEND     SUSPEND       During           Active
+Name  Number  Number   Low     (Pull Down      (Pull Down    Enumeration       (device
+        (QFN)   (SSOP)           IO Pins in      IO Pins in     (out of reset    enumerated
+                              USB Suspend     USB           prior to       after EEPROM
+                                                - Not Set)      Suspend –   EEPROM read)       read)
+                                                          Set)
+ TXD      15        1       TriSt-PU      TXD           TriSt-PD         TXD          Output (TXD)
+
+ RXD      2         4       TriSt-PU      RXD           TriSt-PD        RXD           Input (RXD)
+
+ RTS#     16        2       TriSt-PU      RTS#          TriSt-PD        RTS#        Output (RTS#)
+
+ CTS#      4         6       TriSt-PU      CTS#          TriSt-PD        CTS#         Input (CTS#)
+
+CBUS0     12       15      TriSt-PU      Function         TriSt-PD          TriSt-PU           Function
+
+CBUS1     11       14      TriSt-PU      Function         TriSt-PD          TriSt-PU           Function
+
+CBUS2     5         7       TriSt-PU      Function         TriSt-PD          TriSt-PU           Function
+
+CBUS3     14       16      TriSt-PU      Function         TriSt-PD          TriSt-PU           Function
+
+                             Table 12.1 FT230X I/O States
+
+Note: When used in Input Mode, the input pins are pulled to VCCIO via internal 75KΩ (approx.)
+resistors. These pins can be programmed to gently pull low during USB suspend (PWREN# = “1”) by
+setting an option in the MTP memory.
+
+                                                                            31
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 33 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+13 FT231X – I/O Pins
+
+                                       FT231X
+
+  Pin      Pin       Pin    RESET#   SUSPEND     SUSPEND       During           Active
+Name  Number  Number   Low     (Pull Down      (Pull Down    Enumeration       (device
+        (QFN)   (SSOP)           IO Pins in      IO Pins in     (out of reset    enumerated
+                              USB Suspend     USB           prior to       after EEPROM
+                                                - Not Set)      Suspend –   EEPROM read)       read)
+                                                          Set)
+ TXD      17       20      TriSt-PU      TXD           TriSt-PD         TXD           TXD
+ RXD      1         4       TriSt-PU      RXD           TriSt-PD        RXD           RXD
+ RTS#     19        2       TriSt-PU      RTS#          TriSt-PD        RTS#          RTS#
+ CTS#      6         9       TriSt-PU      CTS#          TriSt-PD        CTS#          CTS#
+ DTR#     18        1       TriSt-PU     DTR#          TriSt-PD        DTR#          DTR#
+DSR#      4         7       TriSt-PU     DSR#          TriSt-PD        DSR#         DSR#
+DCD#      5         8       TriSt-PU     DCD#          TriSt-PD       DCD#         DCD#
+ RI#       2         5       TriSt-PU       RI#           TriSt-PD          RI#            RI#
+CBUS0     15       18      TriSt-PU      Function         TriSt-PD          TriSt-PU           Function
+CBUS1     14       17      TriSt-PU      Function         TriSt-PD          TriSt-PU           Function
+CBUS2     7        10      TriSt-PU      Function         TriSt-PD          TriSt-PU           Function
+CBUS3     16       19      TriSt-PU      Function         TriSt-PD          TriSt-PU           Function
+                             Table 13.1 FT231X I/O States
+
+Note: When used in Input Mode, the input pins are pulled to VCCIO via internal 75KΩ (approx.)
+resistors. These pins can be programmed to gently pull low during USB suspend (PWREN# = “1”) by
+setting an option in the MTP memory.
+
+                                                                            32
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 34 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+14 FT234XD – I/O Pins
+
+                                     FT234XD
+
+  Pin       Pin    RESET#     SUSPEND       SUSPEND         During             Active
+Name  Number    Low     (Pull Down IO      (Pull Down IO     Enumeration         (device
+                             Pins in USB         Pins in USB      (out of reset    enumerated after
+                          Suspend - Not    Suspend – Set)   prior to EEPROM   EEPROM read)
+                              Set)                                   read)
+ TXD       7       TriSt-PU        TXD              TriSt-PD           TXD            Output (TXD)
+ RXD      10       TriSt-PU       RXD              TriSt-PD          RXD             Input (RXD)
+ RTS#      8       TriSt-PU       RTS#             TriSt-PD          RTS#          Output (RTS#)
+ CTS#      11       TriSt-PU       CTS#             TriSt-PD          CTS#            Input (CTS#)
+CBUS0      6       TriSt-PU        Function            TriSt-PD            TriSt-PU             Function
+                             Table 14.1 FT234XD I/O States
+
+Note: When used in Input Mode, the input pins are pulled to VCCIO via internal 75KΩ (approx.)
+resistors. These pins can be programmed to gently pull low during USB suspend (PWREN# = “1”) by
+setting an option in the MTP memory.
+
+                                                                            33
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 35 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+15 FT240X – I/O Pins
+
+                                       FT240X
+
+  Pin       Pin       Pin    RESET#   SUSPEND    SUSPEND       During           Active
+ Name   Number  Number   Low     (Pull Down      (Pull Down    Enumeration       (device
+         (QFN)   (SSOP)           IO Pins in      IO Pins in     (out of reset    enumerated
+                               USB            USB           prior to       after EEPROM
+                                   Suspend -     Suspend –   EEPROM read)       read)
+                                   Not Set)           Set)
+RESET#     13       16      Input-PU     Input-PU       Input-PU        Input-PU         Input-PU
+SIWU#      7        10      TriSt-PU     Input-PU        TriSt-PD         Input-PU         Input-PU
+ CBUS5     20       23      TriSt-PU      Function        TriSt-PD         TriSt-PU          Function
+ CBUS6     19       22      TriSt-PU      Function        TriSt-PD         TriSt-PU          Function
+  D0       21       24      TriSt-PU      D0           TriSt-PD         D0            D0
+  D1       1        4       TriSt-PU      D1           TriSt-PD         D1            D1
+  D2       23        2       TriSt-PU      D2           TriSt-PD         D2            D2
+  D3       6        9       TriSt-PU      D3           TriSt-PD         D3            D3
+  D4       22        1       TriSt-PU      D4           TriSt-PD         D4            D4
+  D5       4        7       TriSt-PU      D5           TriSt-PD         D5            D5
+  D6       5        8       TriSt-PU      D6           TriSt-PD         D6            D6
+  D7       2        5       TriSt-PU      D7           TriSt-PD         D7            D7
+                                RD# (Input-
+ RD#       8        11      TriSt-PU                      TriSt-PD    RD# (Input-PU)  RD# (Input-PU)                                            PU)
+                             WR (Input- WR       9        12      TriSt-PU                      TriSt-PD    WR (Input-PD)   WR (Input-PD)
+                                           PD)
+ TXE#      17       20      TriSt-PU    TXE# (OP)       TriSt-PD      TXE# (OP)      TXE# (OP)
+ RXF#      18       21      TriSt-PU    RXF# (OP)       TriSt-PD      RXF# (OP)      RXF# (OP)
+                             Table 15.1 FT240X I/O States
+
+Note: When used in Input Mode, the input pins are pulled to VCCIO via internal 75KΩ (approx.)
+resistors. These pins can be programmed to gently pull low during USB suspend (PWREN# = “1”) by
+setting an option in the MTP memory.
+
+                                                                            34
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 36 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+16 FT120 – I/O Pins
+
+                                        FT120
+
+   Pin       Pin       Pin     RESET#    SUSPEND           During                Active
+ Name   Number  Number    Low                       Enumeration            (device
+          (QFN)   (TSSOP)                                  (out of reset)        enumerated)
+
+ DATA0      26        1           TriSt            TriSt
+ DATA1      27        2           TriSt            TriSt
+ DATA2      28        3           TriSt            TriSt                                        TriSt, driving when                                                                               TriSt, driving when DATA3      1         4           TriSt            TriSt                           RD_N is low and                                                  RD_N is low and CS_N
+ DATA4      2         6           TriSt            TriSt                            CS_N is low or                                                                      or DMACK_N is low
+ DATA5      3         7           TriSt            TriSt                          DMACK_N is low
+ DATA6      4         8           TriSt            TriSt
+ DATA7      5         9           TriSt            TriSt
+                                      DrivingSUSPEND     8        12                           TriSt               Output                Output
+                               Low
+                                      Driving CLKOUT      9        13                      Output              Output                Output
+                               Low
+                                      Driving
+ INT_n      10        14                      Output              Output                Output                                   High
+                                      Driving  GL_n      17        21                      Output              Output                Output
+                                   High
+                                      Driving
+ DMREQ     13        17                      Output              Output                Output                               Low
+                              Table 16.1 FT120 I/O States
+
+                                                                            35
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 37 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+17 FT121 – I/O Pins
+
+                                        FT121
+
+   Pin        Pin        Pin     RESET#    SUSPEND          During               Active
+ Name    Number   Number     Low                     Enumeration            (device
+           (QFN)    (TSSOP)                                (out of reset)        enumerated)
+
+  MOSI        7          9           TriSt           TriSt              Output                Output
+  MISO        6          8           TriSt           TriSt              Output                Output
+                              Table 17.1 FT121 I/O States
+
+                                                                            36
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 38 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+18 FT122 – I/O Pins
+
+                                        FT122
+   Pin        Pin       Pin    RESET#    SUSPEND          During                Active
+ Name   Number  Number    Low                      Enumeration             (device
+          (QFN)   (TSSOP)                                (out of reset)        enumerated)
+
+  D0        26        1          TriSt            TriSt
+  D1        27        2          TriSt            TriSt
+  D2        28        3          TriSt            TriSt           TriSt, driving when       TriSt, driving when
+  D3        1         4          TriSt            TriSt        RD_N is low and    RD_N is low and CS_N
+  D4        3         6          TriSt            TriSt      CS_N or DMACK_N is     is low or DMACK_N is
+  D5        4         7          TriSt            TriSt                low                    low
+  D6        5         8          TriSt            TriSt
+  D7        6         9          TriSt            TriSt
+                                      DrivingSUSPEND      9        12                          TriSt              Output                Output
+                              Low
+                                      Driving
+ CLKOUT      10        13                    Output             Output                Output                              Low
+                                      Driving
+  INT_n      11        14                    Output             Output                Output
+                                   High
+                                      Driving  GL_n       18        21                    Output             Output                Output
+                                   High
+                                      Driving
+ DMREQ      14        17                    Output             Output                Output                              Low
+                              Table 18.1 FT122 I/O States
+
+                                                                            37
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 39 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+19 FT313H – I/O Pins
+
+                                        FT313
+
+ Pin Name       Pin         Pin         Pin          RESET# Low                 Active
+            Number    Number   Number
+              (QFN)      (LQFP)     (TQFP)
+
+   AD0          2           2          2                     TriSt                    Input/Output
+   AD1          3           3          3                     TriSt                    Input/Output
+   AD2          4           4          4                     TriSt                    Input/Output
+   AD3          5           5          5                     TriSt                    Input/Output
+   AD4          7           7          7                     TriSt                    Input/Output
+   AD5          8           8          8                     TriSt                    Input/Output
+   AD6          9           9          9                     TriSt                    Input/Output
+   AD7          10          10         10                    TriSt                    Input/Output
+   AD8          11          11         11                    TriSt                    Input/Output
+   AD9          12          12         12                    TriSt                    Input/Output
+   AD10         13          13         13                    TriSt                    Input/Output
+   AD11         14          14         14                    TriSt                    Input/Output
+   AD12         16          16         16                    TriSt                    Input/Output
+   AD13         17          17         17                    TriSt                    Input/Output
+   AD14         18          18         18                    TriSt                    Input/Output
+   AD15         19          19         19                    TriSt                    Input/Output
+                             Table 19.1 FT313H I/O States
+
+                                                                            38
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 40 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+20 FT4222H Rev A – I/O Pins
+
+20.1 Configuration Mode 0
+
+    FT4222H CNFMODE0                         I/O Status in Revision-A
+
+  Pin      Pin      Default     When         After        During      SUSPEND       Active
+Number  Name    Function      Reset        Reset     Enumeration     (Default)      Function
+                                                                                                (After
+                                                                               Enum.)
+                   SCK   8      SCK                  Undefined         TriSt       Output-Low    (Output-Low)     Function*
+                      (Master)
+                   MISO   9      MISO                       TriSt            TriSt       Output-Low    (Output-Low)     Function*
+                      (Master)
+                   MOSI   10     MOSI                       TriSt            TriSt       Output-Low    (Output-Low)     Function*
+                      (Master)
+                     IO2   11       IO2                        TriSt            TriSt       Output-Low    (Output-Low)     Function*
+                      (Master)
+                     IO3   12       IO3                        TriSt            TriSt       Output-Low    (Output-Low)     Function*
+                      (Master)
+
+   13     GPIO0     GPIO0          TriSt            TriSt       Output-Low    (Output-Low)     Function*
+
+   14     GPIO1     GPIO1          TriSt            TriSt       Output-Low    (Output-Low)     Function*
+
+   15     GPIO2   SUSP_OUT       TriSt            TriSt       Output-Low    (Output-High)    Function**
+
+   16     GPIO3   WAKEUP         TriSt            TriSt             TriSt             (TriSt)        Function**
+   17     SS0O     SS0O        Output      Output-High    Output-Low    (Output-Low)      Default*
+   32      SS       SS            TriSt            TriSt             TriSt             TriSt          Default*
+                Table 20.1 FT4222H Rev. A I/O States Configuration Mode0
+
+Default*: Default means the function is as referred to in the column – “Default Function”
+
+Function*: Function means that the function for each pin can be selected by the support library
+(LibFT4222)
+
+Function**: Function means that the function for each pin can be selected by the support library
+(LibFT4222) or FTDI - FT Prog Setting
+
+(I/O Status): I/O Status with parentheses means the I/O status will be changed by the support library
+(LibFT4222) or can be set by FTDI - FT Prog Setting
+
+                                                                            39
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 41 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+20.2 Configuration Mode 1
+
+    FT4222H CNFMODE1                         I/O Status in Revision-A
+
+  Pin      Pin      Default     When         After        During      SUSPEND       Active
+Number  Name    Function      Reset        Reset     Enumeration     (Default)      Function
+                                                                                                (After
+                                                                               Enum.)
+                   SCK
+   8      SCK                  Undefined         TriSt       Output-Low    (Output-Low)     Function*                      (Master)
+                   MISO   9      MISO                                           TriSt            TriSt       Output-Low    (Output-Low)     Function*                      (Master)
+                   MOSI
+   10     MOSI                                           TriSt            TriSt       Output-Low    (Output-Low)     Function*                      (Master)
+                      IO2   11       IO2                        TriSt            TriSt       Output-Low                      Function*                      (Master)                                                (Output-Low)
+                      IO3
+   12       IO3                                           TriSt            TriSt       Output-Low    (Output-Low)     Function*                      (Master)
+                  SS1O   13     GPIO0                       TriSt            TriSt       Output-Low    (Output-Low)      Default*
+                      (Master)
+                  SS2O
+   14     GPIO1                       TriSt            TriSt       Output-Low    (Output-Low)      Default*                      (Master)
+   15     GPIO2   SUSP_OUT       TriSt            TriSt       Output-Low    (Output-High)    Function**
+
+   16     GPIO3   WAKEUP         TriSt            TriSt             TriSt             (TriSt)        Function**
+   17     SS0O     SS0O        Output      Output-High    Output-Low    (Output-Low)      Default*
+   32      SS       SS            TriSt            TriSt             TriSt             TriSt          Default*
+                Table 20.2 FT4222H Rev. A I/O States Configuration Mode1
+
+Default*: Default means the function is as referred to in the column – “Default Function”
+
+Function*: Function means that the function for each pin can be selected by the support library
+(LibFT4222)
+
+Function**: Function means that the function for each pin can be selected by the support library
+(LibFT4222) or FTDI - FT Prog Setting
+
+(I/O Status): I/O Status with parentheses means the I/O status will be changed by the support library
+(LibFT4222) or can be set by FTDI - FT Prog Setting
+
+                                                                            40
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 42 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+20.3 Configuration Mode 2
+
+    FT4222H CNFMODE2                         I/O Status in Revision-A
+
+  Pin      Pin      Default     When         After        During      SUSPEND       Active
+Number  Name    Function      Reset        Reset     Enumeration     (Default)      Function
+                                                                                                (After
+                                                                               Enum.)
+                   SCK
+   8      SCK                  Undefined         TriSt       Output-Low    (Output-Low)     Function*                      (Master)
+                   MISO   9      MISO                                           TriSt            TriSt       Output-Low    (Output-Low)     Function*                      (Master)
+                   MOSI
+   10     MOSI                                           TriSt            TriSt       Output-Low    (Output-Low)     Function*                      (Master)
+                      IO2
+   11       IO2                        TriSt            TriSt       Output-Low                      Function*                      (Master)                                                (Output-Low)
+                      IO3
+   12       IO3                                           TriSt            TriSt       Output-Low    (Output-Low)     Function*                      (Master)
+                  SS1O                                                                       Default*   13     GPIO0                       TriSt            TriSt       Output-Low    (Output-Low)
+                      (Master)
+                  SS2O                                                                       Default*   14     GPIO1                       TriSt            TriSt       Output-Low    (Output-Low)
+                      (Master)
+                  SS3O   15     GPIO2                       TriSt            TriSt       Output-Low    (Output-Low)      Default*
+                      (Master)
+   16     GPIO3   WAKEUP         TriSt            TriSt             TriSt             (TriSt)        Function**
+   17     SS0O     SS0O        Output      Output-High    Output-Low    (Output-Low)      Default*
+   32      SS       SS            TriSt            TriSt             TriSt             TriSt          Default*
+                Table 20.3 FT4222H Rev. A I/O States Configuration Mode2
+
+Default*: Default means the function is as referred to in the column – “Default Function”
+
+Function*: Function means that the function for each pin can be selected by the support library
+(LibFT4222)
+
+Function**: Function means that the function for each pin can be selected by the support library
+(LibFT4222) or FTDI - FT Prog Setting
+
+(I/O Status): I/O Status with parentheses means the I/O status will be changed by the support library
+(LibFT4222) or can be set by FTDI - FT Prog Setting
+
+                                                                            41
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 43 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+20.4 Configuration Mode 3
+
+    FT4222H CNFMODE3                         I/O Status in Revision-A
+
+  Pin      Pin      Default     When         After        During      SUSPEND       Active
+Number  Name    Function      Reset        Reset     Enumeration     (Default)      Function
+                                                                                                (After
+                                                                               Enum.)
+                   SCK
+   8      SCK                  Undefined         TriSt       Output-Low    (Output-Low)     Function*                      (Master)
+                   MISO   9      MISO                                           TriSt            TriSt       Output-Low    (Output-Low)     Function*                      (Master)
+                   MOSI
+   10     MOSI                                           TriSt            TriSt       Output-Low    (Output-Low)     Function*                      (Master)
+                      IO2
+   11       IO2                                           TriSt            TriSt       Output-Low    (Output-Low)     Function*                      (Master)
+                      IO3   12       IO3                                           TriSt            TriSt       Output-Low    (Output-Low)     Function*                      (Master)
+   13     GPIO0     GPIO0          TriSt            TriSt       Output-Low    (Output-Low)     Function*
+
+   14     GPIO1     GPIO1          TriSt            TriSt       Output-Low    (Output-Low)     Function*
+
+   15     GPIO2   SUSP_OUT       TriSt            TriSt       Output-Low     Output-High      Default*
+   16     GPIO3   WAKEUP         TriSt            TriSt             TriSt             (TriSt)         Default*
+   17     SS0O     SS0O        Output      Output-High    Output-Low    (Output-Low)      Default*
+   32      SS       SS            TriSt            TriSt             TriSt             TriSt          Default*
+                Table 20.4 FT4222H Rev. A I/O States Configuration Mode3
+
+Default*: Default means the function is as referred to in the column – “Default Function”
+
+Function*: Function means that the function for each pin can be selected by the support library
+(LibFT4222)
+
+Function**: Function means that the function for each pin can be selected by the support library
+(LibFT4222) or FTDI - FT Prog Setting
+
+(I/O Status): I/O Status with parentheses means the I/O status will be changed by the support library
+(LibFT4222) or can be set by FTDI - FT Prog Setting
+
+                                                                            42
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 44 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+21 FT4222H Rev B, C, D – I/O Pins
+
+21.1 Configuration Mode 0
+
+    FT4222H CNFMODE0                       I/O Status in Revision-B, C, D
+
+  Pin      Pin      Default     When         After        During      SUSPEND       Active
+Number  Name    Function      Reset        Reset     Enumeration     (Default)      Function
+                                                                                                (After
+                                                                               Enum.)
+                   SCK
+   8      SCK                  Undefined         TriSt       Output-Low         (TriSt)        Function*                      (Master)
+                   MISO   9      MISO                       TriSt            TriSt             TriSt             (TriSt)        Function*
+                      (Master)
+                   MOSI
+   10     MOSI                       TriSt            TriSt       Output-High         (TriSt)        Function*                      (Master)
+                     IO2   11       IO2                        TriSt            TriSt             TriSt            (TriSt)        Function*
+                      (Master)
+                     IO3   12       IO3                        TriSt            TriSt             TriSt             (TriSt)        Function*
+                      (Master)
+   13     GPIO0     GPIO0          TriSt            TriSt             TriSt             (TriSt)        Function*
+   14     GPIO1     GPIO1          TriSt            TriSt             TriSt             (TriSt)        Function*
+   15     GPIO2   SUSP_OUT       TriSt            TriSt       Output-Low     (Output-High)    Function**
+   16     GPIO3   WAKEUP         TriSt            TriSt             TriSt             (TriSt)        Function**
+   17     SS0O     SS0O        Output      Output-High    Output-High    (Output-High)      Default*
+   32      SS       SS            TriSt            TriSt             TriSt             TriSt          Default*
+             Table 21.1 FT4222H Rev. B, C, D I/O States Configuration Mode0
+
+Default*: Default means the function is as referred to in the column – “Default Function”
+
+Function*: Function means that the function for each pin can be selected by the support library
+(LibFT4222)
+
+Function**: Function means that the function for each pin can be selected by the support library
+(LibFT4222) or FTDI - FT Prog Setting
+
+(I/O Status): I/O Status with parentheses means the I/O status will be changed by the support library
+(LibFT4222) or can be set by FTDI - FT Prog Setting
+
+                                                                            43
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 45 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+21.2 Configuration Mode 1
+
+    FT4222H CNFMODE1                       I/O Status in Revision-B, C, D
+
+  Pin      Pin      Default     When         After        During      SUSPEND       Active
+Number  Name    Function      Reset        Reset     Enumeration     (Default)      Function
+                                                                                                (After
+                                                                               Enum.)
+                   SCK
+   8      SCK                                  Undefined         TriSt       Output-Low         (TriSt)        Function*                      (Master)
+                   MISO   9      MISO                                           TriSt            TriSt             TriSt             (TriSt)        Function*                      (Master)
+                   MOSI   10     MOSI                                           TriSt            TriSt       Output-High         (TriSt)        Function*                      (Master)
+                     IO2
+   11       IO2                                           TriSt            TriSt             TriSt             (TriSt)        Function*                      (Master)
+                     IO3
+   12       IO3                                           TriSt            TriSt             TriSt             (TriSt)        Function*                      (Master)
+   13     GPIO0     SS1O          TriSt            TriSt       Output-High    (Output-High)      Default*
+   14     GPIO1     SS2O          TriSt            TriSt       Output-High    (Output-High)      Default*
+   15     GPIO2   SUSP_OUT       TriSt            TriSt       Output-Low    (Output-High)    Function**
+   16     GPIO3   WAKEUP         TriSt            TriSt             TriSt             (TriSt)        Function**
+   17     SS0O     SS0O        Output      Output-High    Output-High    (Output-High)      Default*
+   32      SS       SS            TriSt            TriSt             TriSt             (TriSt)         Default*
+             Table 21.2 FT4222H Rev. B, C, D I/O States Configuration Mode1
+
+Default*: Default means the function is as referred to in the column – “Default Function”
+
+Function*: Function means that the function for each pin can be selected by the support library
+(LibFT4222)
+
+Function**: Function means that the function for each pin can be selected by the support library
+(LibFT4222) or FTDI - FT Prog Setting
+
+(I/O Status): I/O Status with parentheses means the I/O status will be changed by the support library
+(LibFT4222) or can be set by FTDI - FT Prog Setting
+
+                                                                            44
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 46 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+21.3 Configuration Mode 2
+
+    FT4222H CNFMODE2                       I/O Status in Revision-B, C, D
+
+  Pin      Pin      Default     When         After        During      SUSPEND       Active
+Number  Name    Function      Reset        Reset     Enumeration     (Default)      Function
+                                                                                                (After
+                                                                               Enum.)
+                   SCK   8      SCK                                  Undefined         TriSt       Output-Low         (TriSt)        Function*                      (Master)
+                   MISO   9      MISO                                           TriSt            TriSt            TriSt             (TriSt)        Function*                      (Master)
+                   MOSI
+   10     MOSI                                           TriSt            TriSt       Output-High         (TriSt)        Function*                      (Master)
+                     IO2   11       IO2                                           TriSt            TriSt            TriSt             (TriSt)        Function*                      (Master)
+                     IO3
+   12       IO3                                           TriSt            TriSt            TriSt             (TriSt)        Function*                      (Master)
+   13     GPIO0     SS1O          TriSt            TriSt       Output-High    (Output-High)      Default*
+
+   14     GPIO1     SS2O          TriSt            TriSt       Output-High    (Output-High)      Default*
+
+   15     GPIO2     SS3O          TriSt            TriSt       Output-High    (Output-High)      Default*
+   16     GPIO3   WAKEUP         TriSt            TriSt            TriSt             (TriSt)        Function**
+   17     SS0O     SS0O        Output      Output-High    Output-High    (Output-High)      Default*
+   32      SS       SS            TriSt            TriSt            TriSt             TriSt          Default*
+             Table 21.3 FT4222H Rev. B, C, D I/O States Configuration Mode2
+
+Default*: Default means the function is as referred to in the column – “Default Function”
+
+Function*: Function means that the function for each pin can be selected by the support library
+(LibFT4222)
+
+Function**: Function means that the function for each pin can be selected by the support library
+(LibFT4222) or FTDI - FT Prog Setting
+
+(I/O Status): I/O Status with parentheses means the I/O status will be changed by the support library
+(LibFT4222) or can be set by FTDI - FT Prog Setting
+
+                                                                            45
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 47 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+21.4 Configuration Mode 3
+
+    FT4222H CNFMODE3                       I/O Status in Revision-B, C, D
+  Pin      Pin      Default     When         After        During      SUSPEND       Active
+Number  Name    Function      Reset        Reset     Enumeration     (Default)      Function
+                                                                                                (After
+                                                                               Enum.)
+                   SCK
+   8      SCK                  Undefined         TriSt       Output-Low         (TriSt)        Function*                      (Master)
+                   MISO
+   9      MISO                       TriSt            TriSt            TriSt             (TriSt)        Function*                      (Master)
+                   MOSI
+   10     MOSI                       TriSt            TriSt       Output-High         (TriSt)        Function*                      (Master)
+                     IO2   11       IO2                        TriSt            TriSt             TriSt            (TriSt))        Function*
+                      (Master)
+                     IO3
+   12       IO3                        TriSt            TriSt            TriSt             (TriSt)        Function*                      (Master)
+   13     GPIO0     GPIO0          TriSt            TriSt            TriSt             (TriSt)        Function*
+   14     GPIO1     GPIO1          TriSt            TriSt            TriSt             (TriSt)        Function*
+   15     GPIO2   SUSP_OUT       TriSt            TriSt       Output-Low    (Output-High)      Default*
+   16     GPIO3   WAKEUP         TriSt            TriSt            TriSt             (TriSt)         Default*
+   17     SS0O     SS0O        Output      Output-High    Output-High    (Output-High)      Default*
+   32      SS       SS            TriSt            TriSt            TriSt             (TriSt)         Default*
+             Table 21.4 FT4222H Rev. B, C, D I/O States Configuration Mode3
+
+Default*: Default means the function is as referred to in the column – “Default Function”
+
+Function*: Function means that the function for each pin can be selected by the support library
+(LibFT4222)
+
+Function**: Function means that the function for each pin can be selected by the support library
+(LibFT4222) or FTDI - FT Prog Setting
+
+(I/O Status): I/O Status with parentheses means the I/O status will be changed by the support library
+(LibFT4222) or can be set by FTDI - FT Prog Setting.
+
+                                                                            46
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 48 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+22 FT260 – I/O Pins
+
+               FT260                                     I/O Status
+  Pin      Pin         Init.        Active     When         After        During      SUSPEND
+Number  Name     Default     Function      Reset        Reset     Enumeration     (Default)
+                    Function      (After
+                    (During     Enum.)
+                  Enum.)
+         TX_ACT   TX_ACTIVE                                            (Output-Low)    (Output-Low)
+   7                            *N3, *N4       As Init.          TriSt           TriSt               *N3, *N4                 *N4,*U            IVE
+                                 As Init./                                                               (TriSt)
+   8      RTSN      GPIOB                         TriSt            TriSt             TriSt                  *N4,*U                                  RTSN*U
+                                 As Init./                                                               (TriSt)
+   9      CTSN      GPIOE                         TriSt            TriSt             TriSt                  *N4,*U                                  CTSN*U
+                    RXD/                                                                        (TriSt-PU)
+   10     RXD                   As Init.       TriSt-PU       TriSt-PU        TriSt-PU               *N4,*U                      GPIOC*N1
+                                                                                              (Output-High) /
+                     TXD/                                                Output-High/   11      TXD                   As Init.         TriSt            TriSt                               (TriSt)*N1
+                    GPIOD*N1                                                             TriSt*N1                *N4,*U
+                                                                                                                  (TriSt)
+   12     GPIO0      SCL        As Init.         TriSt            TriSt            TriSt*N5                *N4,*U
+                                                                                                                  (TriSt)
+   13     GPIO1     SDA        As Init.         TriSt            TriSt            TriSt*N5                *N4,*U
+                SUSP_OUT#                                             (Output-High)    (Output-Low)
+   14     GPIO2         *N3, *N4       As Init.         TriSt            TriSt               *N3, *N4                 *N4,*U
+                 WAKEUP     As Init./                                                               (TriSt)
+   15     GPIO3          *N4                            TriSt            TriSt             TriSt                  *N4,*U                                  GPIO3*U
+                                 As Init./                                                               (TriSt)
+   17     GPIO4     GPIO4                         TriSt            TriSt             TriSt                  *N4,*U                                 DCD*U
+                                 As Init./                                                               (TriSt)
+   18     GPIO5     GPIO5                         TriSt            TriSt             TriSt                  *N4,*U                                           RI*U
+                     GPIOF
+                         (see       As Init./                                                        (TriSt-PU)
+   16     DTRN                                   TriSt-PU     Output-High      TriSt-PU               *N4,*U                      important     DTRN*U
+                        notes)
+         BCD_D    BCD_DET                              Output-Low    (Output-Low)    (Output-Low)
+   27                           *N3, *N4       As Init.     Output-Low          *N2                 *N3, *N4                 *N4,*U            ET
+                                 As Init./                                                               (TriSt)
+   28     DSRN     GPIOH                         TriSt            TriSt             TriSt                  *N4,*U                                DSRN*U
+                              Table 22.1 FT260 I/O States
+
+*N1 : Default function will be set as GPIO when CNFMODE1 (I2C only)
+*N2 : BCD_DET polarity can be changed via eFuse
+*N3 : function can be set or I/O status will be changed via eFuse
+*N4 : function can be set or I/O status will be changed via EEPROM
+*N5 : Internal TriSt(Open-drain) but with on-board pull-high resistor for I2C bus
+*U   : function can be enabled via USB command
+(I/O Status) : I/O Status with parentheses means it can be changed.
+
+Important Notes
+
+Note 1: The DTRN pin must be high when the device is powered up and comes out of reset. If this pin
+is low during start-up, the device will enter test mode which is reserved for FTDI use only. Device pins
+will behave differently in test mode compared to the normal user mode shown in the table above and
+may drive out signals.
+
+Note 2: The GPIO0 and GPIO1 pins act as SCL and SDA to check for, and to read from, the external
+EEPROM on start-up. If using as GPIO, the user should consider that there will be activity on these pins
+when designing their external circuit.
+
+                                                                            47
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 49 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+23 Contact Information
+
+Head Office – Glasgow, UK                 Branch Office – Tigard, Oregon, USA
+
+Future Technology Devices International Limited (UK)    Future Technology Devices International Limited
+Unit 1, 2 Seaward Place, Centurion Business Park       (USA)
+Glasgow G41 1HH                               7130 SW Fir Loop
+United Kingdom                                          Tigard, OR 97223-8160
+Tel: +44 (0) 141 429 2777                      USA
+Fax: +44 (0) 141 429 2758                               Tel: +1 (503) 547 0988
+                                                    Fax: +1 (503) 547 0987
+E-mail (Sales)              sales1@ftdichip.com
+E-mail (Support)           support1@ftdichip.com      E-Mail (Sales)                 us.sales@ftdichip.com
+E-mail (General Enquiries)  admin1@ftdichip.com       E-Mail (Support)              us.support@ftdichip.com
+                                                         E-Mail (General Enquiries)     us.admin@ftdichip.com
+
+Branch Office – Taipei, Taiwan              Branch Office – Shanghai, China
+
+Future Technology Devices International Limited         Future Technology Devices International Limited
+(Taiwan)                                              (China)
+2F, No. 516, Sec. 1, NeiHu Road                  Room 1103, No.666 West Huaihai Road,
+Taipei 114                                           Shanghai, 200052
+Taiwan, R.O.C.                                      China
+Tel: +886 (0) 2 8797 1330                                Tel: +86 21 62351596
+Fax: +886 (0) 2 8751 9737                           Fax: +86 21 62351595
+
+E-mail (Sales)              tw.sales1@ftdichip.com     E-mail (Sales)                cn.sales@ftdichip.com
+E-mail (Support)           tw.support1@ftdichip.com  E-mail (Support)              cn.support@ftdichip.com
+E-mail (General Enquiries)  tw.admin1@ftdichip.com    E-mail (General Enquiries)    cn.admin@ftdichip.com
+
+Web Site
+
+http://ftdichip.com
+
+Distributor and Sales Representatives
+
+Please visit the Sales Network page of the FTDI Web site for the contact details of our distributor(s) and sales
+representative(s) in your country.
+
+System and equipment manufacturers and designers are responsible to ensure that their systems, and any Future Technology
+Devices International Ltd (FTDI) devices incorporated in their systems, meet all applicable safety, regulatory and system-level
+performance requirements. All application-related information in this document (including application descriptions, suggested
+FTDI devices and other materials) is provided for reference only. While FTDI has taken care to assure  it is accurate, this
+information is subject to customer confirmation, and FTDI disclaims all liability for system designs and for any applications
+assistance provided by FTDI. Use of FTDI devices in life support and/or safety applications is entirely at the user’s risk, and the
+user agrees to defend, indemnify and hold harmless FTDI from any and all damages, claims, suits or expense resulting from
+such use. This document is subject to change without notice. No freedom to use patents or other intellectual property rights is
+implied by the publication of this document. Neither the whole nor any part of the information contained in, or the product
+described in this document, may be adapted or reproduced in any material or electronic form without the prior written consent
+of the copyright holder. Future Technology Devices International Ltd, Unit 1, 2 Seaward Place, Centurion Business Park,
+Glasgow G41 1HH, United Kingdom. Scotland Registered Company Number: SC136640
+
+                                                                            48
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 50 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+Appendix A – References
+
+Document References
+
+FT232R USB UART IC Data Sheet
+FT245R USB FIFO Data Sheet
+
+FT232RN USB UART IC Data Sheet
+
+FT245RN USB FIFO Data Sheet
+
+FT232H Single Channel Hi-Speed USB to Multipurpose UART/FIFO IC Data Sheet
+FT2232H Hi-Speed Dual USB UART/FIFO IC Data Sheet
+
+FT4232H Hi-Speed Quad USB UART IC Data Sheet
+
+FT233HP/FT232HP High Speed USB Bridge with Type-C/PD3.0 Controller
+FT2233HP/FT2232HP High Speed USB Bridge with Type-C/PD3.0 Controller
+
+FT4233HP/FT4232HP High Speed USB Bridge with Type-C/PD3.0 Controller
+
+FT2232D Dual USB UART/FIFO IC Data Sheet
+
+FT200XD Full-Speed USB to I2C bridge in 10 pin DFN package Data Sheet
+FT201X Full-Speed USB to I2C bridge Data Sheet
+
+FT220X Full-Speed USB to 4-bit SPI/FT1248 bridge Data Sheet
+
+FT221X Full-Speed USB to 8-bit SPI/FT1248 bridge Data Sheet
+FT230X Full-Speed USB to basic UART Data Sheet
+
+FT231X Full-Speed USB to full handshake UART Data Sheet
+
+FT234XD Full-Speed USB to basic UART Data Sheet
+
+FT240X Full-Speed USB to 8-bit FIFO Data Sheet
+FT120 USB Full-Speed Device Controller Data Sheet
+
+FT121 USB Full-Speed Device Controller Data Sheet
+
+FT122 USB Full-Speed Device Controller Data Sheet
+
+FT313H Hi-Speed Host Controller
+FT4222H Hi-Speed Quad SPI/I2C IC Data Sheet
+
+FT260 Full speed HID Class USB to UART/I2C Datasheet
+
+Acronyms and Abbreviations
+
+      Terms         Description
+
+       PD             Internal pull-down resistor to GND
+
+        PU             Internal pull-up resistor to VCCIO
+
+         TriSt          High-impedance off-state (‘tristate’)
+
+       USB           Universal Serial Bus
+
+       USB-IF       USB Implementers Forum
+
+                                                                            49
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 51 =====
+7 = he                                                                                Application Note
+1         FTDI                  AN_184 FTDI Device Input Output Pin States
+as          Chie                                                                                           Version 3.5
+
+Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+Appendix B - List of Tables and Figures
+List of Tables
+
+Table 2.1 FT232R/FT232RN I/O State .........ccccccccecceee ene eee eee eeaeeaeeeeaeeeseeeeeeeeaeeaeeaseaseeneenteaneass 5
+Table 2.2 FT232R/FT232RN CBUS Selected FUNCtIONS ........cccccccceceeeeeeeeeeeseeecaeeeueecutesetesaneranness 6
+Table 3.1 FT245R/FT245RN I/O State .........cccccccceceece eee eee eee eeae eae eeeeeseeeeeeeeeeeaeeaeeeeaseennenteaeeass 7
+Table 4.1 FT232H I/O States .........ccccccccc cece eee cence ence nee e sense eee eae eases eeeeeeeeseeeeeaeeaseaeeaeeaneeneeaneass 8
+Table 4.2 FT232H Selected FUNCTIONS ..........ccccccccc ese eee eee eee eee esas eaeeaeeeeeeseeseeseeaeeaseaneaseeneeneeaneass 9
+Table 5.1 FT232HP/ FT233HP I/O States .........cccccccccccc cee eec eee eeeeeeeeeeeeeeeseeeeeaeeaeeaeeeseastenesaeeanes 10
+Table 5.2 FT232HP/ FT233HP Selected FUNCTIONS .......ccccccccececeeeeeeeeeeaeeeeeesaeeeseeesaueegueesuteegnes 11
+Table 6.1 FT2232H(-56Q) I/O States Channel A...........ccceceeeee eee eee teers eens ee ee eee e eee eeeeeeeeeaeneae 12
+Table 6.2 FT2232H(-56Q) I/O States Channel B............cccceeeeeeeee eee eee eens eerste eee e eae eeeeeeeeeaeneae 13
+Table 6.3 FT2232H(-56Q) Selected FUNCTIONS 20... cece nnn nnn Eaten tae 14
+Table 7.1 FT2232HP / FT2233HP I/O States Channel A ..........cccccecceceeceeeeeeeeeeeaeeaeeeseuseeaeeaeeanes 15
+Table 7.2 FT2232HP / FT2233HP I/O States Channel B ...........ccccecceceeceeaeeeeeeeeaeeaeeeseuseeaesaeeanes 16
+Table 7.3 FT2232HP / FT2233HP Selected FUNCTIONS...........ccccceceeceeceeeeeseeseeeeeaeeaeeeseaseeneeaeeanes 17
+Table 8.1 FT4232H(-56Q) I/O States Channel A.......cccccc cece renner eaten tae 18
+Table 8.2 FT4232H(-56Q) I/O States Channel B....... cece cece eee n entree teea tae 18
+Table 8.3 FT4232H(-56Q) I/O States Channel Cou... ccccccece reece ener ea teen tae 19
+Table 8.4 FT4232H(-56Q) I/O States Channel D ......... ccc ccceee cece eee eee eee eens eee e eee e eee eeeeeeen ena 19
+Table 8.5 FT4232H(-56Q) Selected FUNCtIONS ...... cece EERE a tae 20
+Table 9.1 FT4232HP / FT4233HP I/O States Channel A .....cccccccccecececeeeeeeeeeevseeeceeeuaueugueeguneegnes 21
+Table 9.2 FT4232HP / FT4233HP I/O States Channel B .......ccccccccceeeceeeeeeeeeevaeeeceeeuaeeugueeguneegnes 21
+Table 9.3 FT4232HP / FT4233HP I/O States Channel C ......ccccccccccececeeeeeeeeevseeveeeecueugueeguneegnes 22
+Table 9.4 FT4232HP / FT4233HP I/O States Channel D.......cccccccccececeeeseeeeeevseeeseeeuaeeugueeeuteeanes 22
+Table 9.5 FT4232HP / FT4233HP Selected FUNCtIONS........ccccccccececeeeeeeeeeeseeesseeeceeesaueugueeguteegnes 23
+Table 10.1 FT2232D I/O States Channel A .....c.cccccccceeeceeceeeeeeeeceeeegeeeeeeesaeevaeeeseeesaueugueegutesgnes 24
+Table 10.2 FT2232D I/O States Channel B ........ccccccceeeceeceeeeeeeeeeeeeeeeeeeeecaeevaeeesetesaueugueeguneegnes 24
+Table 10.3 Pin Definition by Chip Mode - Channel A...........::ccceceeeeee eens nets ee ee ease eee eeeaeeeeeeeeaeaeas 25
+Table 10.4 Pin Definition by Chip Mode - Channel B............:::ceceeeeee sees este ee ee ease tees ea eeeeeeeeneneas 26
+Table 8.1 FT200XD I/O State .........ccc ccc ccc cece eee e eee ence eee ee sess eae ea eee eaeeeeeeseeeeeaeeaeeeneantaneeaneanes 27
+Table 9.1 FT201X I/O States .........ccccc ccc ccc cece eee e ee eee eee e eee ee sees ease eee eae eeeeeseeeeeaeeaeeeseaseaaeeaeeanes 28
+Table 10.1 FT220X I/O States.........cccccccccccc cece eee ee cece eee eee esse es eeae eases eaeeseeeeeeaeeaeeaeeaseasegneeaeeanes 29
+Table 11.1 FT221X I/O States...... cc. ccc ccc ccc cece eee eee ee eee e eee es eee eases eeeeeeeeeeeeeeaeeaeeaseastaneeaeeanes 30
+Table 12.1 FT230X I/O States... ccc ccccccccc cece cece cece ence ee eee sees eases eee eaeeeeeeseeaeeaeeaeeaseastgaeeaeeanes 31
+Table 13.1 FT231X I/O States... ..ccccccccccc cece eee cence eee ee esse eee eae eases eaeeeeeeaeeeeeaeeaeeastanteneeaeeanes 32
+Table 14.1 FT234XD I/O States ..........ccc ccc ccc ccc ece eee cece eee e esses seas eases eaeeeeeeeeeeeeaeeaeeaseantaneeaneanes 33
+Table 15.1 FT240X I/O States........ccccccccccc cece cece eee e eee ee eee eee sess eases eee eaeeeeeesesaeeaeeaeeeseastegeeaneanes 34
+Table 16.1 FT120 I/O State .........cc ccc cece ccc cece eee ence eee ee esse eee eae eases eaeeeeeeaeeaeeaeeaeeaseanegaeeaeegnes 35
+Table 17.1 FT121 I/O States ......... cece ccc ccc cce ence eee ee eee e eee ee sess eae ea sees eaeeeaeeeeeaesaeeaeeaneantasenaeeanes 36
+Table 18.1 FT122 I/O States .........ccccc ccc ccc cece cece cence eee ee esse eee eae eae eee eaeeeeeeeeeeeeaeeaeeaseanegsenaneanes 37
+Table 19.1 FT313H I/O States 20... ....ccc ccc ccc cece eee e cence neces e eee ee seas eases eee eeeeeneeeeeaeeaeeeneanegaeeaneaees 38
+Table 20.1 FT4222H Rev. A I/O States Configuration MOdEO..........cccceceeeeeeeeee eens eens en eneeaeaeenene 39
+Table 20.2 FT4222H Rev. A I/O States Configuration Model...........cccceceeeeee eset eeeeeeeeeeeeeeeeneneas 40
+Table 20.3 FT4222H Rev. A I/O States Configuration MOdeC2..........:cccceeeeeeee este eee eeeeeeeeeeeeeeeneaeas 41
+Table 20.4 FT4222H Rev. A I/O States Configuration MOd€3........:.:cceceeeeeeee estate eeeeeeeeeeeeeeeeneaeas 42
+Table 21.1 FT4222H Rev. B, C, D I/O States Configuration MOde0.........ccccececeseeeeeeeeeeeeeeaeeeeneee 43
+Table 21.2 FT4222H Rev. B, C, D I/O States Configuration Model.........ccecececeeeee estes ee eeeeaeeeeneee 44
+Table 21.3 FT4222H Rev. B, C, D I/O States Configuration MOde@2.........cccceccceseee eee ee en eeeeaeneenene 45
+Table 21.4 FT4222H Rev. B, C, D I/O States Configuration MOd@3.........ccccececeeeee estes ee eeeeaeeeeneee 46
+Table 22.1 FT260 I/O State ....... cc. ccc ccc cece cece cence eee e eee ee sees eee eae eae eee eaeeeeeeeeeaeeaeeaeeseasegaenaneanes 47
+
+List of Figures
+
+NA
+
+50
+
+Product Page
+Document Feedback                                                 Copyright © Future Technology Devices International Limited
+
+===== PAGE 52 =====
+Application Note
+                           AN_184 FTDI Device Input Output Pin States
+                                                                                                              Version 3.5
+
+                                                Document Reference No.: FT_000507   Clearance No.: FTDI#237
+
+Appendix C – Revision History
+
+Document Title:            AN_184 FTDI Device Input Output Pin States
+
+Document Reference No.:     FT_000507
+
+Clearance No.:             FTDI#237
+
+Product Page:                 https://ftdichip.com/product-category/products/ic/
+
+Document Feedback:        Send Feedback
+
+  Revision                    Changes                           Date
+     1.0          Initial Release                                         2011-11-24
+     2.0       Updated to include FT-X series, FT12 series & FT313H        2012-03-13
+     3.0       Updated to include FT4222H                              10-09-2015
+              Updated FT4222H rev. D I/O Pins in section 21.
+     3.1       Updated Table 2.2 Bit bang WR# strobe CBUS               19-04-2018
+                   availability.
+     3.2      Added FT260                                          12-05-2020
+     3.3       Updated Section 21 and 22                               13-07-2020
+     3.4       Updated Table 6.3 and 6.4                               14-05-2021
+              Added pin numbers for the FT2232H-56Q and
+             FT4232H-56Q
+     3.4       Updated to include Power delivery ICs                     04-08-2023
+              Update Section 4-1, 5, 5-1
+              Updated section 6.3 and 7.3
+                Edited Table 2.1 and 3.1.
+     3.5                                                            21-11-2023
+              Added FT232RN/FT245RN.
+
+                                                                            51
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited

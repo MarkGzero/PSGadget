@@ -1,2 +1,101 @@
 # Ignore the mynotes directory
 mynotes\
+mynotes/
+
+# PowerShell specific
+*.pssc
+*.psproj
+*.psworkspace
+
+# Test and coverage results  
+*.Tests.ps1.xml
+coverage.xml
+TestResults/
+
+# User data and logs (but keep the structure)
+**/.psgadget/logs/*.log
+**/.psgadget/config/
+
+# IDE specific
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+.markdownlint.json
+
+# OS specific  
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Module packaging output
+*.nupkg
+*.zip
+
+# Build/release output folders
+out/
+dist/
+release/
+
+# Debug symbols
+*.pdb
+
+# Root-level local data created by Initialize-PsGadgetEnvironment
+.psgadget/
+
+# PowerShell script analyzer output
+PSScriptAnalyzer*.txt
+
+# Pester coverage output
+coverage/
+
+# Backup files
+*.backup
+
+# dotnet restore artifacts (lib/nuget-deps.csproj)
+lib/obj/
+
+# Runtime-generated symlinks - created by Initialize-FtdiAssembly on Linux to
+# expose libftd2xx.so to .NET P/Invoke from the assembly directory.
+# System-specific; must not be committed.
+lib/net8/libftd2xx.so
+lib/net8/ftd2xx.so
+
+# ---------------------------------------------------------------------------
+# Security: credentials, secrets, keys, device data
+# ---------------------------------------------------------------------------
+
+# Crypto keys and certificates
+*.key
+*.pem
+*.pfx
+*.p12
+*.crt
+*.cer
+*.der
+
+# Environment / secret files
+.env
+.env.*
+*.env
+secrets.*
+*.secret
+*.secrets
+
+# Device provisioning -- secrets and keys must never be committed
+gadget_key*
+
+# Local config overrides
+*.local.json
+config.local.*
+
+# Device registry (contains hardware MAC addresses)
+known_devices.txt

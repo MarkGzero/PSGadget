@@ -1,0 +1,25 @@
+{
+	"folders": [
+		{
+			"name": "psgadget",
+			"path": ".."
+		},
+		{
+			"name": "psgadget_reference [READ-ONLY]",
+			"path": "../../psgadget_reference"
+		}
+	],
+	"settings": {
+		"files.readonlyInclude": {
+			"**/psgadget_reference/**": true,
+			"**/summitpiserver/**": true
+		},
+		"search.exclude": {
+			"**/psgadget_reference/**": true,
+			"**/summitpiserver/**": true
+		},
+		"editor.formatOnSave": false,
+		"powershell.scriptAnalysis.enable": true,
+		"powershell.cwd": "psgadget"
+	}
+}

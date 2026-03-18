@@ -1,0 +1,324 @@
+===== PAGE 1 =====
+Future Technology Devices
+        International Ltd.
+
+AN232R-03 FTDI Windows Driver
+         Pre-Installation
+
+    Copyright © 2006 Future Technology Devices International Ltd.
+
+===== PAGE 2 =====
+AN232R-03 FTDI Windows Driver Pre-Installation
+
+Table of Contents
+
+Part |
+
+a fF OND =
+
+Part II
+1
+
+2 DiSCIAIMER ............cccccssseeeccsseeeccnseeeecesseecoasseeeenuseeeeoaeseeeoeseesenaseesenaass
+3 Contact Information ..........ccccccccccessssccssssssseeeeeeeeeanssseeeueeeeenoosseeeeeseees
+
+FTDI Windows Driver
+Pre-Installation
+
+OVEIVICW ...tccccseeceeeeeeseeeenneeenseeeeeeeensneeasneesseeeasaeeeneeenseeenseeesneneeasaeenss
+DIFx Driver Package Requirement ........::ccssseeccssseeeeseseereeneeeenees
+Sample DPInst.xml File ..........:cssecseseeeeseeeeeseeeeseeenseeeeeseeensneeeeseeenseees
+Uninstalling Driver's .........::ccccssseeeceseseeeeeseneeeeeseeeeeeeseeeeeeeseeeeneeeeseenees
+REPEFENCES. .....sceeeccceseneeeeeneneeeeeseneeeeeseneeeeeseeeeeeeseeeeeeeseeeeeeeneeeeeeeneeenees
+
+History, Disclaimer, Contact
+
+Document Revision HiStOry ........c.s:eccccseseeeeeseeeeeeeseeeeeeenseeeeeeneeeenees
+
+Index
+
+Copyright © 2006 Future Technology Devices International Ltd.
+
+===== PAGE 3 =====
+FTDI Windows Driver Pre-Installation    2
+
+1    FTDI Windows Driver Pre-Installation
+
+1.1   Overview
+
+         Device driver installation via the Found New Hardware Wizard has been the standard route to
+           reliable device operation for a number of years. However, it can be frustrating to end users and
+         developers who want to make software and hardware installation as painless as possible for their
+         customers.
+
+          Microsoft have recognised this and have made a collection of device driver installation tools
+          available for Windows 2000 and later, Driver Install Frameworks (DIFx). The tools included in DIFx
+          cater for pre-installing drivers, that is installing drivers before the hardware is available in the
+         system. This can allow drivers to be available on the PC for loading when a matching device is
+        connected for the first time.  If the driver pre-installed with DIFx has been Microsoft WHQL
+            certified, the driver can be loaded silently with no input required from the user.
+
+        The tools available in DIFx are:
+
+         Driver Package Installer (DPInst)
+         This is an executable file with an XML configuration file that is read when it is run. By placing
+         DPInst.exe and DPInst.xml in the same directory as the driver package (or having the driver
+        package in a subdirectory below the DPInst files), the driver package can be installed by running
+         DPInst.exe.
+
+         Driver Install Frameworks for Applications (DIFxApp)
+         This allows drivers to be installed at the same time as application software the driver is associated
+          with using MSI. This is intended for use by developers who provide an application in an MSI
+        package already, or who intend to provide one.
+
+         Driver Installation Frameworks API (DIFxAPI)
+         This provides access to functions for including in a developer's own code and can be used for a
+          highly customised installation. The supplied functions are:
+
+         · DriverPackagePreinstall()
+         · DriverPackageInstall()
+         · DriverPackageUninstall()
+         · DriverPackageGetPath()
+
+        The DIFx tools and documentation are available for free download from www.microsoft.com and
+           are available for x86, x64 and IA64 processors.
+
+         This document will only cover pre-installation using the DPInst tool as this is the simplest and most
+           generic method.
+
+Copyright © 2006 Future Technology Devices International Ltd.
+
+===== PAGE 4 =====
+3     AN232R-03 FTDI Windows Driver Pre-Installation
+
+1.2   DIFx Driver Package Requirements
+
+         DPInst can be used to pre-install drivers with Windows 2000 and later, provided that the driver
+        package meets the requirements outlined in "Requirements for Driver Packages That Are Used
+          with the Driver Install Frameworks (DIFx) Version 2.0 Tools" which is provided with the DIFx
+         documentation.
+
+        The requirements can be summarised as a standard Windows driver package plus a few additional
+        INF entries and Microsoft WHQL certification. FTDI's latest certified VCP driver (R2176) meets
+         these requirements.
+
+                It is important to note that if a product uses a custom VID and/or PID (i.e. any VID and PID
+         combination other than one of the defaults listed in a certified driver INF), modifying the INF files to
+          include the required VID and PID combination will invalidate the certification. This problem can be
+        overcome by obtaining reseller rights for the driver.
+
+        FTDI can grant customers reseller rights for their certified drivers, provided the customer has a
+          Microsoft Winqual account. Once the customer is granted reseller rights by FTDI and pays a small
+         fee to Microsoft, the customer can be provided with a certified driver package with the required VID
+        and PID combination. For details on how to obtain a Winqual account, please contact Microsoft or
+             visit their Winqual pages.
+
+                                                                   Copyright © 2006 Future Technology Devices International Ltd.
+
+===== PAGE 5 =====
+FTDI Windows Driver Pre-Installation    4
+
+1.3   Sample DPInst.xml File
+
+         DPInst.exe reads the DPInst.xml configuration file on execution to determine how DPInst should
+         execute.
+
+       To use DPInst to perform a silent install, DPInst.xml could contain the following code:
+
+          <?xml version="1.0"?>
+           <dpInst>
+                   <suppressWizard/>
+                        <quietInstallStrict/>
+            </dpInst>
+
+         This would require that the driver package be in the same directory as DPInst.exe and DPInst.xml.
+
+           Alternatively, DPInst can be used to provide an installation wizard with an optional end user license
+         agreement:
+
+          <?xml version="1.0"?>
+           <dpInst>
+            <language code="0x0409">
+                <dpinstTitle>VCP Driver Installer</dpinstTitle>
+
+               <welcomeTitle>Welcome to the VCP Driver Installer!</welcomeTitle>
+               <welcomeIntro>This wizard will install VCP drivers for your FTDI USB device.</welcomeIntro>
+
+               <eulaHeaderTitle>End User License Agreement</eulaHeaderTitle>
+               <eulaYesButton>I &amp;accept this EULA</eulaYesButton>
+               <eulaNoButton>I do &amp;not accept this EULA</eulaNoButton>
+
+                  <installHeaderTitle>Installing the software for your FTDI device...</installHeaderTitle>
+
+                  <finishTitle>Congratulations! You are finished installing your FTDI device.</finishTitle>
+               <finishText>VCP drivers are now installed for your FTDI USB device.</finishText>
+
+               <eula type="txt" path="eula.txt" />
+             </language>
+               <icon>ftdismall.ico</icon>
+            <watermarkPath>FTDI.bmp</watermarkPath>
+            </dpInst>
+
+       Once DPInst has been configured, it is possible (and convenient) to create a setup executable or
+          self-extracting zip file containing DPInst.exe, DPInst.xml and the driver package. This can be set
+          to run DPInst.exe immediately after extraction and this will provide a simple way for the user to
+            install the drivers.
+
+Copyright © 2006 Future Technology Devices International Ltd.
+
+===== PAGE 6 =====
+5     AN232R-03 FTDI Windows Driver Pre-Installation
+
+1.4    Uninstalling Drivers
+
+         DPInst also creates entries in the Add/Remove Programs utility for removing device drivers. One
+          entry is created for each device driver installed, so in the case of the FTDI VCP driver two entries
+             will be created. These are named "Windows Driver Package" appended with driver details (see
+        example below).
+
+        Removing the driver using these entries will remove files from the driver store and uninstall any
+         device which are connected during the uninstall, but other "phantom" devices (i.e. installed on the
+        system but not connected) will not be uninstalled.
+
+        The regular Add/Remove Programs entry for the FTDI driver will also be present (see below).
+
+         This will remove phantom devices and ensure that all remnants of the driver and registry settings
+         are deleted. Version 4.0.3 of the FTDI uninstaller and later will also check for pre-installed drivers
+           in the driver store. By doing this, only the regular FTDI driver entry is required in the Add/Remove
+        Programs window. The DPInst entries can be suppressed by including the
+          <suppressAddRemovePrograms/> switch in the <dpInst> section of the DPInst XML file  4  .
+
+                                                                   Copyright © 2006 Future Technology Devices International Ltd.
+
+===== PAGE 7 =====
+FTDI Windows Driver Pre-Installation    6
+
+1.5   References
+
+          Microsoft Driver Install Frameworks Page
+          Microsoft DPInst Documentation
+          Microsoft Winqual Page
+
+Copyright © 2006 Future Technology Devices International Ltd.
+
+===== PAGE 8 =====
+7     AN232R-03 FTDI Windows Driver Pre-Installation
+
+2     History, Disclaimer, Contact
+
+2.1   Document Revision History
+
+        Version     Release Date     Comments
+
+          1.0          January 2006          Initial release.
+
+                                                                   Copyright © 2006 Future Technology Devices International Ltd.
+
+===== PAGE 9 =====
+History, Disclaimer, Contact    8
+
+2.2   Disclaimer
+
+        Copyright © 2006 Future Technology Devices International Ltd.
+
+         Neither the whole nor any part of the information contained in, or the product described in this
+         manual, may be adapted or reproduced in any material or electronic form without the prior written
+         consent of the copyright holder.
+
+         This product and its documentation are supplied on an as-is basis and no warranty as to their
+            suitability for any particular purpose is either made or implied.
+         Future Technology Devices International Ltd. will not accept any claim for damages howsoever
+          arising as a result of use or failure of this product. Your statutory rights are not affected.
+
+         This product or any variant of it is not intended for use in any medical appliance, device or system
+           in which the failure of the product might reasonably be expected to result in personal injury.
+
+         This document provides preliminary information that may be subject to change without notice.
+
+Copyright © 2006 Future Technology Devices International Ltd.
+
+===== PAGE 10 =====
+9     AN232R-03 FTDI Windows Driver Pre-Installation
+
+2.3   Contact Information
+
+       Head Office - Glasgow, UK
+         Future Technology Devices International Limited
+        373 Scotland Street
+        Glasgow
+       G5 8QB
+         United Kingdom
+          Tel: +44 (0) 141 429 2777
+         Fax: +44 (0) 141 429 2758
+
+         E-Mail (Sales): sales1@ftdichip.com
+         E-Mail (Support): support2@ftdichip.com
+         E-Mail (General Enquiries): admin1@ftdichip.com
+      Web Site URL: http://www.ftdichip.com
+      Web Shop URL: http://apple.clickandbuild.com/cnb/shop/ftdichip
+
+        Branch Office - Taiwan
+         Future Technology Devices International Limited (Taiwan)
+         4F, No 16-1, Sec. 6 Mincyuan East Road
+        Neihu District
+          Taipei 114
+        Taiwan
+      ROC
+          Tel: +886 2 8791 3570
+         Fax: +886 2 8791 3576
+
+         E-Mail (Sales): tw.sales1@ftdichip.com
+         E-Mail (Support): tw.support1@ftdichip.com
+         E-Mail (General Enquiries): tw.admin1@ftdichip.com
+      Web Site URL: http://www.ftdichip.com
+
+        Branch Office - Hillsboro, Oregon, USA
+         Future Technology Devices International Limited (USA)
+        5285 NE Elam Young Parkway
+          Suite B800
+          Hillsboro, OR 97124-6499
+      USA
+          Tel: +1 (503) 547-0988
+         Fax: +1 (503) 547-0987
+
+         E-Mail (Sales): us.sales@ftdichip.com
+         E-Mail (Support): us.support@ftdichip.com
+         E-Mail (General Enquiries): us.admin@ftdichip.com
+      Web Site URL: http://www.ftdichip.com
+
+        Agents and Sales Representatives
+         Please visit the Sales Network page of the FTDI Web site for the contact details of our
+           distributor(s) in your country.
+
+                                                                   Copyright © 2006 Future Technology Devices International Ltd.
+
+===== PAGE 11 =====
+Index        10
+Index
+
+- C -
+
+ Contact  9
+- D -
+
+ DIFx   2, 3, 4, 5
+ Disclaimer   8
+ DPInst   4, 5
+ Drivers   2, 3, 4, 5
+- E -
+
+ E-Mail  9
+- H -
+
+ History  7
+- P -
+
+ Pre-Install   2, 3, 4
+- R -
+
+ Reseller Rights  3
+- U -
+
+ Uninstall  5
+
+Copyright © 2006 Future Technology Devices International Ltd.

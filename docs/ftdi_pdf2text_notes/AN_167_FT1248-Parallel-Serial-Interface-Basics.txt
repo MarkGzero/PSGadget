@@ -1,0 +1,1122 @@
+===== PAGE 1 =====
+Application Note
+
+            AN_167
+
+   FT1248 Dynamic Parallel/Serial
+           Interface Basics
+
+                                       Version 1.1
+
+                                Issue Date: 2018-05-09
+
+This application note describes the functionality of the new FT1248 mode interface developed by FTDI.
+The interface allows for 1-bit, 2-bit, 4-bit or 8-bit wide data to be clocked in or out.
+
+Use of FTDI devices in life support and/or safety applications is entirely at the user’s risk, and the user
+agrees to defend, indemnify and hold FTDI harmless from any and all damages, claims, suits or expense
+resulting from such use.
+
+                  Future Technology Devices International Limited (FTDI)
+                              Unit 1,2 Seaward Place, Glasgow G41 1HH, United Kingdom
+                                 Tel.: +44 (0) 141 429 2777   Fax: + 44 (0) 141 429 2758
+                    E-Mail (Support): support1@ftdichip.com Web: http://www.ftdichip.com
+                     Copyright © Future Technology Devices International Limited
+
+===== PAGE 2 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+1 Introduction
+
+FT1248 is a new interface which provides a synchronous half duplex interface to external logic. The
+FT1248 interface is a slave interface requiring an external clock to be supplied to any FTDI chip which has
+the FT1248 interface. The width of the FT1248 data bus may be configured as 1 bit, 2 bit, 4 bit or 8 bit
+wide. The external clock can be up to 30MHz. This provides a transfer rate of up to a maximum of
+30Mbytes /s. This provides the flexibility and trade-off of bandwidth verses pin-count. At the time of
+writing this application note the interface is available only on the FT232H device.
+
+This application note discuss how to access, configure and control the FT1248 synchronous interface.
+
+1.1 FT232H Devices
+
+FT232H is the third USB 2.0 hi-speed device developed by FTDI. This device builds on the experience
+gained from the FT2232H and FT4232H developments and goes some way to meeting the customer
+demands for a smaller IC package by providing a bridge from the USB to a single channel interface. As
+with previous FTDI devices, the interface may be configured to perform different tasks. Interface options
+include: UART (up to 12MBaud), asynchronous FIFO (up to 8MByte/s), synchronous FIFO (up to
+35MByte/s), MPSSE (up to 30Mbit/s) Fast Serial, Bit bang and the new FT1248 mode which will be
+discussed in this app note.
+
+The FT232H IO levels are 3V3 but 5V tolerant.
+
+The package options are 48 pin LQFP and QFN with a temperature range of -40oC to +85oC.
+
+Copyright © Future Technology Devices International Limited                                         1
+
+===== PAGE 3 =====
+AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+
+v=        F [ DI                                                          Application Note
+_
+_j
+2
+a
+A
+
+3      Chip                                           Version 1.1
+Document Reference No.: FT_000390 Clearance No.: FTDI# 200
+Table of Contents
+1  IMtrOCuctiOn.......ccccceccessnneescceeeeeeeesneneeeeeeeeeeesenaaeseoeeseeeeenaas 1
+1.1 FT232H DeVICES ....cccccccceeeesenseeeeneseeeeeneeeeeeneeeeesaeeeessaneesssaeeenesanees 1
+2 FT232H FT1248 Hardware.,....csscssccccseessesnnesssceeeeeeeessnnaeeoes 3
+2.1 INTErCONNECE .....cccceeceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeesseneeeeeeeeeeeeeaneeseeeneeaas 3
+2.2 Signal FUNCtIONS.......ccccccceecceescceesceeeeseeeaseesaeeeseeeeeneeeeseesasensanenanen 3
+3 Generic FT1248 Interface DeSCription .......ccsccceseseeeeneesnes 4
+4 Determining the Dynamic Bus Width.,........ccccsesseseeeeeneneens 5
+5 Reading and Writing with Alternative Bus Widths. .......... 6
+5.1 1-Bit Wide MOCe.......cccccseeccessncceeesneeeeesneeeeseeneeeesanseesseneeeeesaeeneeaas 6
+5.2 2-Bit Wide MOCe.......cccccsseceessncceessneeeessneeeeeseneeessaaeeeseaneeeseeaeenseaas 8
+5.3 4-Bit Wide MOe.......cccccsscneessenseeesnceeeeseseeeenaeeeeseaeeesssuseeeeeasonnes 10
+5.4 S8-Bit Wide MOCe.......cccccsscncessncceeesnceeeeseeeeeesneeesseaseeessaseesseasonnes 13
+5.5 FT1248: NAK uu cccccesceceecesseseeceseeeenseeeesensessesensessesonsessesonsessesonsones 16
+5.6 FT1248: No Flow Control During SS_n Inactive.........scscssessees 16
+6 Supported Commands on the FT1248 Interface ............ 18
+7 LSB or MSB Selection ......cccceccceennnesseceeeeeeesnneeeeeeeeeeeeeeanas 19
+8 Clock Phase / Polarity ........cccccssscesceessneseeeeeneseeeeeeneeeeeesanes 20
+S.1 CPHA = 1 wa ceecececcesceseeceseeseneeeeeseeeeeseseeseesesensossesensonsessaeonsessasonees 20
+Q Modem Emulation... ....cccccccccceeesssnneescceeeeeeeesnnenseeeeeeeeeenaas 22
+10 Contact INfOrmatiONn.........sccccsssneseceeennseeessnneeeesenneeeseeeanes 23
+Appendix A — References .....ccscsceessnseeseceeesnceesnceeesnseneenoeneass 24
+Document ReEfEreNnCes .....cccecceeeseeeeeeeeeeseeeeseeseeeeeneeeeseeeaneeseeeeeneeeenenens 24
+Acronyms and Abbreviations. ......ccccccccceescceesceeeeseesnneesceeeseeneasenseeeenes 24
+Appendix B — List of Figures and Tables.........:sssseesssnnseeseees 25
+List Of FIQUIFES ...ccccseceesceeeeseeecseeeeeeeeneeeeneeeeneesaeeeeneeeeneneaneneaneeeneneaenens 25
+List Of Tables ....cccccsccccessenseeeseeseeeseeeeeesseeeeeeeaeeeeeeaeeeeseaeeesseaseeseeasenseaas 25
+Appendix C - REVISION HIStOPy ....cccssscceeeessneseeeeeneseeneeenneeneean 26
+
+Copyright © Future Technology Devices International Limited                                          2
+
+===== PAGE 4 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+2 FT232H FT1248 Hardware
+
+2.1  Interconnect
+
+This block diagram, Figure 2.1, shows the FT232H pins used when in FT1248 mode.
+
+Depending on whether the design requires 1-bit, 2-bit, 4-bit or 8-bit data transfer will determine if all the
+MIOSIO lines are wired up or not. Unused MIOSIO lines may be left unterminated. The choice of how
+many pins to use is system dependant. The flexibility of the interface comes from the fact that the
+system designer has the choice to use as many pins that are available to them, rather than be limited to
+a single serial interface or an 8 bit parallel interface (the normal two choices available).
+
+                  Figure 2.1 – FT232H Device FT1248 Mode Block Diagram
+
+The device is configured in FT1248 mode is via an EEPROM setting (external EEPROM for the FT232H).
+
+Configuration of the EEPROM can be done with the free utility FT_PROG.
+
+http://www.ftdichip.com/Support/Utilities/FT_Prog_v1.12.zip
+
+(please check for latest version on the FTDI website)
+
+2.2  Signal Functions
+
+MIOSIO[x] pins are the bi-directional data lines between the FT232H and the external master controller.
+Each pin of the FT232H has an internal pull up and as such no external pullup or down is required.
+
+SCLK is the external clock input for latching data in or out the device. The frequency of SCLK can be up
+to 30MHz.
+
+SS_N is the Slave select input. The external master device must pull this line to logic 0 to activate the
+interface.
+
+MISO Master In Slave Out is an output from the FT232H in FT1248 mode to provide status info.
+
+Copyright © Future Technology Devices International Limited                                         3
+
+===== PAGE 5 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+3 Generic FT1248 Interface Description
+
+The FT1248 protocol has a dynamic bi-directional data bus interface that can be configured as 1, 2, 4, or
+8-bits wide providing users with the flexibility to configure the interface with performance, pin count and
+PCB area in mind. For example, 1-bit mode it requires 8 clock cycles to get 8 data bits and in 8-bit mode
+all 8 bits are sent with one clock.
+
+While SS_n is inactive, the FT1248 reflects the status of the write buffer and read buffers within the
+FT232H on the MIOSIO[0] and MISO wires respectively. The buffers are 1kBytes each and the status will
+reflect if at least one byte of space is available for the external device to write to and whether at least
+one byte is available to be read by the external device.
+
+The FT232H  is a FT1248 slave device. Additionally, the FT1248 slave block supports multiple slave
+devices where an FT1248 master can communicate with multiple slave devices. When the slave is sharing
+buses with other slave devices, the write and read buffer status cannot be reflected on the MIOSIO[0]
+and MISO wires during SS_n inactivity as this would cause bus contention. Therefore, it is possible for the
+user to select whether they wish to have the buffer status switched on or off during inactivity.
+
+(This setting may be applied in an external EEPROM with FT_PROG at the same time as selecting FT1248
+mode).
+
+The diagrams and descriptions which follow refer to a “read” and “write” cycle. This is when the FT1248
+master is reading (from the FT232H slave) and the master is writing (to the FT232H slave)
+
+In the FT1248 there are 3 distinct phases:
+
+When SS_n is active a command/bus size phase occurs first. Following the command phase is the data
+phase, for each data byte transferred, the FT1248 slave drives an ACK/NAK status onto the MISO wire.
+The master can send multiple data bytes so long as SS_n is active, if a unsuccessful data transfer occurs,
+i.e. a NAK happens on the MISO wire then the master should immediately abort the transfer by de-
+asserting SS_n.
+
+      CLK
+
+      SCLK
+
+                                        READ                                                                        WRITE
+      SS_n
+
+                                                   WRITE DATA
+
+                                          BUS
+                                     TURNAROUND
+
+    MIOSIO[0] TXE#       CMD           RDATA0         RDATA1         RDATA2            TXE#           CMD         WDATA 0        WDATA 1       TXE#
+
+      MISO  RXF#                       STATUS         STATUS         STATUS            RXF#                           STATUS         STATUS       RXF#
+
+                        Figure 3.1 - FT1248 Basic Waveform Protocol
+
+Copyright © Future Technology Devices International Limited                                         4
+
+===== PAGE 6 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+4 Determining the Dynamic Bus Width
+
+The FT1248 bus width is dynamic. In order for the FT232H, in FT1248 mode, to determine the bus width
+within the command phase, the bus width is encoded along with the actual commands on the first active
+clock edge when SS_n is active and has a data width of 8-bits.
+
+If any of the MIOSIO[7:4] signals are driven low by the external FT1248 master then the data transfer
+width equals 8-bits
+
+If any of the MIOSIO[3:2] signals are driven low by the external FT1248 master then the data transfer
+width equals 4-bits
+
+If MIOSIO[1] signal is driven low by the external FT1248 master then the data transfer width equals 2-
+bits
+
+Else the bus width is defaulted to 1-bit
+
+In order to successfully decode the bus width, all MIOSIO signals must have pull up resistors. By default,
+all MIOSIO signals shall be seen by the FT232H in FT1248 mode as logic ‘1’from the internal resistors.
+This means that when a FT1248 master does not wish to use certain MIOSIO signals, the slave (FT232H)
+is still capable of determining the requested bus width since any unused MIOSIO signals shall be pulled
+up by default.
+
+The remaining bits used during the command phase are used to contain the command itself which means
+that it is possible to define up to 16 unique commands.
+
+           LSB                                                    MSB
+
+           CMD[3]  BWID 2-bit BWID 4-bit   CMD[2]  BWID 8-bit   CMD[1]    CMD[0]     X
+
+             0         1         2         3         4         5         6         7
+
+1-bit Bus
+           CMD[3]     X       X      CMD[2]     X      CMD[1]    CMD[0]     X
+  Width
+             0         1         2         3         4         5         6         7
+
+2-bit Bus
+           CMD[3]       0        X      CMD[2]     X      CMD[1]    CMD[0]     X
+  Width
+             0         1         2         3         4         5         6         7
+
+4-bit Bus
+           CMD[3]     X         0       CMD[2]     X      CMD[1]    CMD[0]     X
+  Width
+             0         1         2         3         4         5         6         7
+
+8-bit Bus
+           CMD[3]     X       X      CMD[2]       0       CMD[1]    CMD[0]     X
+  Width
+             0         1         2         3         4         5         6         7
+                          Figure 4.1 - FT1248 Command Structure
+
+Copyright © Future Technology Devices International Limited                                         5
+
+===== PAGE 7 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+5 Reading and Writing with Alternative Bus Widths
+
+5.1  1-Bit Wide Mode
+
+In this mode the data bus is 1 bit wide with data transfer accessed on MIOSI0.
+
+                                                     MIOSIO[0]
+                         13
+
+      FT232H in
+                                                       FT1248 BUS     FT1248 Mode
+                                           SCLK                 MASTER
+                         21
+                                           SS_N
+                         25
+                                            MISO
+                         26
+
+                        Figure 5.1 - FT1248 1-bit Mode Interconnect
+
+Figure 5.2 and Figure 5.3 illustrates the waveform detailing the FT1248 write and read protocol operating
+in 1-bit mode.
+
+When SS_n is inactive the write buffer and read buffer status is reflected on the MIOSIO[0] and MISO
+signals respectively. When the master wishes to initiate a data transfer, SS_n becomes active. As soon as
+SS_n becomes active the FT1248 slave immediately stops driving the MIOSIO[0] signal and FT1248
+master is not allowed to begin driving the MIOSIO[0] signal until the first clock edge, this ensures that
+bus contention is avoided.
+
+On the first clock edge the command is shifted out for 7 clocks, on the 8th clock cycle a bus turnaround is
+required. The bus turnaround is required as the slave may be required to drive the MIOSIO[0] bus with
+read data. The data phase occurs in response to the command and so long as SS_n remains active. The
+data phase in 1-bit mode requires 8 clock cycles where the MIOSIO[0] signal transfers the requested
+write or read data. The MISO signal indicates to the master the success of the transfer with an ACK or
+NAK.
+
+The status is reflected through the whole of the data phase and is valid from the first clock edge. If the
+master is writing data to the slave, then on the last clock edge before it de-asserts SS_n must tristate
+the MIOSIO[0] signal to enable the bus to be “turned” around as when SS_n becomes inactive the
+FT1248 slave shall begin to drive the write buffer status onto the MIOSIO[0] signal. When the FT1248
+slave is driving the MIOSIO[0] (the master is reading data) no bus turnaround is required as when SS_n
+becomes inactive it is required to drive the write buffer status to the FT1248 master.
+
+Copyright © Future Technology Devices International Limited                                         6
+
+===== PAGE 8 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+              SCLK
+
+               SS_n
+
+                                           COMMAND PHASE                                          WRITE DATA
+
+                                      BUS TURNAROUND                              BUS TURNAROUND                            BUS TURNAROUND
+
+             MIOSIO[0]       TXE#        CMD3   0      0   CMD2    0   CMD1 CMD0         B7    B6    B5    B4    B3    B2    B1   B0        TXE#
+
+            MIOSIO[7:1]                                                         PULLED HIGH
+
+              MISO      RXF#                                                     TXE#  ACK                                              RXF#
+
+                      Figure 5.2 - FT1248 1-bit Mode Protocol (WRITE)
+
+              SCLK
+
+               SS_n
+
+                                           COMMAND PHASE                                       READ DATA
+
+                                      BUS TURNAROUND                              BUS TURNAROUND
+
+             MIOSIO[0]       TXE#        CMD3   0      0   CMD2    0   CMD1 CMD0         B7    B6    B5    B4    B3    B2    B1    B0       TXE#
+
+            MIOSIO[7:1]                                                         PULLED HIGH
+
+              MISO      RXF#                                                   RXF#  ACK                                              RXF#
+
+                      Figure 5.3 - FT1248 1-bit Mode Protocol (READ)
+
+Copyright © Future Technology Devices International Limited                                         7
+
+===== PAGE 9 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+5.2  2-Bit Wide Mode
+
+In this mode the data bus is 2 bits wide with data transfer accessed on MIOSI0[0] and MIOSIO[1].
+
+                                                   MIOSIO[0]
+                       13
+                                                   MIOSIO[1]
+                       14
+
+     FT232H in
+                                                     FT1248 BUS   FT1248 Mode
+                                         SCLK                 MASTER
+                       21
+                                         SS_N
+                       25
+                                          MISO
+                       26
+
+                        Figure 5.4 - FT1248 2-bit Mode Interconnect
+
+Figure 5.5 and Figure 5.6 illustrates the waveform detailing the FT1248 write and read protocol operating
+in 2-bit mode. When SS_n  is inactive the write buffer and read buffer status  is reflected on the
+MIOSIO[0] and MISO signals respectively. When the master wishes to initiate a data transfer, SS_n
+becomes active. As soon as SS_n becomes active the FT1248 slave immediately stops driving the
+MIOSIO[0] signal and FT1248 master is not allowed to begin driving the MIOSIO[1:0] signals until the
+first clock edge, this ensures that bus contention is avoided. On the first clock edge the command is
+shifted out for 4 clocks, with the command data being shared between MIOSIO[0] and MIOSIO[1]
+signals, on the 5th clock cycle a bus turnaround is required. The bus turnaround is required as the slave
+may be required to drive the MIOSIO[1:0] bus with read data. The data phase occurs in response to the
+command and so long as SS_n remains active. The data phase in 2-bit mode requires 4 clock cycles
+where the MIOSIO[1:0] signal transfers the requested write or read data. The MISO signal indicates to
+the master the success of the transfer with an ACK or NAK. The status is reflected through the whole of
+the data phase and is valid from the first clock edge. If the master is writing data to the slave, then on
+the last clock edge before it de-asserts SS_n must tristate the MIOSIO[1:0] signal to enable the bus to
+be “turned” around as when SS_n becomes inactive the FT1248 slave shall begin to drive the write buffer
+status onto the MIOSIO[0] signal.
+
+Copyright © Future Technology Devices International Limited                                         8
+
+===== PAGE 10 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+                    SCLK
+
+                     SS_n
+
+                                         COMMAND PHASE                WRITE DATA
+
+                                           BUS TURNAROUND            BUS TURNAROUND        BUS TURNAROUND
+
+                     MIOSIO[0]       TXE#        CMD3   0      0   CMD0         B7    B5    B3   B1      TXE#
+
+                     MIOSIO[1]                         0   CMD2 CMD1   X           B6    B4    B2   B0
+
+                    MIOSIO[7:2]                                        PULLED HIGH
+
+                    MISO      RXF#                                   TXE#  ACK                      RXF#
+
+                      Figure 5.5 - FT1248 2-bit Mode Protocol (WRITE)
+
+                      SCLK
+
+                        SS_n
+
+                                           COMMAND PHASE               READ DATA
+
+                                           BUS TURNAROUND              BUS TURNAROUND
+
+                       MIOSIO[0]       TXE#        CMD3   0      0   CMD0         B7    B5    B3    B1     TXE#
+
+                       MIOSIO[1]                         0   CMD2 CMD1   X           B6    B4    B2    B0
+
+                       MIOSIO[7:2]                                        PULLED HIGH
+
+                      MISO      RXF#                                  RXF#  ACK                      RXF#
+
+                      Figure 5.6 - FT1248 2-bit Mode Protocol (READ)
+
+Copyright © Future Technology Devices International Limited                                         9
+
+===== PAGE 11 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+5.3  4-Bit Wide Mode
+
+In this mode the data bus  is 4 bits wide with data transfer accessed on MIOSI0[0], MIOSI0[1]  ,
+MIOSI0[2] and MIOSIO[3].
+
+                                                   MIOSIO[0]
+                       13
+                                                   MIOSIO[1]
+                       14
+                                                   MIOSIO[2]
+                       15
+                                                   MIOSIO[3]
+                       16
+
+                                                     FT1248 BUS     FT232H in
+                                             MASTER   FT1248 Mode
+                                         SCLK
+                       21
+                                         SS_N
+                       25
+                                          MISO
+                       26
+
+                        Figure 5.7 - FT1248 4-bit Mode Interconnect
+
+Figure 5.8 and Figure 5.9 illustrates the waveform detailing the FT1248 write and read protocol operating
+in 4-bit mode. When SS_n  is inactive the write buffer and read buffer status  is reflected on the
+MIOSIO[0] and MISO signals respectively. When the master wishes to initiate a data transfer, SS_n
+becomes active. As soon as SS_n becomes active the FT1248 slave immediately stops driving the
+MIOSIO[0] signal and FT1248 master is not allowed to begin driving the MIOSIO[3:0] signals until the
+first clock edge, this ensures that bus contention is avoided. On the first clock edge the command is
+shifted out  for 2  clocks, with the command data being shared between MIOSIO[0], MIOSIO[1],
+MIOSIO[2], MIOSIO[3] signals, on the 3rd clock cycle a bus turnaround is required. The bus turnaround is
+required as the slave may be required to drive the MIOSIO[3:0] bus with read data. The data phase
+occurs in response to the command and so long as SS_n remains active. The data phase in 4-bit mode
+requires 3 clock cycles where the MIOSIO[3:0] signal transfers the requested write or read data. The
+MISO signal indicates to the master the success of the transfer with an ACK or NAK. The status is
+reflected through the whole of the data phase and is valid from the first clock edge. If the master is
+writing data to the slave, then on the last clock edge before  it de-asserts SS_n must tristate the
+MIOSIO[3:0] signal to enable the bus to be “turned” around as when SS_n becomes inactive the FT1248
+slave shall begin to drive the write buffer status onto the MIOSIO[0] signal.
+
+Copyright © Future Technology Devices International Limited                                         10
+
+===== PAGE 12 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+                     SCLK
+
+                       SS_n
+
+                                                 COMMAND PHASE           WRITE DATA
+
+                              BUS TURNAROUND                      BUS TURNAROUND                BUS TURNAROUND
+
+                     MIOSIO[0]             TXE#              CMD3       0                 B7     B3           TXE#
+
+                     MIOSIO[1]                                      0     CMD1               B6     B2
+
+                     MIOSIO[2]                                      0      CMD0               B5     B1
+
+                      MIOSIO[3]                            CMD2      X                 B4      B0
+
+                                                                      PULLED HIGH                    MIOSIO[7:4]
+
+                     MISO           RXF#                                   TXE#    ACK                  RXF#
+
+                      Figure 5.8 - FT1248 4-bit Mode Protocol (WRITE)
+
+Copyright © Future Technology Devices International Limited                                         11
+
+===== PAGE 13 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+                       SCLK
+
+                         SS_n
+
+                                                      COMMAND PHASE              READ DATA
+
+                                 BUS TURNAROUND                         BUS TURNAROUND
+
+                       MIOSIO[0]              TXE#               CMD3       0                  B7        B3          TXE#
+
+                        MIOSIO[1]                                          0      CMD1                B6        B2
+
+                        MIOSIO[2]                                          0      CMD0                B5       B1
+
+                      MIOSIO[3]                                CMD2      X                  B4        B0
+
+                                                                             PULLED HIGH                      MIOSIO[7:4]
+
+                       MISO            RXF#                                      RXF#     ACK                    RXF#
+
+                      Figure 5.9 - FT1248 4-bit Mode Protocol (READ)
+
+Copyright © Future Technology Devices International Limited                                         12
+
+===== PAGE 14 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+5.4  8-Bit Wide Mode
+
+In this mode the data bus is 8 bits wide with data transfer accessed on  all data lines MIOSI0[0] -
+MIOSI0[7].
+
+                                                      MIOSIO[0]
+                          13
+                                                      MIOSIO[1]
+                          14
+                                                      MIOSIO[2]
+                          15
+                                                      MIOSIO[3]
+                          16
+                                                      MIOSIO[4]
+                          17
+                                                      MIOSIO[5]
+                          18
+                                                      MIOSIO[6]
+                          19
+                                                      MIOSIO[7]                 FT1248 BUS
+                          20
+                                               MASTER
+      FT232H in
+     FT1248 Mode
+                                            SCLK
+                          21
+                                            SS_N
+                          25
+                                             MISO
+                          26
+
+                       Figure 5.10 - FT1248 4-bit Mode Interconnect
+
+Figure 5.11 and figure 5.12  illustrates the waveform detailing the FT1248 write and read protocol
+operating in 8-bit mode. When SS_n is inactive the write buffer and read buffer status is reflected on the
+MIOSIO[0] and MISO signals respectively. When the master wishes to initiate a data transfer, SS_n
+becomes active. As soon as SS_n becomes active the FT1248 slave immediately stops driving the
+MIOSIO[0] signal and FT1248 master is not allowed to begin driving the MIOSIO[7:0] signals until the
+first clock edge, this ensures that bus contention is avoided. On the first clock edge the command is
+clocked, with the command data being shared between MIOSIO[0], MIOSIO[1], MIOSIO[2], MIOSIO[3]
+signals, on the 2nd clock cycle a bus turnaround is required. The bus turnaround is required as the slave
+may be required to drive the MIOSIO[3:0] bus with read data. The data phase occurs in response to the
+command and so long as SS_n remains active. The data phase in 8-bit mode requires 2 clock cycles
+where the MIOSIO[3:0] signal transfers the requested write or read data. The MISO signal indicates to
+the master the success of the transfer with an ACK or NAK. The status is reflected through the whole of
+the data phase and is valid from the first clock edge. If the master is writing data to the slave, then on
+the last clock edge before it de-asserts SS_n must tristate the MIOSIO[3:0] signal to enable the bus to
+be “turned” around as when SS_n becomes inactive the FT1248 slave shall begin to drive the write buffer
+status onto the MIOSIO[0] signal.
+
+Copyright © Future Technology Devices International Limited                                         13
+
+===== PAGE 15 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+                      SCLK
+
+                        SS_n
+
+                                               COMMAND PHASE
+                                                                            WRITE DATA 1
+
+                                                           BUS TURNAROUND
+                               BUS TURNAROUND                                             BUS TURNAROUND
+
+                      MIOSIO[0]             TXE#              CMD3               B7      B7           TXE#
+
+                      MIOSIO[1]                                       0                 B6      B6
+
+                      MIOSIO[2]                                       0                 B5      B5
+
+                                                     CMD2               B4      B4                      MIOSIO[3]
+
+                     MIOSIO[4]                                        0                 B3      B3
+
+                     MIOSIO[5]                              CMD1               B2      B2
+
+                      MIOSIO[6]                              CMD0               B1      B1
+
+                      MIOSIO[7]                                X                 B0     B0
+
+                      MISO           RXF#                           TXE#    ACK      ACK         RXF#
+
+                     Figure 5.11 - FT1248 8-bit Mode Protocol (WRITE)
+
+Copyright © Future Technology Devices International Limited                                         14
+
+===== PAGE 16 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+                     SCLK
+
+                       SS_n
+
+                                             COMMAND PHASE
+                                                                       READ DATA 1
+
+                                                        BUS TURNAROUND           READ DATA 2
+                              BUS TURNAROUND
+
+                     MIOSIO[0]            TXE#              CMD3              B7      B7          TXE#
+
+                     MIOSIO[1]                                      0                B6       B6
+
+                     MIOSIO[2]                                     0                B5       B5
+
+                                                  CMD2              B4       B4                     MIOSIO[3]
+
+                    MIOSIO[4]                                      0                B3       B3
+
+                    MIOSIO[5]                             CMD1              B2       B2
+
+                     MIOSIO[6]                            CMD0               B1       B1
+
+                     MIOSIO[7]                               X                 B0       B0
+
+                     MISO           RXF#                         RXF#    ACK      ACK         RXF#
+
+                      Figure 5.12 - FT1248 8-bit Mode Protocol (READ)
+
+Copyright © Future Technology Devices International Limited                                         15
+
+===== PAGE 17 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+5.5  FT1248: NAK
+
+When SSn is active and the packet is in the data transfer stage, MISO is used to indicate a buffer full
+condition on writing data into the chip and a buffer empty condition on reading from the chip. If during
+this cycle, a NAK occurs, the FT1248 master should consider the cycle as aborted. In this case data will
+not be written since either the buffer was full or the data being read is invalid as read buffer was empty.
+Typically, the FT1248 master should make SS_n inactive on the next clock edge in response. However, if
+it doesn’t the FT232H will internally abort write transfers anyway. For read transfers, the FT1248 slave
+block doesn’t care as it is the master responsibility to correctly interpret the flow control. The FT1248
+master can continue to keep re-trying each N clocks until the transfer completes successfully or gives up
+trying and returns SS_n to its inactive state.
+
+It is up to the FT1248 master to retry these aborted cycles at a later point in time in order to continue
+the data transfer process without data loss.
+
+5.6  FT1248: No Flow Control During SS_n Inactive
+
+FT1248 is a shared bus architecture where an FT1248 master can communicate with multiple slaves. The
+FT1248 interface can be also share signals with other FT1248 slave devices on the same interface.
+However, when the FT1248 interface is in this mode the write and read buffer status cannot be driven on
+to the MIOSIO[0] and MISO wires. Figure 5.13 and Figure 5.14 illustrate the FT1248 protocol with no
+flow control being driven when SS_n is inactive. In the waveforms below it shows no flow control for a
+read and write data transfer when in 1-bit mode, it should be note that it is exactly the same protocol for
+the other bus width transfers (2-4-8-bit) where the only exception is the MIOSIO bus size being used.
+
+It should also be noted that when there is no flow control being presented on the bus during inactivity
+there is additional status information relayed to the FT1248 master device on the MISO wire during the
+command phase. Following every command cycle there is a one clock cycle pause where the bus can be
+“turned around”. During this clock cycle the FT1248 slave issues the status on the MISO wire. The status
+type, either RXF# or TXE#, is dependent on the command sent.
+
+              SCLK
+
+               SS_n
+
+                                           COMMAND PHASE                                       READ DATA
+
+                                      BUS TURNAROUND                              BUS TURNAROUND
+
+             MIOSIO[0]                  CMD3   0      0   CMD2    0   CMD1 CMD0         B7    B6    B5    B4    B3    B2    B1    B0
+
+            MIOSIO[7:1]                                                         PULLED HIGH
+
+              MISO                                                             RXF#  ACK
+
+                        Figure 5.13 - FT1248 Read (No Flow Control)
+
+Copyright © Future Technology Devices International Limited                                         16
+
+===== PAGE 18 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+              SCLK
+
+               SS_n
+
+                                           COMMAND PHASE                                          WRITE DATA
+
+                                      BUS TURNAROUND                              BUS TURNAROUND                            BUS TURNAROUND
+
+             MIOSIO[0]                  CMD3   0      0   CMD2    0   CMD1 CMD0         B7    B6    B5    B4    B3    B2    B1   B0
+
+            MIOSIO[7:1]                                                         PULLED HIGH
+
+              MISO                                                               TXE#                     ACK
+
+                        Figure 5.14 - FT1248 Write (No Flow Control)
+
+Copyright © Future Technology Devices International Limited                                         17
+
+===== PAGE 19 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+6 Supported Commands on the FT1248 Interface
+
+The FT1248 interface can accept and decode up to 16 unique commands. At this time only 5 unique
+commands are implemented as shown below.
+
+Command    Identifier  Description
+
+write        0x0         Write request command
+
+read         0x1       Read request command
+
+read modem  0x2        see section 9
+status
+
+write        0x3        see section 9
+
+modem
+
+status
+
+write buffer   0x4         Write buffer flush request – This command is used to indicate to the FT1248
+flush                       slave that its write buffers should be flushed rather than wait for any latency
+
+                           timers to expire. If this command is received the FT1248 block will flag the
+
+                        upstream controllers (USB FIFOs etc.) to flush their write buffers regardless
+                              of what content is present in the FT1248 write buffer
+
+Reserved     0x5 – 0xF  Unused Commands
+
+                               Table 1 - FT1248 Commands
+
+Copyright © Future Technology Devices International Limited                                         18
+
+===== PAGE 20 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+7 LSB or MSB Selection
+
+The data can be sent/received Least Significant Bit First (LSB) or Most Significant Bit First (MSB). To
+determine which mode is used by the FT1248 interface of the FT232H the EEPROM must be set.
+
+This may be selected with FT_PROG at the same time as the FT1248 mode is being selected.
+
+Copyright © Future Technology Devices International Limited                                         19
+
+===== PAGE 21 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+8 Clock Phase/Polarity
+
+The FT1248 slave does not need to have any knowledge of clock rate as this is supplied by the FT1248
+master. However the relationship between clock and data needs to be controllable, to allow the slave to
+operate in the same way as the master such that data is correctly driven and sampled on the correct
+clock phases. By configuring the polarity and phase of SCLK with respect to the data  it is possible to
+match the FT1248 master.
+
+There are 4 possible modes which are determined by the Clock Polarity (CPOL) and Clock Phase (CPAH)
+signals. The different combinations of these signals are commonly referred to as modes, see Table 2
+below. For the FT1248 slave, only 2 of these 4 modes are supported. CPHA will always be set to 1 in the
+FT1248 slave because data is available or driven on to MIOSIO wires on the first clock edge after SS_n is
+active and is therefore sampled on the trailing edge of the first clock pulse. When CPHA equals 0,  it
+means data must be available or driven onto the MIOSIO wires on the first leading edge of the clock after
+SS_n is active. However, during this period between SS_n becoming active and the first leading clock
+edge is when the MIOSIO wires are being “turned around” as when SS_n is inactive the FT1248 slave is
+driving the write buffer status. Supporting CPHA = 0 would result in bus contention and therefore, shall
+not be supported.
+
+                      Mode   CPOL   CPHA   Supported
+
+                         0        0       0      NO
+
+                         1        0       1       YES
+
+                         2        1       0      NO
+
+                         3        1       1       YES
+
+                          Table 2 - CPOL & CPHA Mode Numbers
+
+When CPOL is 1, the idle state of the clock is high. When CPOL is 0, the idle state of the clock is low. It
+should be noted that clock phase and polarity need to be identical for the master and attached slave
+device.
+
+8.1 CPHA = 1
+
+When CPHA is set to ‘1’, the first edge after SS_n goes low will be used to shift (or drive) the first data
+bit onto MIOSIO. Every odd numbered edge after this will shift out the next data bit. Incoming data will
+be sampled on the second or trailing SCLK edge and every even edge thereafter.
+
+Figure 8.1 shows this for both CPOL = 0 and CPOL = 1.
+
+Copyright © Future Technology Devices International Limited                                         20
+
+===== PAGE 22 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+                                                                                                            start of
+         end of idle            start                 Transfer                 end     next idle
+
+ SCK Edge No.            1   2   3   4   5   6   7   8   9   10  11  12  13  14  15  16
+
+SCK (CPOL = 0)
+
+SCK (CPOL = 1)
+
+    SS_n
+
+  CPHA = 1
+
+    Sample
+
+    MISO                0     1     2     3     4     5     6     7
+
+    MOSI                0     1     2     3     4     5     6     7
+
+                         Figure 8.1 - FT1248 Clock Format CPHA = 1
+
+Note: The CPOL value may be selected in the EEPROM at the same time as selecting the FT1248 mode.
+This may be done with FT_PROG.
+
+Copyright © Future Technology Devices International Limited                                         21
+
+===== PAGE 23 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+9 Modem Emulation
+
+In some cases, it may be useful to enable the FT1248 mode to emulate a modem. There are 2 modem
+status commands available: Write Modem Status and Read modem Status
+
+When the FT1248 master issues a write modem status command, the FT1248 master has the ability to
+set the following modem status signals. It also has the ability to read modem status bit RTS (Request To
+Send) and DTR (Data Terminal Ready).
+
+    MSB                                                            LSB
+
+    DCD        RI      DSR     CTS       X       X       X        X
+
+       7         6         5         4         3         2         1         0
+                          WRITE MODEM STATUS Format
+    MSB                                                            LSB
+
+      X       X       X        X       X       X       RTS     DTR
+
+       7         6         5         4         3         2         1         0
+                       READ MODEM STATUS Format
+                        Figure 9.1 - Modem Emulation Status Format
+
+Copyright © Future Technology Devices International Limited                                         22
+
+===== PAGE 24 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+10  Contact Information
+
+Head Office – Glasgow, UK                   Branch Office – Tigard, Oregon, USA
+
+Future Technology Devices International Limited            Future Technology Devices International Limited (USA)
+Unit 1, 2 Seaward Place, Centurion Business Park         7130 SW Fir Loop
+Glasgow G41 1HH                                           Tigard, OR 97223-8160
+United Kingdom                                USA
+Tel: +44 (0) 141 429 2777                                   Tel: +1 (503) 547 0988
+Fax: +44 (0) 141 429 2758                              Fax: +1 (503) 547 0987
+
+E-mail (Sales)               sales1@ftdichip.com          E-mail (Sales)               us.sales@ftdichip.com
+E-mail (Support)             support1@ftdichip.com       E-mail (Support)             us.support@ftdichip.com
+E-mail (General Enquiries)    admin1@ftdichip.com        E-mail (General Enquiries)    us.admin@ftdichip.com
+
+Branch Office – Taipei, Taiwan                Branch Office – Shanghai, China
+
+Future Technology Devices International Limited (Taiwan)   Future Technology Devices International Limited (China)
+2F, No. 516, Sec. 1, NeiHu Road                    Room 1103, No. 666 West Huaihai Road,
+Taipei 114                                              Shanghai, 200052
+Taiwan, R.O.C.                                         China
+Tel: +886 (0) 2 8791 3570                                   Tel: +86 21 62351596
+Fax: +886 (0) 2 8791 3576                              Fax: +86 21 62351595
+
+E-mail (Sales)               tw.sales1@ftdichip.com       E-mail (Sales)               cn.sales@ftdichip.com
+E-mail (Support)             tw.support1@ftdichip.com    E-mail (Support)             cn.support@ftdichip.com
+E-mail (General Enquiries)    tw.admin1@ftdichip.com      E-mail (General Enquiries)    cn.admin@ftdichip.com
+
+Web Site
+http://ftdichip.com
+
+Distributor and Sales Representatives
+
+Please visit the Sales Network page of the FTDI Web site for the contact details of our distributor(s) and sales
+representative(s) in your country.
+
+System and equipment manufacturers and designers are responsible to ensure that their systems, and any Future Technology Devices
+International Ltd (FTDI) devices incorporated in their systems, meet all applicable safety, regulatory and system-level performance
+requirements. All application-related information in this document (including application descriptions, suggested FTDI devices and other
+materials) is provided for reference only. While FTDI has taken care to assure it is accurate, this information is subject to customer
+confirmation, and FTDI disclaims all liability for system designs and for any applications assistance provided by FTDI. Use of FTDI
+devices in  life support and/or safety applications is entirely at the user’s risk, and the user agrees to defend, indemnify and hold
+harmless FTDI from any and all damages, claims, suits or expense resulting from such use. This document is subject to change without
+notice. No freedom to use patents or other intellectual property rights is implied by the publication of this document. Neither the whole
+nor any part of the information contained in, or the product described in this document, may be adapted or reproduced in any material
+or electronic form without the prior written consent of the copyright holder. Future Technology Devices International Ltd, Unit 1, 2
+Seaward Place, Centurion Business Park, Glasgow G41 1HH, United Kingdom. Scotland Registered Company Number: SC136640
+
+Copyright © Future Technology Devices International Limited                                         23
+
+===== PAGE 25 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+Appendix A – References
+
+Document References
+
+FT232H Datasheet
+
+Application and Technical Notes available at http://www.ftdichip.com/Support/Documents/AppNotes.htm
+
+FT_PROG utility http://www.ftdichip.com/Support/Utilities/FT_Prog_v1.12.zip
+
+Acronyms and Abbreviations
+
+      Terms         Description
+
+      CPAH          Clock Phase
+
+       CPOL          Clock Polarity
+
+       DTR          Data Terminal Ready
+
+     EEPROM           Electrically Erasable Programmable Read Only Memory
+
+        FIFO             First In First Out
+
+       LSB           Least Significant Bit First
+
+      MSB          Most Significant Bit First
+
+       PCB            Printed Circuit Board
+
+       RTS          Request To Send
+
+       USB           Universal Serial Bus
+
+Copyright © Future Technology Devices International Limited                                         24
+
+===== PAGE 26 =====
+7        FTDI                                                                        Application Note
+:                              AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+
+Chi                                                                                             Version 1.1
+SN            ip .
+
+Document Reference No.: FT_000390 Clearance No.: FTDI# 200
+
+Appendix B - List of Figures and Tables
+
+List of Figures
+
+Figure 2.1 - FT232H Device FT1248 Mode Block Diagram ............:cceceeee nent eee eee eee teen e eee eee eeeeeeea ens3
+Figure 3.1 - FT1248 Basic Waveform Protocol..........ccccceee eee eee eee eee ea ene4
+Figure 4.1 - FT1248 Command Structure ..........ccece ee eee nett eeeea eae5
+Figure 5.1 - FT1248 1-bit Mode Interconnect...........cccece eee eee eee ea ene6
+Figure 5.2 - FT1248 1-bit Mode Protocol (WRITE) ........::ccceeeeee tees teeter eee een e eee eee eee eens7
+Figure 5.3 - FT1248 1-bit Mode Protocol (READ) .........::cceceeee tees teeter eee eer reer e aetna ene7
+Figure 5.4 - FT1248 2-bit Mode Interconnect..........ccceeeee eee eee erent ea ene8
+Figure 5.5 - FT1248 2-bit Mode Protocol (WRITE) ........::ccceeeeee eee e ee eee erent een nee eee e eater teen ea ene9
+Figure 5.6 - FT1248 2-bit Mode Protocol (READ).........:::ceceeee tees teeter teen rere eeee eee ea ene9
+Figure 5.7 - FT1248 4-bit Mode Interconnect..........cccceee eee eee en eee rete ea ened 10
+Figure 5.8 - FT1248 4-bit Mode Protocol (WRITE) ........::ceceeeeee este eset eee e eee eens eee eae e eee eeeeeea ened 11
+Figure 5.9 - FT1248 4-bit Mode Protocol (READ) .........:::ceeeeee sees ee eee eee eee enna eee eterna ened 12
+Figure 5.10 - FT1248 4-bit Mode Interconnect ..........cccceee eee ee eer eee etree eee ea ed 13
+Figure 5.11 - FT1248 8-bit Mode Protocol (WRITE) .......:::ceceeeeee ects eee eee eee een eres nena eae e eee eeeneea ened 14
+Figure 5.12 - FT1248 8-bit Mode Protocol (READ) ........::ceceeee sees teeter eee eee nearer eee eneea ened 15
+Figure 5.13 - FT1248 Read (No FIOW Control) ........c cece cece ee eaten ened 16
+Figure 5.14 - FT1248 Write (No FIOW Control) .........c cece eee enna eee ea ened 17
+Figure 8.1 - FT1248 Clock Format CPHA = 1.00... cece eee e eee eee eee eeeneea ened 21
+Figure 9.1 - Modem Emulation Status Format...........ccceceeee eee eee teen ened 22
+
+List of Tables
+
+Table 1 - FT1248 CommMands.....cccccccccccseccecceecceeeceeesceeuceeeseneeaeesgeeeceeesgeeecaeesgeeegeteeatesaeeeaunesunesauengges 18
+Table 2 - CPOL & CPHA Mode NUMDE?SS.......ccccccceecccecceeeceeeeeeeuseeecaeesaeeeceeesaeesgeeegeneeutesaeeraenesanesauenages 20
+
+Copyright © Future Technology Devices International Limited                                          25
+
+===== PAGE 27 =====
+Application Note
+                        AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+                                                                                                                           Version 1.1
+                      `
+                                                           Document Reference No.: FT_000390   Clearance No.: FTDI# 200
+
+Appendix C - Revision History
+
+Document Title:            AN_167 FT1248 Dynamic Parallel/Serial Interface Basics
+
+Document Reference No.:     FT_000390
+
+Clearance No.:             FTDI# 200
+
+Product Page:                http://www.ftdichip.com/FTProducts.htm
+
+Document Feedback:        Send Feedback
+
+  Revision                    Changes                           Date
+
+  Version 1.0                              Initial Release                         2011-02-24
+
+  Version 1.1    Corrected typo in section 5.4; Update contact details        2018-05-09
+
+Copyright © Future Technology Devices International Limited                                         26

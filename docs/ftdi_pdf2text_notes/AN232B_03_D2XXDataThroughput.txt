@@ -1,0 +1,279 @@
+===== PAGE 1 =====
+Application Note
+
+          AN232B-03
+
+  Optimizing D2XX Data Throughput
+
+                                    Version 1.2
+
+                              Issue Date: 18-03-2024
+
+                       This application note provides guidelines for achieving optimal
+                           performance over USB from D2XX applications.
+
+ Use of FTDI devices in life support and/or safety applications is entirely at the user’s risk, and the
+user agrees to defend, indemnify, and hold FTDI harmless from any and all damages, claims, suits,
+                               or expense resulting from such use.
+
+                    Future Technology Devices International Limited (FTDI)
+                         Unit 1, 2 Seaward Place, Glasgow G41 1HH, United Kingdom
+                              Tel.: +44 (0) 141 429 2777   Fax: + 44 (0) 141 429 2758
+                            Web Site: http://ftdichip.com
+                       Copyright © Future Technology Devices International Limited
+
+===== PAGE 2 =====
+A
+
+—                                                                                 Application Note
+"           FTDI                   AN232B-03 Optimizing D2XX Data Throughput
+
+.                                                                      Version 1.2
+SS Chip
+
+Document Reference No.: FT_001568 Clearance No.: FTDI#596
+
+|
+
+Table of Contents
+L Introduction ...ccccecccscceeeceeenneeneeeeeenneenueenuseuuenusenusauussaas O
+
+2 Optimizing Data Throughput Over USB.........sceessssseees
+
+2.1 Tramsfer SIZ@S ....ccccccceeeceeeeseeeeeeeseeeeeseeeeseeeaeeeaaeeeeseneasensaeeeanes3
+2.2 Driver Operation.......ccccscceecccescceesceeeeceeseseesneeesneeeenensasensaeeesaes3
+2.3 OptimiZing PerfOrmManc Ce... ..ccccccsseceesceeeeseeseeeeseeeeeneesanenseeeeenen3
+
+3 Contact Information .......cccsceesseesseeeeeeeeeeeeeeeseeseesseeeees D
+Appendix A — Reference ....cccssscesseeessnseeseseessnsesseseessaseres O
+Document REFEreNCes .....cccscceeseeeeseeeeeeeeeeseeseeesneeeaneeeanensaeensaeeeanes6
+Acronyms and AbbreviatiOns........cccccccsscceesceeesseeseseeseeeeeeeeenensunens6
+Appendix B - List of Tables and Figures.........sscesssseseesses 7
+List Of Table@S......ccccccccscceecceescceesceeeseeeeeeeeeeneeseeeeneeeaneeeaseneaeeneaeeeanee7
+List Of FIQUIFES ....ccccccessceeeeeeeeeeeeseeeeseeeeeneeeeneesaeeeeneeeaneeeanensaeeeeaeeeaaee7
+Appendix C — ReVISION HIStOFy .......scccesssneseeneeeeseenessnseeees O
+
+2
+Product Page
+Document Feedback                                                   Copyright © Future Technology Devices International Ltd
+
+===== PAGE 3 =====
+Application Note
+                           AN232B-03 Optimizing D2XX Data Throughput
+                                                                                                              Version 1.2
+
+                                                 Document Reference No.: FT_001568   Clearance No.: FTDI#596
+
+1 Introduction
+
+This application note provides guidelines for achieving optimal performance over USB from D2XX
+applications.
+
+2 Optimizing Data Throughput Over USB
+
+2.1 Transfer Sizes
+
+The maximum transfer size over USB is setup once and for all when a device is initialized. An
+application can change the current USB transfer size to a value not exceeding the maximum USB
+transfer size. The best transfer size for an application depends on its type.
+
+For example, an application that handles streaming data will run more efficiently with a large
+transfer size, whereas a smaller transfer size may be more suited to an application that handles
+small amounts of data.
+
+2.2 Driver Operation
+
+In the D2XX device driver, the maximum USB transfer size is set at 64Kbytes. This is necessary to
+support USB2.0 controllers: on USB2.0, we have found that transfer sizes greater than 64K fail
+catastrophically.
+
+Current USB transfer size can be changed using the function FT_SetUSBParameters. The change
+comes into effect immediately, and any data that was held in the driver at the time of the change
+is lost.
+
+Note that, currently, FT_SetUSBParameters supports transfer size changes for the IN endpoint
+only, and the remainder of this note is restricted to consideration of read requests.
+
+When a device is opened, the driver allocates two buffers: a USB transfer buffer of maximum USB
+transfer size bytes and a read buffer whose size is based on, but not the same as, the maximum
+USB transfer size. The current USB transfer size is set by default to 4Kbytes, but an application
+may setup the current USB transfer size any time after a device has been opened. The driver
+performs USB requests of any size up to the current USB transfer size, then copies the data to the
+read buffer. The actual USB request size is determined by the space that is currently available in
+the read buffer. If the read buffer becomes full (i.e. there is not enough space in the read buffer to
+hold data returned from a USB request), the driver will stop issuing USB requests until space
+becomes available.
+
+Data is removed from the read buffer when the application performs a read request. So, the rate
+at which the application issues read requests has a direct bearing on the driver's ability to keep
+issuing USB requests. USB requests will continue to be issued as long as the application performs
+enough read requests to ensure that the read buffer does not become full.
+
+2.3 Optimizing Performance
+
+The question of how-to setup an application for optimized data throughput is complicated by the
+format of the data that is transferred over USB. Data is transferred over USB in a series of 64-byte
+packets. Each packets contains 2 bytes that are reserved by FTDI and 62 bytes of actual data. So,
+a 4Kbyte USB transaction contains 3968 bytes of actual data, and a 64Kbyte transaction contains
+63488 bytes. In general, an x byte USB transaction yields x - ((x/64) *2) bytes of actual data.
+
+Optimized throughput occurs when the maximum amount of data is transferred in the least
+possible number of USB transactions. The necessary condition is that the application's request size
+must be matched to the current USB request size. More precisely, optimal throughput is achieved
+when the application request size is a multiple of the number of actual data bytes contained in the
+current USB transfer size. For example, using a current USB transfer size of 4Kbytes, optimal
+throughput is achieved with application request sizes that are multiples of 3968 bytes.
+
+                                                                              3
+Product Page
+Document Feedback                                               Copyright © Future Technology Devices International Ltd
+
+===== PAGE 4 =====
+Application Note
+                           AN232B-03 Optimizing D2XX Data Throughput
+                                                                                                              Version 1.2
+
+                                                 Document Reference No.: FT_001568   Clearance No.: FTDI#596
+
+Maximum throughput is achieved using a current USB transfer size of 64Kbytes, and application
+requests that are multiples of 63448 bytes.
+
+                                                                              4
+Product Page
+Document Feedback                                               Copyright © Future Technology Devices International Ltd
+
+===== PAGE 5 =====
+Application Note
+                           AN232B-03 Optimizing D2XX Data Throughput
+                                                                                                              Version 1.2
+
+                                                 Document Reference No.: FT_001568   Clearance No.: FTDI#596
+
+3 Contact Information
+
+ Head Office – Glasgow, UK                   Branch Office – Tigard, Oregon, USA
+
+ Future Technology Devices International Limited (UK)       Future Technology Devices International Limited (USA)
+ Unit 1, 2 Seaward Place, Centurion Business Park         7130 SW Fir Loop
+ Glasgow G41 1HH                                           Tigard, OR 97223-8160
+ United Kingdom                                USA
+ Tel: +44 (0) 141 429 2777                                   Tel: +1 (503) 547 0988
+ Fax: +44 (0) 141 429 2758                              Fax: +1 (503) 547 0987
+
+ E-mail (Sales)              sales1@ftdichip.com           E-mail (Sales)              us.sales@ftdichip.com
+ E-mail (Support)           support1@ftdichip.com        E-mail (Support)           us.support@ftdichip.com
+ E-mail (General Enquiries)  admin1@ftdichip.com         E-mail (General Enquiries)  us.admin@ftdichip.com
+
+ Branch Office – Taipei, Taiwan                Branch Office – Shanghai, China
+
+ Future Technology Devices International Limited (Taiwan)   Future Technology Devices International Limited (China)
+ 2F, No. 516, Sec. 1, NeiHu Road                    Room 1103, No. 666 West Huaihai Road,
+ Taipei 114                                              Shanghai, 200052
+ Taiwan, R.O.C.                                         China
+ Tel: +886 (0) 2 8797 1330                                   Tel: +86 (21) 62351596
+ Fax: +886 (0) 2 8751 9737                              Fax: +86 (21) 62351595
+
+ E-mail (Sales)                tw.sales1@ftdichip.com      E-mail (Sales)               cn.sales@ftdichip.com
+ E-mail (Support)             tw.support1@ftdichip.com    E-mail (Support)            cn.support@ftdichip.com
+ E-mail (General Enquiries)    tw.admin1@ftdichip.com     E-mail (General Enquiries)   cn.admin@ftdichip.com
+
+Web Site
+
+http://ftdichip.com
+
+Distributor and Sales Representatives
+
+Please visit the Sales Network page of the FTDI Web site for the contact details of our distributor(s) and sales
+representative(s) in your country.
+
+System and equipment manufacturers and designers are responsible to ensure that their systems, and any Future Technology
+Devices International Ltd (FTDI) devices incorporated in their systems, meet all applicable safety, regulatory and system-level
+performance requirements. All application-related information in this document (including application descriptions, suggested
+FTDI devices and other materials) is provided for reference only. While FTDI has taken care to assure  it is accurate, this
+information is subject to customer confirmation, and FTDI disclaims all liability for system designs and for any applications
+assistance provided by FTDI. Use of FTDI devices in life support and/or safety applications is entirely at the user’s risk, and the
+user agrees to defend, indemnify, and hold harmless FTDI from any and all damages, claims, suits, or expense resulting from
+such use. This document is subject to change without notice. No freedom to use patents or other intellectual property rights is
+implied by the publication of this document. Neither the whole nor any part of the information contained in, or the product
+described in this document, may be adapted, or reproduced in any material or electronic form without the prior written consent
+of the copyright holder. Future Technology Devices International Ltd, Unit 1, 2 Seaward Place, Centurion Business Park, Glasgow
+G41 1HH, United Kingdom. Scotland Registered Company Number: SC136640
+
+                                                                              5
+Product Page
+Document Feedback                                               Copyright © Future Technology Devices International Ltd
+
+===== PAGE 6 =====
+Application Note
+                           AN232B-03 Optimizing D2XX Data Throughput
+                                                                                                              Version 1.2
+
+                                                 Document Reference No.: FT_001568   Clearance No.: FTDI#596
+
+Appendix A – References
+
+Document References
+
+N/A
+
+Acronyms and Abbreviations
+
+       Terms         Description
+       USB           Universal Serial Bus
+
+                                                                              6
+Product Page
+Document Feedback                                               Copyright © Future Technology Devices International Ltd
+
+===== PAGE 7 =====
+Application Note
+                           AN232B-03 Optimizing D2XX Data Throughput
+                                                                                                              Version 1.2
+
+                                                 Document Reference No.: FT_001568   Clearance No.: FTDI#596
+
+Appendix B – List of Tables and Figures
+
+List of Tables
+
+N/A
+
+List of Figures
+
+N/A
+
+                                                                              7
+Product Page
+Document Feedback                                               Copyright © Future Technology Devices International Ltd
+
+===== PAGE 8 =====
+Application Note
+                           AN232B-03 Optimizing D2XX Data Throughput
+                                                                                                              Version 1.2
+
+                                                 Document Reference No.: FT_001568   Clearance No.: FTDI#596
+
+Appendix C – Revision History
+
+Document Title:            AN232B-03 Optimizing D2XX Data Throughput
+
+Document Reference No.:     FT_001568
+
+Clearance No.:             FTDI#596
+
+Product Page:                  https://ftdichip.com/
+
+Document Feedback:        Send Feedback
+
+   Revision    Changes                                           Date
+
+      1.0          Initial release                                         03-2004
+
+               Format and contact information updated. Release
+      1.1                                                           02-2006                 version on the web
+
+      1.2       Updated release version.                               18-03-2024
+
+                                                                              8
+Product Page
+Document Feedback                                               Copyright © Future Technology Devices International Ltd

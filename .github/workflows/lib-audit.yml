@@ -1,0 +1,74 @@
+name: Audit NuGet libs
+
+on:
+  schedule:
+    # Run weekly on Monday at 08:00 UTC
+    - cron: '0 8 * * 1'
+  push:
+    paths:
+      - 'lib/nuget-deps.csproj'
+  pull_request:
+    paths:
+      - 'lib/nuget-deps.csproj'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    name: NuGet vulnerability + outdated check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Restore packages
+        run: dotnet restore lib/nuget-deps.csproj
+
+      - name: Check for vulnerable packages
+        id: vuln
+        run: |
+          dotnet list lib/nuget-deps.csproj package --vulnerable --include-transitive 2>&1 | tee vuln-report.txt
+          if grep -qi "has the following vulnerable packages" vuln-report.txt; then
+            echo "VULNERABLE=true" >> $GITHUB_OUTPUT
+          else
+            echo "VULNERABLE=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for outdated packages
+        run: |
+          dotnet list lib/nuget-deps.csproj package --outdated 2>&1 | tee outdated-report.txt
+
+      - name: Upload audit reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-audit-reports
+          path: |
+            vuln-report.txt
+            outdated-report.txt
+          retention-days: 30
+
+      - name: Fail on vulnerabilities
+        if: steps.vuln.outputs.VULNERABLE == 'true'
+        run: |
+          echo "Vulnerable NuGet packages detected. Review vuln-report.txt artifact."
+          cat vuln-report.txt
+          exit 1
+
+      - name: Summarize
+        if: always()
+        run: |
+          echo "## NuGet Audit Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Vulnerability Report" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat vuln-report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Outdated Packages" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat outdated-report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

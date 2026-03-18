@@ -1,0 +1,1488 @@
+===== PAGE 1 =====
+Application Note
+
+          AN_428
+
+   D2XX EEPROM Programming
+           Examples
+
+                                    Version 1.0
+
+                             Issue Date: 2017-05-17
+
+          This application note demonstrates how to program the EEPROM using the
+       D2XX Drivers with the following USB devices: FT232R, FT-X Series, FT232H,
+        FT2232H and FT4232H.
+
+Use of FTDI devices in life support and/or safety applications is entirely at the user’s risk, and the
+user agrees to defend, indemnify and hold FTDI harmless from any and all damages, claims, suits
+                              or expense resulting from such use.
+
+               Future Technology Devices International Limited (FTDI)
+                   Unit 1, 2 Seaward Place, Glasgow G41 1HH, United Kingdom
+                     Tel.: +44 (0) 141 429 2777  Fax: + 44 (0) 141 429 2758
+                       Web Site: http://ftdichip.com
+                 Copyright © Future Technology Devices International Limited
+
+===== PAGE 2 =====
+a                                                                                Application Note
+|        FTDI              AN_428 D2XX EEPROM Programming Examples
+
+a           Chip                                                                                Version 1.0
+—\.
+
+Document Reference No.: FT_001378 Clearance No.: FTDI#529
+
+Table of Contents
+
+L INMtroductiOn .....ccccescceceeesseseeeeesneeeeesneeeeeeseeoeeeeeanneeneeas 2
+LiL OVGrVICW uo. ccccceccceeeneeeeeeeeeeeeeeseeseeeeneeeeneeeeseeeaneesaeeeaneueenenennens2
+1.2 SCOPES wr sccccecsccceeeeceeeeeeeeeeeeeeeeeeeeaeeeeeeaeeeeeanseeeeeaeeeeeeaeeueeaaeensgaas2
+
+1.2.1 FOQtUTES ....cceccsccssccsecsseceecseessecsesstessecsessaeessecaussaeecsesssecsuseseseeseeeatens2
+1.2.2  EMMANCEMENt ......csccccssecssscseesecseecseeseecsescaeessecsusceesssecaescsesesesaeceesatens2
+
+2 FT232R EEPROM Example......cccsscccsscseeescsessnseeesnsensnnens 3
+
+3 FT-X EEPROM Example.....sccccscccssnsceesnseesnceeeseseesaneeeeass 7
+
+4 FT232H EEPROM Example.....ccscccsseseesscceesnseeesceensasens 11
+
+5 FT2232H EEPROM Example....cccscccssnseesscceesnseessceeesnes 15
+
+6 FT4232H EEPROM Example..,...cccssscccsscseesnseessnsessnseeeas 19
+
+7 CONCIUSION vo. .cccceeeeneeeeeeeeeeeeeeeseeeeeeesneneeeesaeeeeeesennonneaan 23
+
+8 Contact Information .......cccsceeeeeeeeeeeeeeeseeeseeeeeeeeneeeaees 24
+
+Appendix A — References .....ccscccssnseeesseeeseseesnceeesnsensanens 25
+Document REFEreNCes .....cccsseeesceeeeceeseseeseeeesneeeaneeeasenseeeeeneeeaneneas25
+Acronyms and AbbreviatiOns.......ccccccccsseceesceescseeseeeeeseeeeseeeneensnes25
+
+Appendix B — List of Tables & Figures ........:sssssecsssnnseess 26
+List Of Table@S......ccccccececeeecceeseeeesceeeeseeeeseeseeeeeneeseneeeanensaeeeeneeeenenens26
+List Of FIQUIFES ....ccccceeeceeeeseeseeeeseeeeseeseseesaeeeeneeeeneeeanensaeeeeneeeenenens26
+
+Appendix C — ReVISION HIStOFy ......sccceseseeseeeeeneseeeeennenens 27
+
+1
+
+Product Page
+Document Feedback                                               Copyright © Future Technology Devices International Limited
+
+===== PAGE 3 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+1 Introduction
+
+This application note and example code demonstrates how to program the EEPROM using the
+D2XX Drivers with the following USB devices: FT232R, FT-X Series, FT232H, FT2232H and
+FT4232H.
+
+Since only newer generations of devices are demonstrated in this application note, FT232B and
+FT2232D are not covered.
+
+FT_PROG can also be used. This is a free Windows-based GUI EEPROM programming utility for use
+with FTDI devices. See AN_124 User Guide for FTDI FT_PROG Utility for more information.
+
+1.1 Overview
+
+FTDI’s D2XX Drivers allow for users to read and program the EEPROM directly. Refer to D2XX
+Programmer's Guide section 4 EEPROM Programming Interface Functions. The D2XX drivers should
+be installed on the PC for these examples to work. These programming functions could be used in
+a production environment.
+
+1.2 Scope
+
+Example code to read and write to EEPROM is provided in this application note. Only the following
+programming functions are demonstrated:
+
+      FT_EE_Read
+       FT_EE_Program
+      FT_EEPROM_Read: must be used for the FT-X series
+      FT_EEPROM_Program: must be used for the FT-X series
+
+FT_ReadEE and FT_WriteEE are not covered here and require knowledge of the EEPROM structure.
+This is available for the FT-X Series as detailed in AN_201 FT-X MTP memory Configuration, but for
+other ICs an NDA is required to receive this information. Contact us for more information.
+
+The User Area of the EEPROM is already covered in AN_121 Accessing The EEPROM User Area Of
+FTDI Devices.
+
+It is possible to corrupt the EEPROM, rendering the device unusable, so caution is advised. Refer to
+AN_136_Hi-Speed Mini Module EEPROM Disaster Recovery for help to recover FT2232H Mini-
+Module and FT4232H Mini-Module.
+
+1.2.1 Features
+
+Internal and external EEPROM access is demonstrated:
+
+       ICs with Internal EEPROM: FT232R, FT-X Series
+       ICs with External EEPROM: FT232H, FT2232H and FT4232H
+
+1.2.2 Enhancement
+
+The code examples provided are examples only and can be enhanced by users to meet specific
+needs. For example, the devices are opened by a particular description which can be changed.
+
+Note: the example code should be treated as an example and is not guaranteed or supported by
+FTDI. If customers choose to use this code as a base, then it should be tested thoroughly.
+
+The example projects referenced in this App Note can be downloaded here.
+
+To open the project with Microsoft Visual Studio, double-click on the .sln project file. The projects
+were created using Microsoft Visual Studio 2015. To build with earlier versions, the Platform
+Toolset version would need to be changed in the project settings.
+
+These are Windows console projects where text is printed to the console window.
+
+                                                                              2
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 4 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+2 FT232R EEPROM Example
+
+The example code can be used with FT232R based hardware:
+
+       Cables such as US232R
+       Development Modules such as UM232R
+      USB - RS232/422/485 such as USB-COM232-PLUS1
+
+FT_EE_Read and FT_EE_Program D2XX EEPROM functions are used in this example.
+
+The FT232R device in the US232R  is used in this example. Similar code could be used with
+FT245R.
+
+Note: FT_EEPROM_Program should not be used with FT245R when using older driver versions
+than 2.12.26.
+
+The example code does the following:
+
+       Defines the FT_PROGRAM_DATA structure for FT232R.
+       Version is set to 2 for FT232R extensions (same for FT245R)
+       Lists   All  FTDI  Devices  connected  to  the  PC  using  FT_CreateDeviceInfoList  and
+       FT_GetDeviceInfoList
+       For the first FT232R device found:
+          o  Open the device by description which can either be:
+                        USB <-> Serial Converter (typical value for FT232 based cables)
+                        FT232R USB UART (default IC factory programmed value)
+          o  Read the EEPROM using FT_EE_Read
+          o   Modify the serial number
+          o   Write to the EEPROM using FT_EE_Program
+          o  Read the EEPROM again using FT_EE_Read. The modified serial number should be
+             shown.
+          o  Performs FT_Close.
+
+Since the serial number is changed, the USB device will need to be re-enumerated by the USB
+Host for the changes to be seen on the PC. This can be done by unplug/replug or using the
+FT_CyclePort function.
+
+The example program flowchart is shown in Figure 2.1.
+
+The example program Windows console output is shown in Figure 2.2.
+
+The example source code can be downloaded here.
+
+                                                                              3
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 5 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+                                            Main
+
+                                              List All FTDI Devices
+
+                                    Using
+                                      FT_CreateDeviceInfoList
+                                 and FT_GetDeviceInfoList
+
+                                         Loop Until:
+
+                                          devInfo Type ==
+                                   FT_DEVICE_FT232R
+
+                                FT_OpenEx
+                                    Using
+                               FT_OPEN_BY_DESCRIPTION
+
+                                      FT_EE_Read
+
+                                 ftData.SerialNumber = "FT12345";
+
+                                      FT_EE_Program
+
+                                       FT_EE_Read
+
+                                          FT_Close
+
+                    Figure 2.1 FT232R EEPROM Example Flowchart
+
+                                                                              4
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 6 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                               Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+Number of devices is 1
+Dev 0:
+Flags=0x0
+Type=0x5
+ID=0x4036001
+LocId=0x113
+SerialNumber=FTIEXT8
+Description=USB <-> Serial Converter
+
+Open status OK 0
+
+Signature1 =  0x0000
+Signature2 =  0xffffffff
+Version =  0x0002
+VendorID =  0x0403
+ProductID =  0x6001
+Manufacturer =  FTDI
+ManufacturerID =  FT
+Description =  USB <-> Serial Converter
+SerialNumber =  FTIEXT8
+MaxPower =  100
+PnP =  1
+SelfPowered =  0
+RemoteWakeup =  1
+UseExtOsc =  0
+HighDriveIOs =  0
+EndpointSize =  40
+PullDownEnableR =  0
+SerNumEnableR =  1
+InvertTXD =  0
+InvertRXD =  0
+InvertRTS =  0
+InvertCTS =  0
+InvertDTR =  0
+InvertDSR =  0
+InvertDCD =  0
+InvertRI =  0
+CBUS0 =  2
+CBUS1 =  3
+CBUS2 =  1
+CBUS3 =  1
+CBUS4 =  5
+RIsD2XX =  0
+
+EE_Program status ok 0
+
+Signature1 =  0x0000
+Signature2 =  0xffffffff
+Version =  0x0002
+VendorID =  0x0403
+ProductID =  0x6001
+Manufacturer =  FTDI
+ManufacturerID =  FT
+Description =  USB <-> Serial Converter
+SerialNumber =  FT12345
+MaxPower =  100
+PnP =  1
+SelfPowered =  0
+RemoteWakeup =  1
+UseExtOsc =  0
+HighDriveIOs =  0
+EndpointSize =  40
+
+                                                                              5
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 7 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                               Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+PullDownEnableR =  0
+SerNumEnableR =  1
+InvertTXD =  0
+InvertRXD =  0
+InvertRTS =  0
+InvertCTS =  0
+InvertDTR =  0
+InvertDSR =  0
+InvertDCD =  0
+InvertRI =  0
+CBUS0 =  2
+CBUS1 =  3
+CBUS2 =  1
+CBUS3 =  1
+CBUS4 =  5
+RIsD2XX =  0
+
+Press Return To End Program
+
+                  Figure 2.2 FT232R EEPROM Example Console Output
+
+                                                                              6
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 8 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+3 FT-X EEPROM Example
+
+The example code can be used with FT-X based hardware:
+
+       Cables such as Chipi-X10,
+       Development Modules such as:
+          o  FT-X Breakout Modules
+          o  FT-X Development Modules
+
+FT_EEPROM_Read and FT_EEPROM_Program D2XX EEPROM functions are used in this example
+and must be used with the FT-X series.
+
+Note: FT_EE_Read and FT_EE_Program D2XX EEPROM functions cannot be used with FT-X Series.
+
+The FT231X device in the Chipi-X10 Cable is used in this example.
+
+The example code does the following:
+
+       Defines the FT_EEPROM_X_SERIES structure for FT-X.
+      Note: Not all FT_EEPROM_X_SERIES structure entries apply to all FT-X devices.
+       Lists   All  FTDI  Devices  connected  to  the  PC  using  FT_CreateDeviceInfoList  and
+       FT_GetDeviceInfoList
+       For the first FT-X device found:
+          o  Open the device by description which can either be:
+                         Chipi-X (Value for the FT-X based cable)
+                        FT231X USB UART (default IC factory programmed value)
+          o  Read the EEPROM using FT_EEPROM_Read
+          o   Modify the serial number
+          o   Write to the EEPROM using FT_EEPROM_Program
+          o  Read the EEPROM again using FT_EEPROM_Read. The modified  serial number
+               should be shown.
+          o  Performs FT_Close.
+
+Since the serial number is changed, the USB device will need to be re-enumerated by the USB
+Host for the changes to be seen on the PC. This can be done by unplug/replug or using the
+FT_CyclePort function.
+
+The example program flowchart is shown in Figure 3.1.
+
+The example program Windows console output is shown in Figure 3.2.
+
+The example source code can be downloaded here.
+
+                                                                              7
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 9 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+                                            Main
+
+                                              List All FTDI Devices
+
+                                    Using
+                                      FT_CreateDeviceInfoList
+                                 and FT_GetDeviceInfoList
+
+                                         Loop Until:
+
+                                          devInfo Type ==
+                                    FT DEVICE X SERIES
+
+                                FT_OpenEx
+                                    Using
+                               FT_OPEN_BY_DESCRIPTION
+
+                                  FT_EEPROM_Read
+
+                                 strcpy_s(SerialNumber, "FT12345");
+
+                                  FT_EEPROM_Program
+
+                                  FT_EEPROM_Read
+
+                                          FT_Close
+
+                     Figure 3.1 FT-X EEPROM Example Flowchart
+
+                                                                              8
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 10 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                               Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+Number of devices is 1
+Dev 0:
+Flags=0x0
+Type=0x9
+ID=0x4036015
+LocId=0x113
+SerialNumber=FTLTY1Q
+Description=Chipi-X
+
+Open status OK 0
+
+Manufacturer FTDI
+ManufacturerId FT
+Description Chipi-X
+SerialNumber FTLTY1Q
+deviceType 9
+VendorId 0403
+ProductId 6015
+MaxPower 90
+SelfPowered 0
+RemoteWakeup 0
+PullDownEnable 0
+ACSlowSlew 0
+ACSchmittInput 0
+ACDriveCurrent 4
+ADSlowSlew 0
+ADSchmittInput 0
+ADDriveCurrent 4
+Cbus0 4
+Cbus1 4
+Cbus2 0
+Cbus3 5
+Cbus4 0
+Cbus5 0
+Cbus6 0
+InvertTXD 0
+InvertRXD 0
+InvertRTS 0
+InvertCTS 0
+InvertDTR 0
+InvertDSR 0
+InvertDCD 0
+InvertRI 0
+BCDEnable 0
+BCDForceCbusPWREN 0
+BCDDisableSleep 0
+I2CSlaveAddress 0
+I2CDeviceId 0
+I2CDisableSchmitt 0
+FT1248Cpol 0
+FT1248Lsb 0
+FT1248FlowControl 0
+RS485EchoSuppress 0
+PowerSaveEnable 0
+DriverType 1
+
+FT_EEPROM_Program status ok 0
+
+Manufacturer FTDI
+ManufacturerId FT
+Description Chipi-X
+SerialNumber FT12345
+deviceType 9
+
+                                                                              9
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 11 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                               Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+VendorId 0403
+ProductId 6015
+MaxPower 90
+SelfPowered 0
+RemoteWakeup 0
+PullDownEnable 0
+ACSlowSlew 0
+ACSchmittInput 0
+ACDriveCurrent 4
+ADSlowSlew 0
+ADSchmittInput 0
+ADDriveCurrent 4
+Cbus0 4
+Cbus1 4
+Cbus2 0
+Cbus3 5
+Cbus4 0
+Cbus5 0
+Cbus6 0
+InvertTXD 0
+InvertRXD 0
+InvertRTS 0
+InvertCTS 0
+InvertDTR 0
+InvertDSR 0
+InvertDCD 0
+InvertRI 0
+BCDEnable 0
+BCDForceCbusPWREN 0
+BCDDisableSleep 0
+I2CSlaveAddress 0
+I2CDeviceId 0
+I2CDisableSchmitt 0
+FT1248Cpol 0
+FT1248Lsb 0
+FT1248FlowControl 0
+RS485EchoSuppress 0
+PowerSaveEnable 0
+DriverType 1
+
+Press Return To End Program
+
+                   Figure 3.2 FT-X EEPROM Example Console Output
+
+                                                                             10
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 12 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+4 FT232H EEPROM Example
+
+The example code can be used with FT232H based hardware:
+
+      USB Hi-Speed cables
+       Development Module:
+          o  UM232H
+
+FT_EE_Read and FT_EE_Program D2XX EEPROM functions are used in this example. However
+FT_EEPROM_Read and FT_EEPROM_Program could also be used with the associated structure for
+FT232H. See Section 3 FT-X EEPROM Example which uses these functions.
+
+The UM232H is used in this example.
+
+The example code does the following:
+
+       Defines the FT_PROGRAM_DATA structure for FT232H.
+       Version is set to 5 for FT232H extensions.
+       Lists   All  FTDI  Devices  connected  to  the  PC  using  FT_CreateDeviceInfoList  and
+       FT_GetDeviceInfoList
+       For the first FT232H device found:
+          o  Open the device by description which can either be:
+                        UM232H (UM232H Module programmed value)
+                         Single RS232-HS (default IC factory value)
+          o  Read the EEPROM using FT_EE_Read
+                          If    the    external   EEPROM     is    blank    (return    value     is
+                  FT_EEPROM_NOT_PROGRAMMED), perform a programming routine initially
+                       with preset values using FT_EE_Program
+          o   Modify the serial number
+          o   Write to the EEPROM using FT_EE_Program
+          o  Read the EEPROM again using FT_EE_Read. The modified serial number should be
+             shown.
+          o  Performs FT_Close.
+
+Since the serial number is changed, the USB device will need to be re-enumerated by the USB
+Host for the changes to be seen on the PC. This can be done by unplug/replug or using the
+FT_CyclePort function.
+
+The example program flowchart is shown in Figure 4.1.
+
+The example program Windows console output is shown in Figure 4.2, when the EEPROM has
+already been programmed (non-blank) when the UM232H Module is used.
+
+The example source code can be downloaded here.
+
+                                                                            11
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 13 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+                                  Main
+
+                               List All FTDI Devices
+
+                         Using
+                          FT_CreateDeviceInfoList
+                      and FT_GetDeviceInfoList
+
+                              Loop Until:
+
+                              devInfo Type ==
+                          FT_DEVICE_232H
+
+                      FT_OpenEx
+                         Using
+                     FT_OPEN_BY_DESCRIPTION
+
+                            FT_EE_Read
+
+                                                          Y                                   Status =                                                                          FT_EE_Program
+                  FT_EEPROM_NOT_PROGRAMMED
+
+                      N
+
+                     ftData.SerialNumber = "FT12345";
+
+                            FT_EE_Program
+
+                             FT_EE_Read
+
+                               FT_Close
+
+                    Figure 4.1 FT232H EEPROM Example Flowchart
+
+                                                                            12
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 14 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                               Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+Number of devices is 1
+Dev 0:
+Flags=0x2
+Type=0x8
+ID=0x4036014
+LocId=0x113
+SerialNumber=FT12345
+Description=UM232H
+
+Open status OK 0
+
+EEPROM is already programmed! Reading EEPROM.
+
+Signature1 =  0x0000
+Signature2 =  0xffffffff
+Version =  0x0005
+VendorID =  0x0403
+ProductID =  0x6014
+Manufacturer =  FTDI
+ManufacturerID =  FT
+Description =  UM232H
+SerialNumber =  FT12345
+MaxPower =  90
+PnP =  1
+SelfPowered =  0
+RemoteWakeup =  0
+PullDownEnableH =  0
+SerNumEnableH =  1
+ACSlowSlewH =  0
+ACSchmittInputH =  0
+ACDriveCurrentH =  4
+ADSlowSlewH =  0
+ADSchmittInputH =  0
+ADDriveCurrentH =  4
+Cbus0H =  0
+Cbus1H =  0
+Cbus2H =  0
+Cbus3H =  0
+Cbus4H =  0
+Cbus5H =  0
+Cbus6H =  0
+Cbus7H =  0
+Cbus8H =  0
+Cbus9H =  0
+IsFifoH =  0
+IsFifoTarH =  0
+IsFastSerH =  0
+IsFT1248H =  0
+FT1248CpolH =  0
+FT1248LsbH =  0
+FT1248FlowControlH =  0
+IsVCPH =  1
+PowerSaveEnableH =  0
+
+EE_Program status ok 0
+
+Reading EEPROM to check changed values!
+
+Signature1 =  0x0000
+Signature2 =  0xffffffff
+Version =  0x0005
+VendorID =  0x0403
+ProductID =  0x6014
+
+                                                                             13
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 15 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                               Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+Manufacturer =  FTDI
+ManufacturerID =  FT
+Description =  UM232H
+SerialNumber =  FT12345
+MaxPower =  90
+PnP =  1
+SelfPowered =  0
+RemoteWakeup =  0
+PullDownEnableH =  0
+SerNumEnableH =  1
+ACSlowSlewH =  0
+ACSchmittInputH =  0
+ACDriveCurrentH =  4
+ADSlowSlewH =  0
+ADSchmittInputH =  0
+ADDriveCurrentH =  4
+Cbus0H =  0
+Cbus1H =  0
+Cbus2H =  0
+Cbus3H =  0
+Cbus4H =  0
+Cbus5H =  0
+Cbus6H =  0
+Cbus7H =  0
+Cbus8H =  0
+Cbus9H =  0
+IsFifoH =  0
+IsFifoTarH =  0
+IsFastSerH =  0
+IsFT1248H =  0
+FT1248CpolH =  0
+FT1248LsbH =  0
+FT1248FlowControlH =  0
+IsVCPH =  1
+PowerSaveEnableH =  0
+
+Press Return To End Program
+
+                  Figure 4.2 FT232H EEPROM Example Console Output
+
+                                                                             14
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 16 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+5 FT2232H EEPROM Example
+
+The example code can be used with FT2232H based hardware:
+
+       Development Modules:
+          o  FT2232H Mini-Module
+          o  FT2232H-56 Mini-Module
+      USB - RS232/422/485 modules:
+          o  USB-COM232-PLUS2
+          o  USB-COM422-PLUS2
+          o  USB-COM485-PLUS2
+      RPI-HUB-MODULE
+
+FT_EE_Read and FT_EE_Program D2XX EEPROM functions are used in this example. However
+FT_EEPROM_Read and FT_EEPROM_Program could also be used with the associated structure for
+FT2232H. See Section 3 FT-X EEPROM Example which uses these functions.
+
+The FT2232H Mini-Module is used in this example.
+
+The example code does the following:
+
+       Defines the FT_PROGRAM_DATA structure for FT2232H.
+       Version is set to 3 for FT2232H extensions.
+       Lists   All  FTDI  Devices  connected  to  the  PC  using  FT_CreateDeviceInfoList  and
+       FT_GetDeviceInfoList
+       For the first FT2232H device found:
+          o  Open the device by description which can either be:
+                        FT2232H_MM A (FT2232H Mini-Module programmed value)
+                         Dual RS232-HS A (default IC factory value)
+          o  Read the EEPROM using FT_EE_Read
+                          If    the    external   EEPROM     is    blank    (return    value     is
+                  FT_EEPROM_NOT_PROGRAMMED), perform a programming routine initially
+                       with preset values using FT_EE_Program
+          o   Modify the serial number
+          o   Write to the EEPROM using FT_EE_Program
+          o  Read the EEPROM again using FT_EE_Read. The modified serial number should be
+             shown.
+          o  Performs FT_Close.
+
+Since the serial number is changed, the USB device will need to be re-enumerated by the USB
+Host for the changes to be seen on the PC. This can be done by unplug/replug or using the
+FT_CyclePort function.
+
+The example program flowchart is shown in Figure 5.1.
+
+The example program Windows console output is shown in Figure 5.2, when the EEPROM has
+already been programmed (non-blank) when the FT2232H Mini-Module is used.
+
+The example source code can be downloaded here.
+
+                                                                            15
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 17 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+                                  Main
+
+                               List All FTDI Devices
+
+                         Using
+                          FT_CreateDeviceInfoList
+                      and FT_GetDeviceInfoList
+
+                              Loop Until:
+
+                              devInfo Type ==
+                         FT_DEVICE_2232H
+
+                      FT_OpenEx
+                         Using
+                     FT_OPEN_BY_DESCRIPTION
+
+                            FT_EE_Read
+
+                                                           Y
+                                   Status =                                                                          FT_EE_Program
+                  FT_EEPROM_NOT_PROGRAMMED
+
+                       N
+
+                     ftData.SerialNumber = "FT12345";
+
+                            FT_EE_Program
+
+                             FT_EE_Read
+
+                               FT_Close
+
+                   Figure 5.1 FT2232H EEPROM Example Flowchart
+
+                                                                            16
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 18 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                               Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+Number of devices is 2
+Dev 0:
+Flags=0x2
+Type=0x6
+ID=0x4036010
+LocId=0x1131
+SerialNumber=FTLIZK5A
+Description=FT2232H_MM A
+
+Dev 1:
+Flags=0x2
+Type=0x6
+ID=0x4036010
+LocId=0x1132
+SerialNumber=FTLIZK5B
+Description=FT2232H_MM B
+
+Open status OK 0
+
+EEPROM is already programmed! Reading EEPROM.
+
+Signature1 =  0x0000
+Signature2 =  0xffffffff
+Version =  0x0003
+VendorID =  0x0403
+ProductID =  0x6010
+Manufacturer =  FTDI
+ManufacturerID =  FT
+Description =  FT2232H_MM
+SerialNumber =  FTLIZK5
+MaxPower =  90
+PnP =  1
+SelfPowered =  0
+RemoteWakeup =  0
+PullDownEnable7 =  0
+SerNumEnable7 =  1
+ALSlowSlew =  0
+ALSchmittInput =  0
+ALDriveCurrent =  4
+AHSlowSlew =  0
+AHSchmittInput =  0
+AHDriveCurrent =  4
+BLSlowSlew =  0
+BLSchmittInput =  0
+BLDriveCurrent =  4
+BHSlowSlew =  0
+BHSchmittInput =  0
+BHDriveCurrent =  4
+IFAIsFifo7 =  0
+IFAIsFifoTar7 =  0
+IFAIsFastSer7 =  0
+AIsVCP7 =  1
+IFBIsFifo7 =  0
+IFBIsFifoTar7 =  0
+IFBIsFastSer7 =  0
+BIsVCP7 =  1
+PowerSaveEnable =  0
+
+EE_Program status ok 0
+
+Reading EEPROM to check changed values!
+
+Signature1 =  0x0000
+
+                                                                             17
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 19 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                               Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+Signature2 =  0xffffffff
+Version =  0x0003
+VendorID =  0x0403
+ProductID =  0x6010
+Manufacturer =  FTDI
+ManufacturerID =  FT
+Description =  FT2232H_MM
+SerialNumber =  FT12345
+MaxPower =  90
+PnP =  1
+SelfPowered =  0
+RemoteWakeup =  0
+PullDownEnable7 =  0
+SerNumEnable7 =  1
+ALSlowSlew =  0
+ALSchmittInput =  0
+ALDriveCurrent =  4
+AHSlowSlew =  0
+AHSchmittInput =  0
+AHDriveCurrent =  4
+BLSlowSlew =  0
+BLSchmittInput =  0
+BLDriveCurrent =  4
+BHSlowSlew =  0
+BHSchmittInput =  0
+BHDriveCurrent =  4
+IFAIsFifo7 =  0
+IFAIsFifoTar7 =  0
+IFAIsFastSer7 =  0
+AIsVCP7 =  1
+IFBIsFifo7 =  0
+IFBIsFifoTar7 =  0
+IFBIsFastSer7 =  0
+BIsVCP7 =  1
+PowerSaveEnable =  0
+
+Press Return To End Program
+
+                 Figure 5.2 FT2232H EEPROM Example Console Output
+
+                                                                             18
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 20 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+6 FT4232H EEPROM Example
+
+The example code can be used with FT4232H based hardware:
+
+       Development Modules:
+          o  FT4232H Mini-Module
+          o  FT4232H-56 Mini-Module
+      USB - RS232/422/485 modules:
+          o  USB-COM232-PLUS4
+          o  USB-COM422-PLUS4
+          o  USB-COM485-PLUS4
+
+FT_EE_Read and FT_EE_Program D2XX EEPROM functions are used in this example. However
+FT_EEPROM_Read and FT_EEPROM_Program could also be used with the associated structure for
+FT4232H. See Section 3 FT-X EEPROM Example which uses these functions.
+
+The FT4232H Mini-Module is used in this example.
+
+The example code does the following:
+
+       Defines the FT_PROGRAM_DATA structure for FT4232H.
+       Version is set to 4 for FT4232H extensions.
+       Lists   All  FTDI  Devices  connected  to  the  PC  using  FT_CreateDeviceInfoList  and
+       FT_GetDeviceInfoList
+       For the first FT4232H device found:
+          o  Open the device by description which can either be:
+                        FT4232H_MM A (FT4232H Mini-Module programmed value)
+                        Quad RS232-HS A (default IC factory value)
+          o  Read the EEPROM using FT_EE_Read
+                          If    the    external   EEPROM     is    blank    (return    value     is
+                  FT_EEPROM_NOT_PROGRAMMED), perform a programming routine initially
+                       with preset values using FT_EE_Program
+          o   Modify the serial number
+          o   Write to the EEPROM using FT_EE_Program
+          o  Read the EEPROM again using FT_EE_Read. The modified serial number should be
+             shown.
+          o  Performs FT_Close.
+
+Since the serial number is changed, the USB device will need to be re-enumerated by the USB
+Host for the changes to be seen on the PC. This can be done by unplug/replug or using the
+FT_CyclePort function.
+
+The example program flowchart is shown in Figure 6.1.
+
+The example program Windows console output is shown in Figure 6.2, when the EEPROM has
+already been programmed (non-blank). This is the case when the FT4232H Mini-Module is used.
+
+The example source code can be downloaded here.
+
+                                                                            19
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 21 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+                                  Main
+
+                               List All FTDI Devices
+
+                         Using
+                          FT_CreateDeviceInfoList
+                      and FT_GetDeviceInfoList
+
+                              Loop Until:
+
+                              devInfo Type ==
+                         FT_DEVICE_4232H
+
+                      FT_OpenEx
+                         Using
+                     FT_OPEN_BY_DESCRIPTION
+
+                            FT_EE_Read
+
+                                                           Y                                   Status =                                                                          FT_EE_Program
+                  FT_EEPROM_NOT_PROGRAMMED
+
+                       N
+
+                     ftData.SerialNumber = "FT12345";
+
+                            FT_EE_Program
+
+                             FT_EE_Read
+
+                               FT_Close
+
+                   Figure 6.1 FT4232H EEPROM Example Flowchart
+
+                                                                            20
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 22 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                               Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+Number of devices is 4
+Dev 0:
+Flags=0x2
+Type=0x7
+ID=0x4036011
+LocId=0x1131
+SerialNumber=FT12345A
+Description=FT4232H_MM A
+
+Dev 1:
+Flags=0x2
+Type=0x7
+ID=0x4036011
+LocId=0x1132
+SerialNumber=FT12345B
+Description=FT4232H_MM B
+
+Dev 2:
+Flags=0x2
+Type=0x7
+ID=0x4036011
+LocId=0x1133
+SerialNumber=FT12345C
+Description=FT4232H_MM C
+
+Dev 3:
+Flags=0x2
+Type=0x7
+ID=0x4036011
+LocId=0x1134
+SerialNumber=FT12345D
+Description=FT4232H_MM D
+
+Open status OK 0
+
+EEPROM is already programmed! Reading EEPROM.
+Signature1 =  0x0000
+Signature2 =  0xffffffff
+Version =  0x0004
+VendorID =  0x0403
+ProductID =  0x6011
+Manufacturer =  FTDI
+ManufacturerID =  FT
+Description =  FT4232H_MM
+SerialNumber =  FT12345
+MaxPower =  90
+PnP =  1
+SelfPowered =  0
+RemoteWakeup =  0
+PullDownEnable8 =  0
+SerNumEnable8 =  1
+ASlowSlew =  0
+ASchmittInput =  0
+ADriveCurrent =  4
+BSlowSlew =  0
+BSchmittInput =  0
+BDriveCurrent =  4
+CSlowSlew =  0
+CSchmittInput =  0
+CDriveCurrent =  4
+DSlowSlew =  0
+DSchmittInput =  0
+DDriveCurrent =  4
+
+                                                                             21
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 23 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                               Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+ARIIsTXDEN =  0
+BRIIsTXDEN =  0
+CRIIsTXDEN =  0
+DRIIsTXDEN =  0
+AIsVCP8 =  1
+BIsVCP8 =  1
+CIsVCP8 =  1
+DIsVCP8 =  1
+
+EE_Program status ok 0
+
+Reading EEPROM to check changed values!
+
+Signature1 =  0x0000
+Signature2 =  0xffffffff
+Version =  0x0004
+VendorID =  0x0403
+ProductID =  0x6011
+Manufacturer =  FTDI
+ManufacturerID =  FT
+Description =  FT4232H_MM
+SerialNumber =  FT12345
+MaxPower =  90
+PnP =  1
+SelfPowered =  0
+RemoteWakeup =  0
+PullDownEnable8 =  0
+SerNumEnable8 =  1
+ASlowSlew =  0
+ASchmittInput =  0
+ADriveCurrent =  4
+BSlowSlew =  0
+BSchmittInput =  0
+BDriveCurrent =  4
+CSlowSlew =  0
+CSchmittInput =  0
+CDriveCurrent =  4
+DSlowSlew =  0
+DSchmittInput =  0
+DDriveCurrent =  4
+ARIIsTXDEN =  0
+BRIIsTXDEN =  0
+CRIIsTXDEN =  0
+DRIIsTXDEN =  0
+AIsVCP8 =  1
+BIsVCP8 =  1
+CIsVCP8 =  1
+DIsVCP8 =  1
+
+Press Return To End Program
+
+                 Figure 6.2 FT4232H EEPROM Example Console Output
+
+                                                                             22
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 24 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+7 Conclusion
+
+FTDI’s D2XX Drivers allow for users to read and program the EEPROM directly.
+
+This could be used  in production type environments to quickly read and program EEPROM
+connected internally or external to FTDI USB devices.
+
+The code examples provided are examples only and can be enhanced by users to meet specific
+needs.
+
+                                                                            23
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 25 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+8 Contact Information
+
+Head Office – Glasgow, UK                 Branch Office – Tigard, Oregon, USA
+
+Future Technology Devices International Limited         Future Technology Devices International Limited
+Unit 1, 2 Seaward Place, Centurion Business Park       (USA)
+Glasgow G41 1HH                               7130 SW Fir Loop
+United Kingdom                                          Tigard, OR 97223-8160
+Tel: +44 (0) 141 429 2777                      USA
+Fax: +44 (0) 141 429 2758                               Tel: +1 (503) 547 0988
+                                                    Fax: +1 (503) 547 0987
+E-mail (Sales)              sales1@ftdichip.com
+E-mail (Support)           support1@ftdichip.com      E-Mail (Sales)                 us.sales@ftdichip.com
+E-mail (General Enquiries)  admin1@ftdichip.com       E-Mail (Support)              us.support@ftdichip.com
+                                                         E-Mail (General Enquiries)     us.admin@ftdichip.com
+
+Branch Office – Taipei, Taiwan              Branch Office – Shanghai, China
+
+Future Technology Devices International Limited         Future Technology Devices International Limited
+(Taiwan)                                              (China)
+2F, No. 516, Sec. 1, NeiHu Road                  Room 1103, No. 666 West Huaihai Road,
+Taipei 114                                           Shanghai, 200052
+Taiwan , R.O.C.                                      China
+Tel: +886 (0) 2 8797 1330                                Tel: +86 21 62351596
+Fax: +886 (0) 2 8751 9737                           Fax: +86 21 62351595
+
+E-mail (Sales)              tw.sales1@ftdichip.com     E-mail (Sales)                cn.sales@ftdichip.com
+E-mail (Support)           tw.support1@ftdichip.com  E-mail (Support)              cn.support@ftdichip.com
+E-mail (General Enquiries)  tw.admin1@ftdichip.com    E-mail (General Enquiries)    cn.admin@ftdichip.com
+
+Web Site
+
+http://ftdichip.com
+
+Distributor and Sales Representatives
+
+Please visit the Sales Network page of the FTDI Web site for the contact details of our distributor(s) and sales
+representative(s) in your country.
+
+System and equipment manufacturers and designers are responsible to ensure that their systems, and any Future Technology
+Devices International Ltd (FTDI) devices incorporated in their systems, meet all applicable safety, regulatory and system-level
+performance requirements. All application-related information in this document (including application descriptions, suggested
+FTDI devices and other materials) is provided for reference only. While FTDI has taken care to assure  it is accurate, this
+information is subject to customer confirmation, and FTDI disclaims all liability for system designs and for any applications
+assistance provided by FTDI. Use of FTDI devices in life support and/or safety applications is entirely at the user’s risk, and the
+user agrees to defend, indemnify and hold harmless FTDI from any and all damages, claims, suits or expense resulting from
+such use. This document is subject to change without notice. No freedom to use patents or other intellectual property rights is
+implied by the publication of this document. Neither the whole nor any part of the information contained in, or the product
+described in this document, may be adapted or reproduced in any material or electronic form without the prior written consent
+of the copyright holder. Future Technology Devices International Ltd, Unit 1, 2 Seaward Place, Centurion Business Park,
+Glasgow G41 1HH, United Kingdom. Scotland Registered Company Number: SC136640
+
+                                                                            24
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 26 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+Appendix A – References
+
+Document References
+
+FT232R Product Page
+
+FT-X Series found in Product ICs page
+
+FT232H Product Page
+
+FT2232H Product Page
+
+FT4232H Product Page
+
+D2XX Drivers
+
+D2XX Programmer's Guide
+
+FT_PROG
+
+Cables
+
+Development Modules
+
+USB - RS232/422/485 Modules
+
+AN_201 FT-X MTP memory Configuration
+
+AN_121 Accessing The EEPROM User Area Of FTDI Devices
+
+AN_136_Hi-Speed Mini Module EEPROM Disaster Recovery
+
+AN_124 User Guide for FTDI FT_PROG Utility
+
+EEPROM Examples Source Code:
+
+http://www.ftdichip.com/Support/SoftwareExamples/CodeExamples/VC++/AN_428_D2XX_EEPRO
+M_Programming_Examples.zip
+
+Acronyms and Abbreviations
+
+      Terms         Description
+
+     EEPROM           Electrically Erasable Programmable Read-Only Memory
+
+       GUI           Graphical User Interface
+
+         IC            Integrated Circuit
+
+      NDA           Non-Disclosure Agreement
+
+       USB           Universal Serial Bus
+
+                                                                            25
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 27 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+Appendix B – List of Tables & Figures
+
+List of Tables
+
+NA
+
+List of Figures
+
+Figure 2.1 FT232R EEPROM Example Flowchart ....................................................................... 4
+
+Figure 2.2 FT232R EEPROM Example Console Output ............................................................... 6
+
+Figure 3.1 FT-X EEPROM Example Flowchart ........................................................................... 8
+
+Figure 3.2 FT-X EEPROM Example Console Output ................................................................. 10
+
+Figure 4.1 FT232H EEPROM Example Flowchart .................................................................... 12
+
+Figure 4.2 FT232H EEPROM Example Console Output ............................................................ 14
+
+Figure 5.1 FT2232H EEPROM Example Flowchart ................................................................... 16
+
+Figure 5.2 FT2232H EEPROM Example Console Output ........................................................... 18
+
+Figure 6.1 FT4232H EEPROM Example Flowchart ................................................................... 20
+
+Figure 6.2 FT4232H EEPROM Example Console Output ........................................................... 22
+
+                                                                            26
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
+
+===== PAGE 28 =====
+Application Note
+                         AN_428 D2XX EEPROM Programming Examples
+                                                                                                              Version 1.0
+
+                                                 Document Reference No.: FT_001378   Clearance No.: FTDI#529
+
+Appendix C – Revision History
+
+Document Title:            AN_428 D2XX EEPROM Programming Examples
+
+Document Reference No.:     FT_001378
+
+Clearance No.:             FTDI#529
+
+Product Page:                http://www.ftdichip.com/FTProducts.htm
+
+Document Feedback:        Send Feedback
+
+  Revision    Changes                                            Date
+
+     1.0          Initial Release                                         2017-05-17
+
+                                                                            27
+Product Page
+Document Feedback                                           Copyright © Future Technology Devices International Limited
