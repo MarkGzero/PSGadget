@@ -2,17 +2,30 @@
 
 Control LEDs, drive an OLED screen, and talk to microcontrollers from PowerShell.
 
-**PowerShell**: 5.1+  |  **Platforms**: Windows, Linux, macOS
+**PowerShell**: 5.1+  |  **Platforms**: Windows, Linux, macOS  |  **[PSGallery](https://www.powershellgallery.com/packages/PSGadget)**
+
+---
+
+## Install
+
+```powershell
+Install-Module PSGadget
+```
+
+Or install a specific version:
+
+```powershell
+Install-Module PSGadget -RequiredVersion 0.3.7
+```
 
 ---
 
 ## Quick Start
 
 ```powershell
-Import-Module ./PSGadget.psd1
+Import-Module PSGadget
 Test-PsGadgetEnvironment -Verbose
 Get-FTDevice
-# Alias: Get-PsGadgetFtdi
 Set-PsGadgetGpio -Index 0 -Pins @(0) -State HIGH
 ```
 
