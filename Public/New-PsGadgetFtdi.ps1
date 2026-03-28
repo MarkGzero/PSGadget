@@ -1,3 +1,4 @@
+#Requires -Version 5.1
 # New-PsGadgetFtdi.ps1
 # Factory function to create and connect a PsGadgetFtdi instance.
 # Because PowerShell module classes are not exported to the caller's type scope,
@@ -77,7 +78,7 @@ function New-PsGadgetFtdi {
     PsGadgetFtdi  (already connected, IsOpen = $true)
     #>
 
-    [CmdletBinding(DefaultParameterSetName = 'ByIndex')]
+    [CmdletBinding(DefaultParameterSetName = 'ByIndex', SupportsShouldProcess = $true)]
     [OutputType('PsGadgetFtdi')]
     param(
         [Parameter(Mandatory = $true, ParameterSetName = 'BySerial', Position = 0)]
@@ -111,6 +112,8 @@ function New-PsGadgetFtdi {
     # Connect immediately - mirrors MicroPython construction-implies-connection convention.
     # .Connect() is idempotent: if already open it returns immediately; if closed it reconnects.
     $dev.DisplayHeight = $DisplayHeight
-    $dev.Connect()
+    if ($PSCmdlet.ShouldProcess($dev.Description, 'Connect')) {
+        $dev.Connect()
+    }
     return $dev
 }

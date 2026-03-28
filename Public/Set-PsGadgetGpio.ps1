@@ -1,3 +1,4 @@
+#Requires -Version 5.1
 # Set-PsGadgetGpio.ps1
 # Public GPIO control function for FTDI devices
 
@@ -73,18 +74,23 @@ function Set-PsGadgetGpio {
     Set-PsGadgetGpio -Index 0 -Pins @(4) -State HIGH   # Green LED on
     Set-PsGadgetGpio -Index 0 -Pins @(2, 4) -State LOW  # Both off
     
+    .PARAMETER PassThru
+    If specified, returns a PSCustomObject describing the operation result.
+    By default this function produces no output.
+
     .NOTES
     Requires FTDI D2XX drivers and FTD2XX_NET.dll assembly.
     FT232H MPSSE: ACBUS0-7 = physical pins 21,25-31.
     FT232R CBUS: CBUS0-3 require prior EEPROM configuration via Set-PsGadgetFt232rCbusMode.
     Use Get-PsGadgetFtdi to see available devices.
     #>
-    
-    [CmdletBinding(DefaultParameterSetName = 'ByIndex')]
+
+    [CmdletBinding(DefaultParameterSetName = 'ByIndex', SupportsShouldProcess = $true)]
+    [OutputType([void])]
     param(
         [Parameter(Mandatory = $true, ParameterSetName = 'ByIndex', Position = 0)]
         [int]$Index,
-        
+
         [Parameter(Mandatory = $true, ParameterSetName = 'BySerial')]
         [string]$SerialNumber,
 
@@ -95,18 +101,21 @@ function Set-PsGadgetGpio {
         [Parameter(Mandatory = $true, ParameterSetName = 'PsGadget', Position = 0)]
         [ValidateNotNull()]
         [PsGadgetFtdi]$PsGadget,
-        
+
         [Parameter(Mandatory = $true, Position = 1)]
         [ValidateRange(0, 7)]
         [int[]]$Pins,
-        
+
         [Parameter(Mandatory = $true, Position = 2)]
         [ValidateSet('HIGH', 'LOW', 'H', 'L', '1', '0')]
         [string]$State,
-        
+
         [Parameter(Mandatory = $false)]
         [ValidateRange(1, 60000)]
-        [int]$DurationMs
+        [int]$DurationMs,
+
+        [Parameter()]
+        [switch]$PassThru
     )
     
     try {
@@ -173,8 +182,11 @@ function Set-PsGadgetGpio {
 
             Write-Verbose "Device $($Connection.Type): GpioMethod=$gpioMethod, pins=[$($Pins -join ',')], state=$State"
 
+            if (-not $PSCmdlet.ShouldProcess("$($Connection.Type) pins [$($Pins -join ',')]", "Set $State")) {
+                return
+            }
+
             $success = $false
-            $pinLabel = ''
 
             switch ($gpioMethod) {
                 'MPSSE' {
@@ -187,7 +199,6 @@ function Set-PsGadgetGpio {
                     if ($DurationMs) { $params.DurationMs = $DurationMs }
 
                     $success  = Set-FtdiGpioPins @params
-                    $pinLabel = "ACBUS pins [$($Pins -join ', ')]"
                 }
 
                 'IoT' {
@@ -204,7 +215,6 @@ function Set-PsGadgetGpio {
                     if ($DurationMs) { $iotParams.DurationMs = $DurationMs }
 
                     $success  = Set-FtdiIotGpioPins @iotParams
-                    $pinLabel = "ACBUS pins [$($Pins -join ', ')] (IoT)"
                 }
 
                 'CBUS' {
@@ -226,7 +236,6 @@ function Set-PsGadgetGpio {
                     if ($DurationMs) { $cbusParams.DurationMs = $DurationMs }
 
                     $success  = Set-FtdiCbusBits @cbusParams
-                    $pinLabel = "CBUS pins [$($Pins -join ', ')]"
                 }
 
                 'AsyncBitBang' {
@@ -254,7 +263,7 @@ function Set-PsGadgetGpio {
                         # clear outputs after duration
                         $Connection.Write([byte[]]@(0), 1, [ref]$written) | Out-Null
                     }
-                    $pinLabel = "ADBUS pins [$($Pins -join ', ')]"
+
                     $success = $true
                 }
 
@@ -268,7 +277,6 @@ function Set-PsGadgetGpio {
                     }
                     if ($DurationMs) { $params.DurationMs = $DurationMs }
                     $success  = Set-FtdiGpioPins @params
-                    $pinLabel = "pins [$($Pins -join ', ')]"
                 }
             }
 
@@ -286,7 +294,24 @@ function Set-PsGadgetGpio {
                 }
             }
         }
-        
+
+        if ($PassThru) {
+            $resolvedSerial = ''
+            if ($PSBoundParameters.ContainsKey('Connection')) {
+                $resolvedSerial = 'via-connection'
+            } elseif ($PSBoundParameters.ContainsKey('SerialNumber')) {
+                $resolvedSerial = $SerialNumber
+            }
+            [PSCustomObject]@{
+                Index        = if ($PSBoundParameters.ContainsKey('Index')) { $Index } else { -1 }
+                SerialNumber = $resolvedSerial
+                Pins         = $Pins
+                State        = $State
+                DurationMs   = if ($PSBoundParameters.ContainsKey('DurationMs')) { $DurationMs } else { 0 }
+                Timestamp    = [datetime]::UtcNow
+            }
+        }
+
     } catch {
         Write-Error "GPIO control failed: $_"
         throw

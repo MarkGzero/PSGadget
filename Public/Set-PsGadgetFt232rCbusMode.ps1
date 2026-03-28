@@ -52,9 +52,6 @@ function Set-PsGadgetFt232rCbusMode {
     .PARAMETER Mode
     The FT_CBUS_OPTIONS mode name to write. Defaults to FT_CBUS_IOMODE (GPIO).
 
-    .PARAMETER WhatIf
-    Shows what EEPROM change would be made without writing anything.
-
     .EXAMPLE
     # Configure all four CBUS pins as GPIO on device 0 (most common usage):
     Set-PsGadgetFt232rCbusMode -Index 0

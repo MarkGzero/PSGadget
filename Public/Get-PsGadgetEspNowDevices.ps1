@@ -42,6 +42,7 @@ function Get-PsGadgetEspNowDevices {
         Returns empty array if file not found or contains no valid entries.
     #>
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$SerialPort,

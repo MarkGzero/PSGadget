@@ -1,3 +1,4 @@
+#Requires -Version 5.1
 # Test-PsGadgetEnvironment.ps1
 # Diagnostic command to verify the PsGadget environment and hardware readiness
 

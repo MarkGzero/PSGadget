@@ -1,0 +1,66 @@
+name: PSScriptAnalyzer lint
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Public/**'
+      - 'Private/**'
+      - 'Classes/**'
+      - 'PSGadget.psm1'
+      - 'PSGadget.psd1'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Public/**'
+      - 'Private/**'
+      - 'Classes/**'
+      - 'PSGadget.psm1'
+      - 'PSGadget.psd1'
+
+jobs:
+  lint:
+    name: PSScriptAnalyzer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $rules = @(
+            'PSProvideCommentHelp',
+            'PSUseCmdletCorrectly',
+            'PSUseOutputTypeCorrectly',
+            'PSAvoidUsingWriteHost',
+            'PSUseApprovedVerbs',
+            'PSAvoidUsingPositionalParameters',
+            'PSUseShouldProcessForStateChangingFunctions',
+            'PSAvoidUsingAlias'
+          )
+
+          $paths = @('Public', 'Private', 'Classes', 'PSGadget.psm1')
+          $results = @()
+
+          foreach ($path in $paths) {
+            if (Test-Path $path) {
+              $results += Invoke-ScriptAnalyzer -Path $path -RecurseCustomRulePath $false `
+                -IncludeRule $rules -Recurse
+            }
+          }
+
+          if ($results.Count -gt 0) {
+            $results | Format-Table -AutoSize
+            Write-Error "PSScriptAnalyzer found $($results.Count) violation(s). Fix before merging."
+            exit 1
+          } else {
+            Write-Host '[OK] PSScriptAnalyzer: no violations found'
+          }
