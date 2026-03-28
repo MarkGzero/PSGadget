@@ -52,6 +52,7 @@ function Set-PsGadgetConfig {
     See:  Get-Help about_PsGadgetConfig   for a full description of every setting.
     #>
     [CmdletBinding(SupportsShouldProcess)]
+    [OutputType([void])]
     param(
         [Parameter(Mandatory = $true, Position = 0)]
         [ValidateSet(

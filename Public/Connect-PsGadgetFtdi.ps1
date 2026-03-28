@@ -1,3 +1,4 @@
+#Requires -Version 5.1
 # Connect-PsGadgetFtdi.ps1
 # Connect to an FTDI device
 
@@ -20,9 +21,8 @@ function Connect-PsGadgetFtdi {
     .PARAMETER LocationId
     Alternative to Index/SerialNumber - connect by USB LocationId (hub+port address).
     LocationId is stable for a fixed physical USB port. Use Get-FTDevice to find the value.
+    Call $Connection.Close() when finished.
 
-    $Connection.Close()
-    
     .EXAMPLE
     $Connection = Connect-PsGadgetFtdi -SerialNumber "ABC123"
     # Use connection for GPIO or serial operations
@@ -39,6 +39,7 @@ function Connect-PsGadgetFtdi {
     #>
     
     [CmdletBinding(DefaultParameterSetName = 'ByIndex')]
+    [OutputType([System.Object])]
     param(
         [Parameter(Mandatory = $true, ParameterSetName = 'ByIndex', Position = 0)]
         [int]$Index,

@@ -1,3 +1,4 @@
+#Requires -Version 5.1
 # Get-FTDevice.ps1
 # Enumerate available FTDI devices
 
@@ -59,8 +60,8 @@ function Get-FTDevice {
         if (-not $ShowVCP) {
             $Filtered = @($Devices | Where-Object { -not $_.IsVcp })
             if ($Filtered.Count -eq 0) {
-                $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
-                if ($isWindows) {
+                $runningOnWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+                if ($runningOnWindows) {
                     Write-Warning (
                         "No PsGadget-compatible FTDI devices found.`n" +
                         "`n" +

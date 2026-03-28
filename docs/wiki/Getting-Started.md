@@ -19,7 +19,19 @@ making your first GPIO call on each supported device type.
 
 ## Installation
 
-PSGadget is a local module -- clone or copy the folder, then import by path.
+### Option A -- PSGallery (recommended)
+
+```powershell
+Install-Module PSGadget
+Import-Module PSGadget
+```
+
+The module auto-creates `~/.psgadget/` with `logs/` and a default
+`config.json` on first import.
+
+### Option B -- from source
+
+Use this path for the latest development build or to contribute changes.
 
 ```powershell
 # Clone the repo
@@ -50,6 +62,33 @@ Get-PsGadgetConfig
 
 The first import also creates `~/.psgadget/` with `logs/` and a default
 `config.json`.
+
+---
+
+## Before you start -- verify the environment
+
+Run this before anything else. It checks PS version, backend selection,
+native library presence, and device enumeration, and returns a structured
+result with a `NextStep` hint if anything is wrong.
+
+```powershell
+Test-PsGadgetEnvironment -Verbose
+```
+
+Expected output when everything is ready:
+
+```
+Status      : OK
+Reason      : All checks passed
+NextStep    :
+Backend     : IoT
+BackendReady: True
+DeviceCount : 1
+IsReady     : True
+```
+
+If `Status` is `Fail`, stop here and follow the `NextStep` instruction.
+Do not proceed to Step 1 until `IsReady` is `True`.
 
 ---
 
@@ -154,13 +193,62 @@ sudo ln -sf /usr/local/lib/libftd2xx.so.* /usr/local/lib/libftd2xx.so
 sudo ldconfig
 
 # 3. Allow non-root access (create udev rule):
-echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", MODE="0666"' | \
-    sudo tee /etc/udev/rules.d/99-ftdi.rules
+# Add your user to the plugdev group first (log out and back in after):
+sudo usermod -aG plugdev "$USER"
+
+echo 'SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", MODE="0664", GROUP="plugdev"' | \
+    sudo tee /etc/udev/rules.d/99-ftdi-d2xx.rules
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
 
 Once installed, the IoT warning disappears and GPIO is fully functional.
+
+---
+
+## Pin numbering quick reference
+
+PSGadget uses logical pin numbers, not physical IC pin numbers.
+
+### FT232H (MPSSE) -- ACBUS pins
+
+The `-Pins` parameter maps to ACBUS signals on the FT232H breakout header.
+
+| Pins value | Signal name | Adafruit #2264 header label |
+| ---------- | ----------- | --------------------------- |
+| 0 | ACBUS0 | C0 |
+| 1 | ACBUS1 | C1 |
+| 2 | ACBUS2 | C2 |
+| 3 | ACBUS3 | C3 |
+| 4 | ACBUS4 | C4 |
+| 5 | ACBUS5 | C5 |
+| 6 | ACBUS6 | C6 |
+| 7 | ACBUS7 | C7 |
+
+ACBUS0 is the C0 pin on the Adafruit FT232H breakout (the row of pins
+labeled C0-C7 on the board silkscreen). To blink an LED: connect the
+anode through a 330-ohm resistor to C0, cathode to GND.
+
+### FT232R (CBUS) -- CBUS pins
+
+| Pins value | Signal name | Notes |
+| ---------- | ----------- | ----- |
+| 0 | CBUS0 | Requires EEPROM setup first |
+| 1 | CBUS1 | Requires EEPROM setup first |
+| 2 | CBUS2 | Requires EEPROM setup first |
+| 3 | CBUS3 | Requires EEPROM setup first |
+
+Run `Set-PsGadgetFt232rCbusMode -Index N` once per device before using CBUS GPIO.
+
+### SSD1306 I2C wiring (FT232H MPSSE)
+
+| Signal | FT232H pin | Header label |
+| ------ | ---------- | ------------ |
+| SCL | ADBUS0 | D0 |
+| SDA | ADBUS1 | D1 |
+| GND | GND | GND |
+
+Pull-up resistors (4.7 kohm) are required on SCL and SDA to 3.3V.
 
 ---
 

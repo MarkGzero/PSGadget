@@ -6,15 +6,52 @@ Control LEDs, drive an OLED screen, and talk to microcontrollers from PowerShell
 
 ---
 
+## Install
+
+**From PSGallery (recommended for most users):**
+
+```powershell
+Install-Module PSGadget
+```
+
+Or pin to a specific version:
+
+```powershell
+Install-Module PSGadget -RequiredVersion 0.3.7
+```
+
+**From source (latest development build):**
+
+```powershell
+git clone https://github.com/MarkGzero/PSGadget.git
+Import-Module ./PSGadget/PSGadget.psd1
+```
+
+PSGallery releases lag source by one version at most. Use the source path
+if you need a fix that has not been published yet, or to contribute changes.
+
+---
+
 ## Quick Start
 
 ```powershell
-Import-Module ./PSGadget.psd1
+Import-Module PSGadget
+
+# Always run this first -- it tells you if everything is ready
+# and prints a NextStep hint if anything is wrong
 Test-PsGadgetEnvironment -Verbose
+
+# List connected FTDI devices
 Get-FTDevice
-# Alias: Get-PsGadgetFtdi
+
+# Set ACBUS0 HIGH on device at index 0 (FT232H)
+# Pin numbers map to ACBUS0-7 on FT232H, CBUS0-3 on FT232R
 Set-PsGadgetGpio -Index 0 -Pins @(0) -State HIGH
 ```
+
+If `Test-PsGadgetEnvironment` reports `Status: Fail`, read the `NextStep`
+field -- it gives you the exact command to run to fix the problem.
+See [Troubleshooting](docs/wiki/Troubleshooting.md) for a full symptom index.
 
 ---
 
