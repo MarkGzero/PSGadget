@@ -283,6 +283,10 @@ function Set-PsGadgetGpio {
             if (-not $success) {
                 throw "GPIO operation failed"
             }
+
+            foreach ($p in $Pins) {
+                Write-Verbose "  pin $p → $State"
+            }
             
         } finally {
             # Only close the connection if this function opened it

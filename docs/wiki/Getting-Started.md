@@ -78,7 +78,7 @@ Test-PsGadgetEnvironment -Verbose
 Expected output when everything is ready:
 
 ```
-Status      : OK
+Status      : READY
 Reason      : All checks passed
 NextStep    :
 Backend     : IoT
@@ -95,22 +95,23 @@ Do not proceed to Step 1 until `IsReady` is `True`.
 ## Step 1 -- Find Your Device
 
 ```powershell
-Get-FtdiDevice | Format-Table
+Get-FtdiDevice | Format-Table -Property Index, Type, SerialNumber, LocationId
 ```
 
 Example output on Windows with one FT232H and one FT232R plugged in (Linux output is similar -- see [Linux Setup](#linux-setup)):
 
 ```
-Index  Description          SerialNumber  LocationId  Type    GpioMethod  HasMpsse
------  -----------          ------------  ----------  ----    ----------  --------
-  0    USB Serial Converter FT4ABCDE      197634      FT232H  MPSSE       True
-  1    USB Serial Adapter   BG01X3GX      197635      FT232R  CBUS        False
-  2    USB Serial Adapter   BG01X3GXA     0           FT232R  CBUS        False   <- VCP view of same device
+Index  Type    SerialNumber  LocationId
+-----  ----    ------------  ----------
+  0    FT232H  FT4ABCDE      197634
+  1    FT232R  BG01X3GX      197635
 ```
 
-The `GpioMethod` column tells you which GPIO mechanism the device uses:
-- **MPSSE** (FT232H) -- GPIO immediately available on ACBUS0-7
-- **CBUS** (FT232R) -- requires one-time EEPROM setup before GPIO is usable
+(`-ShowVCP` adds VCP-mode entries if your device appears twice -- once as D2XX, once as a COM port.)
+
+The `Type` column tells you which GPIO mechanism is available:
+- **FT232H** -- MPSSE, ACBUS0-7 usable immediately
+- **FT232R** -- CBUS bit-bang, requires one-time EEPROM setup before GPIO is usable
 
 ---
 

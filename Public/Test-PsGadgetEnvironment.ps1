@@ -255,7 +255,7 @@ function Test-PsGadgetEnvironment {
 
     # Derive Status / Reason / NextStep for structured return
     if ($isReady) {
-        $resultStatus   = 'OK'
+        $resultStatus   = 'READY'
         $resultReason   = 'All checks passed'
         $resultNextStep = 'Run: Get-FtdiDevice | Format-Table'
     } elseif (-not $backendOk -and $isSnapPwsh) {

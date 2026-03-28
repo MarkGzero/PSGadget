@@ -64,10 +64,10 @@ twice -- once with `Driver = ftd2xx.dll` (use for PSGadget) and once as
 entry appends "A".
 
 ```powershell
-Get-FtdiDevice | Format-Table
+Get-FtdiDevice | Format-Table -Property Index, Type, SerialNumber, LocationId
 
-# Find only D2XX-accessible devices
-Get-FtdiDevice | Where-Object Driver -eq "ftd2xx.dll" | Format-Table Index, SerialNumber, LocationId
+# Include VCP-mode devices (not usable with PsGadget, but useful for diagnostics)
+Get-FtdiDevice -ShowVCP | Format-Table -Property Index, Type, SerialNumber, IsVcp
 ```
 
 ---
@@ -553,7 +553,7 @@ enumeration, and configuration file. Returns a structured object.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| Status | string | `OK` or `Fail` |
+| Status | string | `READY` or `Fail` |
 | Reason | string | First failing check, or `All checks passed` |
 | NextStep | string | Actionable guidance if not ready; empty when OK |
 | Platform | string | OS / PS version / .NET version |

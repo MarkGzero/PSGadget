@@ -30,7 +30,7 @@ Import-Module PSGadget
 
 function Assert-PsGadgetReady {
     $result = Test-PsGadgetEnvironment
-    if ($result.Status -ne 'OK') {
+    if ($result.Status -ne 'READY') {
         throw "PSGadget not ready: $($result.Reason). Fix: $($result.NextStep)"
     }
     return $result

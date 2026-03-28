@@ -32,6 +32,16 @@ if you need a fix that has not been published yet, or to contribute changes.
 
 ---
 
+## Prerequisites
+
+**Windows only**: PSGadget requires the FTDI D2XX driver (not the default VCP/COM port driver).
+If `Get-FtdiDevice` returns nothing, install D2XX via [Zadig](https://zadig.akeo.ie):
+select your device, choose **WinUSB**, click **Install Driver**, then reconnect.
+
+**Linux/macOS**: install `libftd2xx` — see [Getting Started](docs/wiki/Getting-Started.md).
+
+---
+
 ## Quick Start
 
 ```powershell
