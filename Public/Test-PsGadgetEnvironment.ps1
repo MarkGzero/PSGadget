@@ -160,13 +160,13 @@ function Test-PsGadgetEnvironment {
     $deviceNote = 'None found'
 
     try {
-        $allFtdiDevices = @(Get-FTDevice -ShowVCP -WarningAction SilentlyContinue -ErrorAction SilentlyContinue)
+        $allFtdiDevices = @(Get-FtdiDevice -ShowVCP -WarningAction SilentlyContinue -ErrorAction SilentlyContinue)
         $devices  = @($allFtdiDevices | Where-Object { -not $_.IsVcp })
         $vcpCount = ($allFtdiDevices | Where-Object { $_.IsVcp }).Count
         if ($devices.Count -gt 0) {
             $deviceNote = "$($devices.Count) device(s) found"
         } elseif ($vcpCount -gt 0) {
-            $deviceNote = "None (D2XX) -- $vcpCount in VCP mode (run Get-FTDevice -ShowVCP)"
+            $deviceNote = "None (D2XX) -- $vcpCount in VCP mode (run Get-FtdiDevice -ShowVCP)"
         }
     } catch {
         $deviceNote = "Enumeration failed: $($_.Exception.Message)"
@@ -257,7 +257,7 @@ function Test-PsGadgetEnvironment {
     if ($isReady) {
         $resultStatus   = 'OK'
         $resultReason   = 'All checks passed'
-        $resultNextStep = 'Run: Get-PsGadgetFtdi | Format-Table'
+        $resultNextStep = 'Run: Get-FtdiDevice | Format-Table'
     } elseif (-not $backendOk -and $isSnapPwsh) {
         $resultStatus   = 'Fail'
         $resultReason   = 'snap-confined pwsh: GLIBC mismatch prevents libftd2xx.so from loading (snap bundled glibc is older than library requirement)'
@@ -311,7 +311,7 @@ function Test-PsGadgetEnvironment {
 
     if ($isReady) {
         Write-Verbose 'All checks passed. Hardware is ready.'
-        Write-Verbose 'Quick start: Get-PsGadgetFtdi | Format-Table'
+        Write-Verbose 'Quick start: Get-FtdiDevice | Format-Table'
         Write-Verbose 'Then:        $dev = New-PsGadgetFtdi -SerialNumber <SN>'
     }
 

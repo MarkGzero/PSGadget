@@ -8,7 +8,7 @@ by category. Use `Get-Help <FunctionName>` for inline PowerShell help.
 ## Contents
 
 - [Discovery](#discovery)
-  - [Get-FTDevice](#get-ftdevice)
+  - [Get-FtdiDevice](#get-ftdevice)
   - [Get-PsGadgetMpy](#get-psgadgetmpy)
 - [Connection](#connection)
   - [New-PsGadgetFtdi](#new-psgadgetftdi)
@@ -34,12 +34,12 @@ by category. Use `Get-Help <FunctionName>` for inline PowerShell help.
 
 ## Discovery
 
-### Get-FTDevice
+### Get-FtdiDevice
 
 Enumerates all FTDI devices visible to the D2XX driver.
 
-**Primary name**: `Get-FTDevice`  
-**Backward-compatible alias**: `Get-PsGadgetFtdi`
+**Primary name**: `Get-FtdiDevice`  
+**Backward-compatible alias**: `Get-FtdiDevice`
 
 **Parameters**: none
 
@@ -64,10 +64,10 @@ twice -- once with `Driver = ftd2xx.dll` (use for PSGadget) and once as
 entry appends "A".
 
 ```powershell
-Get-FTDevice | Format-Table
+Get-FtdiDevice | Format-Table
 
 # Find only D2XX-accessible devices
-Get-FTDevice | Where-Object Driver -eq "ftd2xx.dll" | Format-Table Index, SerialNumber, LocationId
+Get-FtdiDevice | Where-Object Driver -eq "ftd2xx.dll" | Format-Table Index, SerialNumber, LocationId
 ```
 
 ---
@@ -107,7 +107,7 @@ type scope. The returned object is already open -- no `.Connect()` call needed.
 |-----------|------|----------|-------------|
 | `-SerialNumber` | string | BySerial | FTDI serial number (e.g. "BG01X3GX") |
 | `-Index` | int (0-127) | ByIndex | Zero-based device index |
-| `-LocationId` | string | ByLocation | USB hub+port address from `Get-FTDevice` |
+| `-LocationId` | string | ByLocation | USB hub+port address from `Get-FtdiDevice` |
 
 **Returns**: `PsGadgetFtdi` object
 
@@ -561,7 +561,7 @@ enumeration, and configuration file. Returns a structured object.
 | BackendReady | bool | True if the selected backend loaded successfully |
 | NativeLibOk | bool | True if the platform native library is present |
 | NativeLibPath | string | Full path checked |
-| Devices | string[] | Formatted device list from Get-FTDevice |
+| Devices | string[] | Formatted device list from Get-FtdiDevice |
 | DeviceCount | int | Number of enumerated devices |
 | ConfigPresent | bool | True if ~/.psgadget/config.json exists |
 | IsReady | bool | True if all checks passed |
@@ -619,7 +619,7 @@ Get-PsGadgetLog -Follow
 
 | Function | Short Description |
 |----------|-------------------|
-| `Get-FTDevice` | Enumerate FTDI devices |
+| `Get-FtdiDevice` | Enumerate FTDI devices |
 | `Get-PsGadgetMpy` | Enumerate MicroPython serial ports |
 | `New-PsGadgetFtdi` | Create PsGadgetFtdi object (OOP entry point) |
 | `Connect-PsGadgetFtdi` | Open raw FTDI connection |

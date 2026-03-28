@@ -21,7 +21,7 @@ function Get-PsGadgetFtdiEeprom {
     Supported device types:  FT232R / FT232RL / FT232RNL / FT232H
 
     .PARAMETER Index
-    Zero-based index of the device to read (as shown by Get-FTDevice).
+    Zero-based index of the device to read (as shown by Get-FtdiDevice).
 
     .PARAMETER SerialNumber
     Alternative to Index: identify the target device by its serial number string.
@@ -85,7 +85,7 @@ function Get-PsGadgetFtdiEeprom {
         }
 
         if (-not $targetDev) {
-            throw "Device at index $targetIndex not found. Run Get-FTDevice to check available devices."
+            throw "Device at index $targetIndex not found. Run Get-FtdiDevice to check available devices."
         }
 
         Write-Verbose "Reading EEPROM for $($targetDev.Type) - $($targetDev.Description) ($($targetDev.SerialNumber))"

@@ -46,7 +46,7 @@ Write-Host "Backend: $($env.Backend)  Devices: $($env.DeviceCount)"
 
 ```powershell
 # Serial numbers survive USB port changes and reboots
-# Find yours with: Get-FTDevice | Select-Object SerialNumber, Type
+# Find yours with: Get-FtdiDevice | Select-Object SerialNumber, Type
 $dev = New-PsGadgetFtdi -SerialNumber 'BG01X3GX'
 
 try {
@@ -63,7 +63,7 @@ try {
 ## Pattern 3: select device by type in a script
 
 ```powershell
-$devices = Get-FTDevice
+$devices = Get-FtdiDevice
 $target  = $devices | Where-Object { $_.Type -match 'FT232H' } | Select-Object -First 1
 
 if (-not $target) {

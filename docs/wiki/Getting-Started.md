@@ -95,7 +95,7 @@ Do not proceed to Step 1 until `IsReady` is `True`.
 ## Step 1 -- Find Your Device
 
 ```powershell
-Get-FTDevice | Format-Table
+Get-FtdiDevice | Format-Table
 ```
 
 Example output on Windows with one FT232H and one FT232R plugged in (Linux output is similar -- see [Linux Setup](#linux-setup)):
@@ -131,7 +131,7 @@ is blocked.
 
 ```powershell
 # With ftdi_sio loaded -- device appears as VCP, hidden by default
-Get-FTDevice -ShowVCP
+Get-FtdiDevice -ShowVCP
 
 # Index  Type    LocationId    Driver          IsVcp
 # -----  ----    ----------    ------          -----
@@ -148,7 +148,7 @@ After unloading:
 
 ```powershell
 # Device now appears in default listing (no -ShowVCP needed)
-Get-FTDevice
+Get-FtdiDevice
 
 # Index  Type    LocationId       Driver  IsVcp
 # -----  ----    ----------       ------  -----
@@ -354,7 +354,7 @@ $dev = New-PsGadgetFtdi -LocationId 197634   # connected immediately
 Set-PsGadgetGpio -SerialNumber "FT4ABCDE" -Pins @(0) -State HIGH
 ```
 
-Use `Get-FTDevice | Select-Object SerialNumber, LocationId` to find
+Use `Get-FtdiDevice | Select-Object SerialNumber, LocationId` to find
 these values.
 
 ---

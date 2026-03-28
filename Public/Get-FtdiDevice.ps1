@@ -1,8 +1,8 @@
 #Requires -Version 5.1
-# Get-FTDevice.ps1
+# Get-FtdiDevice.ps1
 # Enumerate available FTDI devices
 
-function Get-FTDevice {
+function Get-FtdiDevice {
     <#
     .SYNOPSIS
     Lists PsGadget-compatible FTDI devices on the system.
@@ -14,14 +14,14 @@ function Get-FTDevice {
     be used with PsGadget's GPIO or MPSSE functions.
     
     .EXAMPLE
-    Get-FTDevice
+    Get-FtdiDevice
     
     .EXAMPLE  
-    $Devices = Get-FTDevice
+    $Devices = Get-FtdiDevice
     $Devices | Where-Object { -not $_.IsOpen }
 
     .EXAMPLE
-    Get-FTDevice -ShowVCP
+    Get-FtdiDevice -ShowVCP
 
     Shows all detected FTDI devices including those running the VCP (Virtual COM Port) driver,
     which are not usable with PsGadget but may be useful for diagnostics.
@@ -144,4 +144,3 @@ function Get-FTDevice {
 }
 
 # Backward-compatibility alias
-Set-Alias -Name 'Get-PsGadgetFtdi' -Value 'Get-FTDevice'

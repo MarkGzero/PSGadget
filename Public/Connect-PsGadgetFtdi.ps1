@@ -13,14 +13,14 @@ function Connect-PsGadgetFtdi {
     communication, and other FTDI operations.
     
     .PARAMETER Index
-    The index of the FTDI device to connect to. Use Get-FTDevice to see available devices.
+    The index of the FTDI device to connect to. Use Get-FtdiDevice to see available devices.
     
     .PARAMETER SerialNumber
     Alternative to Index - connect to device by its serial number
     
     .PARAMETER LocationId
     Alternative to Index/SerialNumber - connect by USB LocationId (hub+port address).
-    LocationId is stable for a fixed physical USB port. Use Get-FTDevice to find the value.
+    LocationId is stable for a fixed physical USB port. Use Get-FtdiDevice to find the value.
     Call $Connection.Close() when finished.
 
     .EXAMPLE
@@ -65,7 +65,7 @@ function Connect-PsGadgetFtdi {
             }
         }
         if ($devices.Count -eq 0) {
-            throw "No FTDI devices found. Run Get-FTDevice to check available devices."
+            throw "No FTDI devices found. Run Get-FtdiDevice to check available devices."
         }
         
         # Determine target device
@@ -85,10 +85,10 @@ function Connect-PsGadgetFtdi {
             }
             $deviceIndex = $targetDevice.Index
         } else {
-            # ByLocation - match on LocationId (shown by Get-FTDevice)
+            # ByLocation - match on LocationId (shown by Get-FtdiDevice)
             $targetDevice = $devices | Where-Object { "$($_.LocationId)" -eq $LocationId } | Select-Object -First 1
             if (-not $targetDevice) {
-                throw "No device found with LocationId '$LocationId'. Run Get-FTDevice to see available LocationIds."
+                throw "No device found with LocationId '$LocationId'. Run Get-FtdiDevice to see available LocationIds."
             }
             $deviceIndex = $targetDevice.Index
         }

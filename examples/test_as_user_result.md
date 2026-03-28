@@ -46,7 +46,7 @@ Primary goal: complete a reliable hardware sanity check quickly, with clear sign
 
 2. Discovery
 - User intent: Find connected devices and decide which one to use.
-- App offers: Get-FTDevice with key columns (Type, GpioMethod, HasMpsse, Driver, Serial).
+- App offers: Get-FtdiDevice with key columns (Type, GpioMethod, HasMpsse, Driver, Serial).
 - Result: Strong visibility for capable users; dual-enumeration concepts are still cognitively heavy for first-time FT232R users.
 
 3. Triage
@@ -86,7 +86,7 @@ What works well end-to-end:
 - Workflow step: Discovery and triage
 - Observed behavior: Dual D2XX/VCP behavior is explained, but understanding which entry to use still requires careful reading across workflow docs.
 - User impact: First-time users can pick the wrong target and lose time on avoidable retries.
-- Suggested fix: In Getting-Started.md, add a compact “Use this row” rule directly under the first Get-FTDevice example (for example: always choose the D2XX row for PSGadget actions).
+- Suggested fix: In Getting-Started.md, add a compact “Use this row” rule directly under the first Get-FtdiDevice example (for example: always choose the D2XX row for PSGadget actions).
 
 [Medium] Arrival friction from documentation split and redirects
 - Workflow step: Arrival

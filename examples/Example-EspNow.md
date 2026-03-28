@@ -213,7 +213,7 @@ the PC. Open a serial connection to confirm the receiver is alive:
 
 ```powershell
 # Find the FT232H COM port
-Get-FTDevice | Format-Table
+Get-FtdiDevice | Format-Table
 
 # Connect and check receiver banner
 $mpy = Connect-PsGadgetMpy -SerialPort "/dev/ttyUSB0"

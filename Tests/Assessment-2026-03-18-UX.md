@@ -143,18 +143,18 @@ the Function-Reference.
 ### [Low] README Quick Start and all other docs use different names for the same command
 
 - **Workflow step**: Running first commands after import.
-- **Observed behavior**: README uses `Get-FTDevice` (the primary export name). Every
+- **Observed behavior**: README uses `Get-FtdiDevice` (the primary export name). Every
   other document -- Getting-Started, workflow, examples, Function-Reference -- uses
-  `Get-PsGadgetFtdi` (the alias). Both work; the inconsistency causes momentary
+  `Get-FtdiDevice` (the alias). Both work; the inconsistency causes momentary
   confusion about whether the two commands differ.
-- **Suggested fix**: Standardize the README Quick Start on `Get-PsGadgetFtdi`, or add
-  a note: "`Get-FTDevice` (alias: `Get-PsGadgetFtdi`)".
+- **Suggested fix**: Standardize the README Quick Start on `Get-FtdiDevice`, or add
+  a note: "`Get-FtdiDevice` (alias: `Get-FtdiDevice`)".
 
 ---
 
 ## What Works Well
 
-The core GPIO path (clone -> import -> `Test-PsGadgetEnvironment` -> `Get-PsGadgetFtdi`
+The core GPIO path (clone -> import -> `Test-PsGadgetEnvironment` -> `Get-FtdiDevice`
 -> `New-PsGadgetFtdi` -> `SetPin`) is clean and well-guided end-to-end. The FT232R
 EEPROM workflow (5-step format with WhatIf, dual-driver explanation, CBUS4 footnote) is
 thorough and correct. The multi-persona callout pattern in examples genuinely serves all
@@ -168,7 +168,7 @@ is idiomatic and discoverable in the REPL.
 ### Decisions
 
 - SSD1306 documentation issue fixed as docs-only: remove phantom cmdlets from the reference and document the real API.
-- Get-FTDevice remains the primary function name. Get-PsGadgetFtdi is documented as an alias.
+- Get-FtdiDevice remains the primary function name. Get-FtdiDevice is documented as an alias.
 
 ### Phase 1 (Critical + High)
 
@@ -184,7 +184,7 @@ is idiomatic and discoverable in the REPL.
     PsGadgetFtdi.GetDisplay methods and Invoke-PsGadgetI2C -I2CModule SSD1306.
   - Add Get-PsGadgetLog to Diagnostics TOC and section content.
   - Fix Status property text from OK/NOT READY to OK/Fail.
-  - Add alias note clarifying Get-FTDevice and Get-PsGadgetFtdi.
+  - Add alias note clarifying Get-FtdiDevice and Get-FtdiDevice.
 
 ### Phase 2 (Medium)
 

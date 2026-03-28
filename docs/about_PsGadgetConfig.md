@@ -175,7 +175,7 @@ Sets the device's poweron default driver mode to D2XX instead of VCP (COM port).
 
 **When to enable:**
 - You only ever use PSGadget (D2XX) and never need the virtual COM port
-- The duplicate COM port entry in `Get-PsGadgetFtdi` is confusing or interfering
+- The duplicate COM port entry in `Get-FtdiDevice` is confusing or interfering
 - CI/automation scenarios where COM port enumeration causes conflicts
 
 **When to leave disabled:**
@@ -184,7 +184,7 @@ Sets the device's poweron default driver mode to D2XX instead of VCP (COM port).
 
 **Effect on enumeration:**
 With `rIsD2XX = false` (default), one physical device appears twice in
-`Get-PsGadgetFtdi`: once with driver `ftd2xx.dll` (D2XX, for PSGadget) and once
+`Get-FtdiDevice`: once with driver `ftd2xx.dll` (D2XX, for PSGadget) and once
 with driver `ftdibus.sys (VCP)` (with a COM port). With `rIsD2XX = true`, the device
 enumerates only once, as a D2XX device, with no COM port.
 
@@ -277,7 +277,7 @@ Set-PsGadgetConfig -Key ftdi.highDriveIOs -Value $true
 # Enable pull-downs on suspend
 Set-PsGadgetConfig -Key ftdi.pullDownEnable -Value $true
 
-# Remove duplicate COM port in Get-PsGadgetFtdi
+# Remove duplicate COM port in Get-FtdiDevice
 Set-PsGadgetConfig -Key ftdi.rIsD2XX -Value $true
 
 # Then write EEPROM -- all three config settings are applied automatically

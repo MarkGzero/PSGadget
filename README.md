@@ -42,7 +42,7 @@ Import-Module PSGadget
 Test-PsGadgetEnvironment -Verbose
 
 # List connected FTDI devices
-Get-FTDevice
+Get-FtdiDevice
 
 # Set ACBUS0 HIGH on device at index 0 (FT232H)
 # Pin numbers map to ACBUS0-7 on FT232H, CBUS0-3 on FT232R

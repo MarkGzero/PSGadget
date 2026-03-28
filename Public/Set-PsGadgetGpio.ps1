@@ -19,7 +19,7 @@ function Set-PsGadgetGpio {
     Supports timing control and multiple pin operations.
     
     .PARAMETER Index
-    Index of the FTDI device to control (from Get-PsGadgetFtdi)
+    Index of the FTDI device to control (from Get-FtdiDevice)
     
     .PARAMETER Pins
     For MPSSE devices (FT232H, FT2232H, FT4232H): ACBUS pin numbers 0-7
@@ -82,7 +82,7 @@ function Set-PsGadgetGpio {
     Requires FTDI D2XX drivers and FTD2XX_NET.dll assembly.
     FT232H MPSSE: ACBUS0-7 = physical pins 21,25-31.
     FT232R CBUS: CBUS0-3 require prior EEPROM configuration via Set-PsGadgetFt232rCbusMode.
-    Use Get-PsGadgetFtdi to see available devices.
+    Use Get-FtdiDevice to see available devices.
     #>
 
     [CmdletBinding(DefaultParameterSetName = 'ByIndex', SupportsShouldProcess = $true)]
@@ -141,7 +141,7 @@ function Set-PsGadgetGpio {
             # Get available devices
             $devices = Get-FtdiDeviceList
             if (-not $devices -or $devices.Count -eq 0) {
-                throw "No FTDI devices found. Run Get-PsGadgetFtdi to check available devices."
+                throw "No FTDI devices found. Run Get-FtdiDevice to check available devices."
             }
             
             # Find target device

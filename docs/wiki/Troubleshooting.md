@@ -50,7 +50,7 @@ If `Status` is `Fail`, `NextStep` tells you exactly what command to run.
 ## Symptom index
 
 - [Module imports but no devices are found](#no-devices-found)
-- [Device listed only under Get-FTDevice -ShowVCP on Linux](#device-shows-as-vcp-only-linux)
+- [Device listed only under Get-FtdiDevice -ShowVCP on Linux](#device-shows-as-vcp-only-linux)
 - [Backend shows "Stub (no hardware access)"](#stub-backend)
 - [Status is Fail: native library not found (Linux/macOS)](#missing-native-library-linux-macos)
 - [Device found but Connect-PsGadgetFtdi throws an access error](#access-denied-or-device-busy)
@@ -66,7 +66,7 @@ If `Status` is `Fail`, `NextStep` tells you exactly what command to run.
 
 ## No devices found
 
-**Symptom**: `Get-FTDevice` returns nothing, or `DeviceCount` is 0.
+**Symptom**: `Get-FtdiDevice` returns nothing, or `DeviceCount` is 0.
 
 **Check list**:
 
@@ -98,7 +98,7 @@ sudo rmmod ftdi_sio
 
 ## Device shows as VCP only (Linux)
 
-**Symptom**: `Get-FTDevice` returns nothing, but `Get-FTDevice -ShowVCP`
+**Symptom**: `Get-FtdiDevice` returns nothing, but `Get-FtdiDevice -ShowVCP`
 shows the device with `Driver: ftdi_sio (VCP)` and `LocationId: /dev/ttyUSBx`.
 
 **Cause**: The `ftdi_sio` kernel module has claimed the device as a virtual COM
@@ -117,7 +117,7 @@ Then reimport:
 
 ```powershell
 Import-Module PSGadget -Force
-Get-FTDevice
+Get-FtdiDevice
 ```
 
 To confirm `ftdi_sio` is the culprit before unloading:
@@ -149,7 +149,7 @@ sudo rm /etc/modprobe.d/ftdi-d2xx.conf && sudo reboot
 ---
 
 > **Note**: `libftd2xx.so` must also be installed for D2XX to work. If the device
-> claims correctly after `rmmod` but `Get-FTDevice` still returns nothing,
+> claims correctly after `rmmod` but `Get-FtdiDevice` still returns nothing,
 > see [Missing native library (Linux/macOS)](#missing-native-library-linuxmacos).
 
 ---

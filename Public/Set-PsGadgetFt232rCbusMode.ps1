@@ -40,7 +40,7 @@ function Set-PsGadgetFt232rCbusMode {
         FT_CBUS_BITBANG_RD   Bit-bang read strobe
 
     .PARAMETER Index
-    Zero-based device index (from Get-FTDevice).
+    Zero-based device index (from Get-FtdiDevice).
 
     .PARAMETER SerialNumber
     Alternative to Index: specify the target device by serial number string.
@@ -163,7 +163,7 @@ function Set-PsGadgetFt232rCbusMode {
         }
 
         if (-not $targetDev) {
-            throw "Device at index $targetIndex not found. Run Get-PsGadgetFtdi to check available devices."
+            throw "Device at index $targetIndex not found. Run Get-FtdiDevice to check available devices."
         }
 
         if ($targetDev.Type -notmatch '^FT232R(L|NL)?$') {

@@ -87,7 +87,7 @@ read the `NextStep` line and run the command shown there.
 **Step 4**: See your device listed:
 
 ```powershell
-Get-FTDevice | Format-Table
+Get-FtdiDevice | Format-Table
 ```
 
 You should see a row with `Type = FT232H` and a serial number. Write down the

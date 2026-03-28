@@ -180,7 +180,7 @@ GND:       FT232H GND -- PCA9685 GND -- Servo supply GND (all connected)
 
 ```powershell
 Import-Module PSGadget.psd1 -Force
-Get-FTDevice | Format-Table Index, Type, SerialNumber, GpioMethod
+Get-FtdiDevice | Format-Table Index, Type, SerialNumber, GpioMethod
 ```
 
 For FT232H you should see `GpioMethod : MPSSE`. Verify I2C detection:

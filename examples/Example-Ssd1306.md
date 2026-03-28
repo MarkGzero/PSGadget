@@ -162,7 +162,7 @@ but the SDA line will not be connected and `ScanI2CBus()` will return no devices
 ```powershell
 Import-Module C:\path\to\PSGadget\PSGadget.psd1 -Force -DisableNameChecking
 
-Get-FTDevice | Format-Table Index, Type, SerialNumber, LocationId, HasMpsse
+Get-FtdiDevice | Format-Table Index, Type, SerialNumber, LocationId, HasMpsse
 ```
 
 Expected output:
@@ -599,7 +599,7 @@ if (-not $setup.IsReady) {
     return
 }
 
-Get-FTDevice -Verbose | Format-Table Index, Type, SerialNumber, HasMpsse
+Get-FtdiDevice -Verbose | Format-Table Index, Type, SerialNumber, HasMpsse
 
 $dev = New-PsGadgetFtdi -Index 0
 
@@ -691,11 +691,11 @@ Failed to open device. Check USB and index.
   pointed at the device's COM port.
 - Close any previous `$dev` object in the same PS session: `$dev.Close()`.
 - Unplug and replug the USB cable.
-- Confirm the device index is correct: `Get-FTDevice | Format-Table`.
+- Confirm the device index is correct: `Get-FtdiDevice | Format-Table`.
 
 ### Device appears as COM port (VCP mode)
 
-If `Get-FTDevice` returns no results but the FT232H shows as `COM3` (or similar) in
+If `Get-FtdiDevice` returns no results but the FT232H shows as `COM3` (or similar) in
 Device Manager, the FTDI CDM driver has loaded the VCP (Virtual COM Port) driver instead
 of the D2XX driver.
 
@@ -716,7 +716,7 @@ Work through in order:
 3. **Wire swap** — try swapping SCL and SDA if you are not 100% sure of pin order.
 4. **Pull-up resistors** — some raw SSD1306 panels (not breakout modules) require external
    4.7kΩ pull-ups on SCL and SDA to 3.3V. Adafruit/SparkFun breakouts include them.
-5. **Confirm MPSSE** — `Get-FTDevice | Format-Table HasMpsse` must show `True`.
+5. **Confirm MPSSE** — `Get-FtdiDevice | Format-Table HasMpsse` must show `True`.
 
 ### Display shows scattered or random pixels
 

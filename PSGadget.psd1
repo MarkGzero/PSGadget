@@ -20,7 +20,7 @@
     FunctionsToExport = @(
         'New-PsGadgetFtdi',
         'Test-PsGadgetEnvironment',
-        'Get-FTDevice',
+        'Get-FtdiDevice',
         'Connect-PsGadgetFtdi',
         'Get-PsGadgetMpy',
         'Connect-PsGadgetMpy',
@@ -42,7 +42,7 @@
     # No cmdlets, variables, or aliases exported
     CmdletsToExport = @()
     VariablesToExport = @()
-    AliasesToExport = @('Test-PsGadgetSetup', 'Get-PsGadgetFtdi')
+    AliasesToExport = @('Test-PsGadgetSetup')
     
     # Files included in this module
     FileList = @(
@@ -78,7 +78,7 @@
         'Public/Invoke-PsGadgetStepper.ps1',
         'Public/Invoke-PsGadgetI2CScan.ps1',
         'Public/Invoke-PsGadgetI2C.ps1',
-        'Public/Get-FTDevice.ps1',
+        'Public/Get-FtdiDevice.ps1',
         'Public/Get-PsGadgetMpy.ps1',
         'Public/New-PsGadgetFtdi.ps1',
         'Public/Test-PsGadgetEnvironment.ps1',

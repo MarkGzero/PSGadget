@@ -32,7 +32,7 @@ Versions match `ModuleVersion` in `PSGadget.psd1`.
 - Quick Start now leads with `Test-PsGadgetEnvironment`
 - udev rule `MODE` corrected from `0666` to `0664` with `GROUP=plugdev` in Getting-Started.md
 - Stray `.PARAMETER WhatIf` removed from `Set-PsGadgetFt232rCbusMode` CBH (now uses native `-WhatIf` common parameter via `SupportsShouldProcess`)
-- `$isWindows` renamed to `$runningOnWindows` in `Get-FTDevice.ps1` (PS 6+ readonly variable conflict)
+- `$isWindows` renamed to `$runningOnWindows` in `Get-FtdiDevice.ps1` (PS 6+ readonly variable conflict)
 
 ---
 
