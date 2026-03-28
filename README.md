@@ -2,7 +2,7 @@
 
 Control LEDs, drive an OLED screen, and talk to microcontrollers from PowerShell.
 
-**PowerShell**: 5.1+  |  **Platforms**: Windows, Linux, macOS
+**PowerShell**: 5.1+  |  **Platforms**: Windows, Linux, macOS  |  **[PSGallery](https://www.powershellgallery.com/packages/PSGadget)**
 
 ---
 

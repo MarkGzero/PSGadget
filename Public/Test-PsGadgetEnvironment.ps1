@@ -154,13 +154,19 @@ function Test-PsGadgetEnvironment {
     # ------------------------------------------------------------------
     # Enumerate connected devices
     # ------------------------------------------------------------------
+    $alreadyVerbose = $VerbosePreference -eq 'Continue'
     $devices    = @()
+    $vcpCount   = 0
     $deviceNote = 'None found'
 
     try {
-        $devices = @(Get-PsGadgetFtdi -ErrorAction SilentlyContinue)
+        $allFtdiDevices = @(Get-FTDevice -ShowVCP -WarningAction SilentlyContinue -ErrorAction SilentlyContinue)
+        $devices  = @($allFtdiDevices | Where-Object { -not $_.IsVcp })
+        $vcpCount = ($allFtdiDevices | Where-Object { $_.IsVcp }).Count
         if ($devices.Count -gt 0) {
             $deviceNote = "$($devices.Count) device(s) found"
+        } elseif ($vcpCount -gt 0) {
+            $deviceNote = "None (D2XX) -- $vcpCount in VCP mode (run Get-FTDevice -ShowVCP)"
         }
     } catch {
         $deviceNote = "Enumeration failed: $($_.Exception.Message)"
@@ -279,12 +285,24 @@ function Test-PsGadgetEnvironment {
             $resultNextStep = 'Download from https://ftdichip.com/drivers/d2xx-drivers/ then: sudo cp libftd2xx.so /usr/local/lib && sudo ldconfig'
         }
     } else {
-        $resultStatus   = 'Fail'
-        $resultReason   = 'No FTDI devices detected'
-        $resultNextStep = 'Connect an FTDI device and retry, or run Test-PsGadgetEnvironment -Verbose for diagnostics'
+        $resultStatus = 'Fail'
+        if ($vcpCount -gt 0 -and $runningOnWindows) {
+            $resultReason   = "$vcpCount FTDI device(s) detected in VCP mode (not D2XX-accessible)"
+            $resultNextStep = 'Switch to D2XX mode: run Zadig (https://zadig.akeo.ie), select your device, choose WinUSB, click Install Driver'
+        } elseif ($vcpCount -gt 0) {
+            $resultReason   = "$vcpCount FTDI device(s) detected in VCP mode (not D2XX-accessible)"
+            $resultNextStep = 'Unload VCP driver: sudo rmmod ftdi_sio -- then: Import-Module PSGadget -Force'
+        } else {
+            $resultReason   = 'No FTDI devices detected'
+            $resultNextStep = if ($alreadyVerbose) {
+                'Connect an FTDI device and retry'
+            } else {
+                'Connect an FTDI device and retry, or run Test-PsGadgetEnvironment -Verbose for diagnostics'
+            }
+        }
     }
 
-    $statusLabel = if ($isReady) { 'READY' } else { 'NOT READY - run with -Verbose for details' }
+    $statusLabel = if ($isReady) { 'READY' } elseif ($alreadyVerbose) { 'NOT READY' } else { 'NOT READY - run with -Verbose for details' }
     Write-Host ("Status    : {0}" -f $statusLabel)
     if (-not $isReady) {
         Write-Host ("Next step : {0}" -f $resultNextStep)

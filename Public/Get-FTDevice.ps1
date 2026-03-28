@@ -62,13 +62,26 @@ function Get-FTDevice {
             if ($Filtered.Count -eq 0) {
                 $runningOnWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
                 if ($runningOnWindows) {
-                    Write-Warning (
-                        "No PsGadget-compatible FTDI devices found.`n" +
-                        "`n" +
-                        "  Cause : Device is likely in VCP mode (shown as COM port in Device Manager).`n" +
-                        "  Fix   : Install the D2XX driver from https://ftdichip.com/drivers/d2xx-drivers/`n" +
-                        "  Tip   : Use -ShowVCP to list VCP-mode devices."
-                    )
+                    $vcpDeviceCount = ($Devices | Where-Object { $_.IsVcp }).Count
+                    if ($script:D2xxLoaded -and $vcpDeviceCount -gt 0) {
+                        Write-Warning (
+                            "No PsGadget-compatible FTDI devices found -- $vcpDeviceCount device(s) in VCP mode.`n" +
+                            "`n" +
+                            "  Cause : Device is bound to the VCP (COM port) driver, not D2XX.`n" +
+                            "  Fix   : Use Zadig (https://zadig.akeo.ie) -- select your device, choose`n" +
+                            "          WinUSB, click 'Install Driver', then reconnect.`n" +
+                            "  Alt   : Reinstall CDM driver from https://ftdichip.com/drivers/d2xx-drivers/`n" +
+                            "  Tip   : Use -ShowVCP to list these devices."
+                        )
+                    } else {
+                        Write-Warning (
+                            "No PsGadget-compatible FTDI devices found.`n" +
+                            "`n" +
+                            "  Cause : Device is likely in VCP mode (shown as COM port in Device Manager).`n" +
+                            "  Fix   : Install the D2XX driver from https://ftdichip.com/drivers/d2xx-drivers/`n" +
+                            "  Tip   : Use -ShowVCP to list VCP-mode devices."
+                        )
+                    }
                 } else {
                     $vcpDevices = @($Devices | Where-Object { $_.IsVcp })
                     if ($vcpDevices.Count -gt 0) {

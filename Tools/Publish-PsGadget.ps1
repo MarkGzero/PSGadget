@@ -32,7 +32,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $moduleRoot = Split-Path $PSScriptRoot -Parent
-$stagingDir = Join-Path $env:TEMP 'PSGadget-publish'
+$stagingDir = Join-Path $env:TEMP 'PSGadget'
 
 Write-Host "Module root : $moduleRoot"
 Write-Host "Staging dir : $stagingDir"
