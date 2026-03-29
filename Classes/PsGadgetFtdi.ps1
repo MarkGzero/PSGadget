@@ -19,6 +19,8 @@ class PsGadgetFtdi : System.IDisposable {
     # Keyed by "ClockHz:Mode:CsPin" (e.g. "1000000:0:3").
     # Stores initialized SPI device objects so re-calls skip construction + hardware init.
     hidden [hashtable]$_spiDevices = $null
+    # Single UART instance per device. Replaced when baud/format params change.
+    hidden [object]$_uartDevice = $null
 
     # SSD1306 display height (32 or 64 pixels).  Set before first GetDisplay() call.
     # Writable via New-PsGadgetFtdi -DisplayHeight 32 or directly: $dev.DisplayHeight = 32
@@ -41,6 +43,7 @@ class PsGadgetFtdi : System.IDisposable {
         $this.Description  = "FTDI $SerialNumber"
         $this._i2cDevices  = @{}
         $this._spiDevices  = @{}
+        $this._uartDevice  = $null
         $this.Logger = Get-PsGadgetModuleLogger
         $this.Logger.WriteInfo("PsGadgetFtdi created for serial: $SerialNumber")
     }
@@ -54,6 +57,7 @@ class PsGadgetFtdi : System.IDisposable {
         $this.Description  = "FTDI device index $DeviceIndex"
         $this._i2cDevices  = @{}
         $this._spiDevices  = @{}
+        $this._uartDevice  = $null
         $this.Logger = Get-PsGadgetModuleLogger
         $this.Logger.WriteInfo("PsGadgetFtdi created for index: $DeviceIndex")
     }
@@ -117,6 +121,7 @@ class PsGadgetFtdi : System.IDisposable {
             $this._connection = $null
             $this._i2cDevices = @{}   # drop cached I2C device objects; stale on reconnect
             $this._spiDevices = @{}   # drop cached SPI device objects; stale on reconnect
+            $this._uartDevice = $null # drop cached UART instance; stale on reconnect
         }
     }
 
@@ -336,6 +341,56 @@ class PsGadgetFtdi : System.IDisposable {
             if ($this._spiDevices) { $this._spiDevices[$cacheKey] = $spi }
         }
         return $spi
+    }
+
+    # ---------------------------------------------------------------------------
+    # UART shorthand methods.
+    # GetUart() returns a cached PsGadgetUart object for direct .Write/.Read/.ReadLine calls.
+    # The cache is a single instance; calling with different parameters reinitializes it.
+    # ---------------------------------------------------------------------------
+
+    # GetUart() - 9600 baud, 8N1, no flow control
+    [object] GetUart() {
+        return $this.GetUart(9600, 8, 1, 'None', 'None', [uint32]500, [uint32]500)
+    }
+
+    # GetUart(baudRate) - custom baud, 8N1, no flow control
+    [object] GetUart([int]$BaudRate) {
+        return $this.GetUart($BaudRate, 8, 1, 'None', 'None', [uint32]500, [uint32]500)
+    }
+
+    # GetUart(baudRate, dataBits, stopBits, parity) - 4-parameter form
+    [object] GetUart([int]$BaudRate, [int]$DataBits, [int]$StopBits, [string]$Parity) {
+        return $this.GetUart($BaudRate, $DataBits, $StopBits, $Parity, 'None', [uint32]500, [uint32]500)
+    }
+
+    # GetUart(baudRate, dataBits, stopBits, parity, flowControl, readTimeout, writeTimeout)
+    [object] GetUart(
+        [int]$BaudRate, [int]$DataBits, [int]$StopBits,
+        [string]$Parity, [string]$FlowControl,
+        [uint32]$ReadTimeout, [uint32]$WriteTimeout
+    ) {
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new('Device not open. Call Connect() first.')
+        }
+        # Reuse cached instance if params are unchanged
+        $u = $this._uartDevice
+        if ($u -and $u.IsInitialized -and
+            $u.BaudRate     -eq $BaudRate     -and
+            $u.DataBits     -eq $DataBits     -and
+            $u.StopBits     -eq $StopBits     -and
+            $u.Parity       -eq $Parity       -and
+            $u.FlowControl  -eq $FlowControl) {
+            return $u
+        }
+        $uart = [PsGadgetUart]::new($this._connection, $BaudRate, $DataBits, $StopBits,
+                                    $Parity, $FlowControl, $ReadTimeout, $WriteTimeout)
+        if (-not $uart.Initialize($false)) {
+            throw [System.InvalidOperationException]::new(
+                "Failed to initialize UART: baud=$BaudRate ${DataBits}${Parity}${StopBits} flow=$FlowControl")
+        }
+        $this._uartDevice = $uart
+        return $uart
     }
 
     # Scan for I2C devices on the bus (0x08 to 0x77).

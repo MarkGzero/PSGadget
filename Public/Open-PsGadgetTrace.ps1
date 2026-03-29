@@ -71,6 +71,7 @@ Get-Content -LiteralPath `$path -Wait | ForEach-Object {
     elseif (`$line -match '\[ERROR\]')                      { Write-Host `$line -ForegroundColor Red       }
     elseif (`$line -match '\[PROTO\].*I2C')                 { Write-Host `$line -ForegroundColor Cyan      }
     elseif (`$line -match '\[PROTO\].*SPI')                 { Write-Host `$line -ForegroundColor Blue      }
+    elseif (`$line -match '\[PROTO\].*UART')                { Write-Host `$line -ForegroundColor DarkYellow }
     elseif (`$line -match '\[PROTO\].*GPIO')                { Write-Host `$line -ForegroundColor Green     }
     elseif (`$line -match '\[PROTO\].*STEPPER')             { Write-Host `$line -ForegroundColor Yellow    }
     elseif (`$line -match '\[PROTO\].*SSD1306')             { Write-Host `$line -ForegroundColor Magenta   }

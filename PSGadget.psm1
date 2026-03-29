@@ -12,6 +12,7 @@ $ClassFiles = @(
     'PsGadgetI2CDevice.ps1',
     'PsGadgetSsd1306.ps1',
     'PsGadgetSpi.ps1',
+    'PsGadgetUart.ps1',
     'PsGadgetFtdi.ps1',
     'PsGadgetMpy.ps1',
     'PsGadgetPca9685.ps1'

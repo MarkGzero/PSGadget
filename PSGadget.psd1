@@ -1,7 +1,7 @@
 @{
     # Module metadata
     RootModule           = 'PSGadget.psm1'
-    ModuleVersion        = '0.4.1'
+    ModuleVersion        = '0.4.2'
     CompatiblePSEditions = @('Desktop', 'Core')
     GUID                 = '72440f23-d3c6-4249-83eb-9affa6df882b'
 
@@ -38,6 +38,7 @@
         'Invoke-PsGadgetI2C',
         'Invoke-PsGadgetStepper',
         'Invoke-PsGadgetSpi',
+        'Invoke-PsGadgetUart',
         'Open-PsGadgetTrace'
     )
     
@@ -53,6 +54,7 @@
         'Classes/PsGadgetI2CDevice.ps1',
         'Classes/PsGadgetSsd1306.ps1',
         'Classes/PsGadgetSpi.ps1',
+        'Classes/PsGadgetUart.ps1',
         'Classes/PsGadgetFtdi.ps1',
         'Classes/PsGadgetMpy.ps1',
         'Classes/PsGadgetPca9685.ps1',
@@ -64,6 +66,7 @@
         'Private/Ftdi.IoT.ps1',
         'Private/Ftdi.Mpsse.ps1',
         'Private/Ftdi.Spi.ps1',
+        'Private/Ftdi.Uart.ps1',
         'Private/Ftdi.Unix.ps1',
         'Private/Ftdi.Windows.ps1',
         'Private/Initialize-FtdiAssembly.ps1',
@@ -82,6 +85,7 @@
         'Public/Install-PsGadgetMpyScript.ps1',
         'Public/Invoke-PsGadgetStepper.ps1',
         'Public/Invoke-PsGadgetSpi.ps1',
+        'Public/Invoke-PsGadgetUart.ps1',
         'Public/Invoke-PsGadgetI2CScan.ps1',
         'Public/Invoke-PsGadgetI2C.ps1',
         'Public/Get-FtdiDevice.ps1',
@@ -112,7 +116,7 @@
             LicenseUri   = 'https://opensource.org/licenses/MIT'
             ProjectUri   = 'https://github.com/MarkGzero/PsGadget'
             IconUri      = ''
-            ReleaseNotes = 'v0.4.1: SPI support via MPSSE. PsGadgetSpi class with Write/Read/Transfer. Invoke-PsGadgetSpi cmdlet. GetSpi() on PsGadgetFtdi. SPI [PROTO] trace entries (Blue in viewer). All 4 SPI modes supported. v0.4.0: Removed 9 deprecated SSD1306/PCA9685 wrapper functions; Send-PsGadgetI2CWrite demoted to internal private helper. Invoke-PsGadgetI2C is now the sole I2C entry point. PsGadgetFtdi.GetDisplay/Display/ClearDisplay use class methods directly. v0.3.6: Invoke-PsGadgetStepper - unified stepper motor cmdlet for FT232R/FT232H via async bit-bang. Bulk USB write for jitter-free step timing. Calibrated StepsPerRevolution (28BYJ-48: ~4075.77 half-steps, NOT 4096). Angle-based moves via -Degrees. PsGadgetFtdi.Step() and .StepDegrees() shorthand methods. v0.3.5: SSD1306 OLED integrated into Invoke-PsGadgetI2C. v0.3.4: ESP-NOW wireless telemetry.'
+            ReleaseNotes = 'v0.4.2: UART support via D2XX. PsGadgetUart class with Write/Read/ReadLine/Flush/BytesAvailable. Invoke-PsGadgetUart cmdlet. GetUart() on PsGadgetFtdi. UART [PROTO] trace entries (DarkYellow in viewer). All standard baud rates, 8N1/7E2/etc, RTS/CTS and Xon/Xoff flow control. v0.4.1: SPI support via MPSSE. PsGadgetSpi class with Write/Read/Transfer. Invoke-PsGadgetSpi cmdlet. GetSpi() on PsGadgetFtdi. SPI [PROTO] trace entries (Blue in viewer). All 4 SPI modes supported. v0.4.0: Removed 9 deprecated SSD1306/PCA9685 wrapper functions; Send-PsGadgetI2CWrite demoted to internal private helper. Invoke-PsGadgetI2C is now the sole I2C entry point. PsGadgetFtdi.GetDisplay/Display/ClearDisplay use class methods directly. v0.3.6: Invoke-PsGadgetStepper - unified stepper motor cmdlet for FT232R/FT232H via async bit-bang. Bulk USB write for jitter-free step timing. Calibrated StepsPerRevolution (28BYJ-48: ~4075.77 half-steps, NOT 4096). Angle-based moves via -Degrees. PsGadgetFtdi.Step() and .StepDegrees() shorthand methods. v0.3.5: SSD1306 OLED integrated into Invoke-PsGadgetI2C. v0.3.4: ESP-NOW wireless telemetry.'
         }
     }
 }
