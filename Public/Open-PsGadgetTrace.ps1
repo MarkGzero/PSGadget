@@ -70,6 +70,7 @@ Get-Content -LiteralPath `$path -Wait | ForEach-Object {
     if     (`$line -match '\[HEADER\]')                     { Write-Host `$line -ForegroundColor White     }
     elseif (`$line -match '\[ERROR\]')                      { Write-Host `$line -ForegroundColor Red       }
     elseif (`$line -match '\[PROTO\].*I2C')                 { Write-Host `$line -ForegroundColor Cyan      }
+    elseif (`$line -match '\[PROTO\].*SPI')                 { Write-Host `$line -ForegroundColor Blue      }
     elseif (`$line -match '\[PROTO\].*GPIO')                { Write-Host `$line -ForegroundColor Green     }
     elseif (`$line -match '\[PROTO\].*STEPPER')             { Write-Host `$line -ForegroundColor Yellow    }
     elseif (`$line -match '\[PROTO\].*SSD1306')             { Write-Host `$line -ForegroundColor Magenta   }
@@ -89,9 +90,8 @@ Get-Content -LiteralPath `$path -Wait | ForEach-Object {
         $bytes   = [System.Text.Encoding]::Unicode.GetBytes($viewerScript)
         $encoded = [Convert]::ToBase64String($bytes)
 
-        $exe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
-        Start-Process $exe -ArgumentList '-NoExit', '-EncodedCommand', $encoded
-        Write-Verbose "Trace viewer opened in new $exe window: $logPath"
+        Start-Process powershell -ArgumentList '-NoExit', '-EncodedCommand', $encoded
+        Write-Verbose "Trace viewer opened in new powershell window: $logPath"
     } else {
         Write-Host ''
         Write-Host 'Run this in a second terminal to follow the session log:' -ForegroundColor White

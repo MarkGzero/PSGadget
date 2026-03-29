@@ -16,6 +16,9 @@ class PsGadgetFtdi : System.IDisposable {
     # Keyed by "ModuleName:HexAddress" (e.g. "PCA9685:40").
     # Stores initialized I2C device objects so re-calls skip construction + hardware init.
     hidden [hashtable]$_i2cDevices = $null
+    # Keyed by "ClockHz:Mode:CsPin" (e.g. "1000000:0:3").
+    # Stores initialized SPI device objects so re-calls skip construction + hardware init.
+    hidden [hashtable]$_spiDevices = $null
 
     # SSD1306 display height (32 or 64 pixels).  Set before first GetDisplay() call.
     # Writable via New-PsGadgetFtdi -DisplayHeight 32 or directly: $dev.DisplayHeight = 32
@@ -37,6 +40,7 @@ class PsGadgetFtdi : System.IDisposable {
         $this.IsOpen       = $false
         $this.Description  = "FTDI $SerialNumber"
         $this._i2cDevices  = @{}
+        $this._spiDevices  = @{}
         $this.Logger = Get-PsGadgetModuleLogger
         $this.Logger.WriteInfo("PsGadgetFtdi created for serial: $SerialNumber")
     }
@@ -49,6 +53,7 @@ class PsGadgetFtdi : System.IDisposable {
         $this.IsOpen       = $false
         $this.Description  = "FTDI device index $DeviceIndex"
         $this._i2cDevices  = @{}
+        $this._spiDevices  = @{}
         $this.Logger = Get-PsGadgetModuleLogger
         $this.Logger.WriteInfo("PsGadgetFtdi created for index: $DeviceIndex")
     }
@@ -111,6 +116,7 @@ class PsGadgetFtdi : System.IDisposable {
             $this.IsOpen      = $false
             $this._connection = $null
             $this._i2cDevices = @{}   # drop cached I2C device objects; stale on reconnect
+            $this._spiDevices = @{}   # drop cached SPI device objects; stale on reconnect
         }
     }
 
@@ -293,6 +299,43 @@ class PsGadgetFtdi : System.IDisposable {
         } else {
             $this.GetDisplay($Address).Clear() | Out-Null
         }
+    }
+
+    # ---------------------------------------------------------------------------
+    # SPI shorthand methods.
+    # GetSpi() returns a cached PsGadgetSpi object for direct .Write/.Read/.Transfer calls.
+    # Cache key: "ClockHz:Mode:CsPin" — different parameters create separate instances.
+    # ---------------------------------------------------------------------------
+
+    # GetSpi() - 1 MHz, Mode 0, CS=ADBUS3
+    [PsGadgetSpi] GetSpi() {
+        return $this.GetSpi(1000000, 0, 3)
+    }
+
+    # GetSpi(clockHz) - custom clock, Mode 0, CS=ADBUS3
+    [PsGadgetSpi] GetSpi([int]$ClockHz) {
+        return $this.GetSpi($ClockHz, 0, 3)
+    }
+
+    # GetSpi(clockHz, spiMode, csPin) - full control
+    [PsGadgetSpi] GetSpi([int]$ClockHz, [int]$SpiMode, [int]$CsPin) {
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new('Device not open. Call Connect() first.')
+        }
+        $cacheKey = "$ClockHz`:$SpiMode`:$CsPin"
+        $spi = $null
+        if ($this._spiDevices -and $this._spiDevices.ContainsKey($cacheKey)) {
+            $spi = $this._spiDevices[$cacheKey]
+        }
+        if (-not $spi -or -not $spi.IsInitialized) {
+            $spi = [PsGadgetSpi]::new($this._connection, $ClockHz, $SpiMode, $CsPin)
+            if (-not $spi.Initialize($false)) {
+                throw [System.InvalidOperationException]::new(
+                    "Failed to initialize SPI: clock=$ClockHz mode=$SpiMode CS=ADBUS$CsPin")
+            }
+            if ($this._spiDevices) { $this._spiDevices[$cacheKey] = $spi }
+        }
+        return $spi
     }
 
     # Scan for I2C devices on the bus (0x08 to 0x77).

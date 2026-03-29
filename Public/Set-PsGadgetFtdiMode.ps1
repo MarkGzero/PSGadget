@@ -86,7 +86,7 @@ function Set-PsGadgetFtdiMode {
         [PsGadgetFtdi]$PsGadget,
 
         [Parameter(Mandatory = $true, Position = 1)]
-        [ValidateSet('MPSSE', 'MpsseI2c', 'CBUS', 'AsyncBitBang', 'SyncBitBang', 'UART')]
+        [ValidateSet('MPSSE', 'MpsseI2c', 'MpsseSpi', 'CBUS', 'AsyncBitBang', 'SyncBitBang', 'UART')]
         [string]$Mode,
 
         [Parameter(Mandatory = $false)]
@@ -104,6 +104,7 @@ function Set-PsGadgetFtdiMode {
         'AsyncBitBang' = 0x01
         'MPSSE'        = 0x02
         'MpsseI2c'     = 0x02   # MPSSE mode byte; I2C init follows SetBitMode
+        'MpsseSpi'     = 0x02   # MPSSE mode byte; SPI init follows SetBitMode
         'SyncBitBang'  = 0x04
         'CBUS'         = 0x20
     }
@@ -155,7 +156,7 @@ function Set-PsGadgetFtdiMode {
         $modeByte = $modeTable[$Mode]
 
         # MPSSE and UART ignore the mask (direction managed by MPSSE engine / reset)
-        $effectiveMask = if ($Mode -eq 'MPSSE' -or $Mode -eq 'MpsseI2c' -or $Mode -eq 'UART') { 0x00 } else { [byte]$Mask }
+        $effectiveMask = if ($Mode -in @('MPSSE', 'MpsseI2c', 'MpsseSpi', 'UART')) { 0x00 } else { [byte]$Mask }
 
         $log.WriteDebug("SetBitMode: mode=$Mode (0x$($modeByte.ToString('X2'))) mask=0x$($effectiveMask.ToString('X2'))")
 
@@ -186,8 +187,9 @@ function Set-PsGadgetFtdiMode {
             switch ($Mode) {
                 'AsyncBitBang' { $conn.GpioMethod = 'AsyncBitBang' }
                 'SyncBitBang'  { $conn.GpioMethod = 'SyncBitBang'  }
-                'MPSSE'        { $conn.GpioMethod = 'MPSSE' }
-                'MpsseI2c'     { $conn.GpioMethod = 'MpsseI2c' }
+                'MPSSE'        { $conn.GpioMethod = 'MPSSE'         }
+                'MpsseI2c'     { $conn.GpioMethod = 'MpsseI2c'      }
+                'MpsseSpi'     { $conn.GpioMethod = 'MpsseSpi'      }
                 'UART'         {
                     if ($conn.PSObject.Properties['OriginalGpioMethod']) {
                         $conn.GpioMethod = $conn.OriginalGpioMethod
@@ -199,11 +201,11 @@ function Set-PsGadgetFtdiMode {
                 Initialize-MpsseI2C -DeviceHandle $conn | Out-Null
             }
             # For plain MPSSE (GPIO): run core MPSSE sync + clock config (no drive-zero).
-            # Matches FtdiSharp GPIO.FTDI_ConfigureMpsse() which sends the same sync
-            # handshake and base-config bytes before any ACBUS commands are issued.
             if ($Mode -eq 'MPSSE') {
                 Initialize-MpsseGpio -DeviceHandle $conn | Out-Null
             }
+            # For MpsseSpi: MPSSE sync is deferred to GetSpi()/Initialize-MpsseSpi
+            # because clock, mode, and CS pin are not known at SetBitMode time.
             $log.WriteInfo("SetBitMode OK: $($PsGadget.SerialNumber) is now in $Mode mode (GpioMethod=$($conn.GpioMethod))")
             return [PSCustomObject]@{
                 Success    = $true
