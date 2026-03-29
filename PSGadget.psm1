@@ -61,11 +61,6 @@ try {
     Write-Warning "Failed to initialize PsGadget environment: $_"
 }
 
-# 6. Start the always-on module-level protocol trace writer
-try {
-    $script:PsGadgetTrace = [PsGadgetTrace]::new()
-    Write-Verbose "Protocol trace started: $($script:PsGadgetTrace.TraceFilePath)"
-} catch {
-    Write-Verbose "Protocol trace could not be started: $_"
-    $script:PsGadgetTrace = $null
-}
+# 6. Protocol trace slot — null until Open-PsGadgetTrace is called.
+# Guard clause "if ($script:PsGadgetTrace)" in all backend functions is a no-op until then.
+$script:PsGadgetTrace = $null

@@ -1,8 +1,8 @@
 #Requires -Version 5.1
 # PsGadgetTrace.ps1
-# Module-level protocol trace writer — always-on, separate from per-device PsGadgetLogger.
-# Written to ~/.psgadget/logs/trace-yyyyMMdd-HHmmss.log with ReadWrite file sharing so
-# a second terminal can tail it while it is being written.
+# On-demand protocol trace writer — created by Open-PsGadgetTrace, not at module import.
+# Written to ~/.psgadget/logs/trace.log (fixed name, truncated on each Open-PsGadgetTrace call)
+# with ReadWrite file sharing so a second terminal can tail it while it is being written.
 
 class PsGadgetTrace {
     [string]  $TraceFilePath
@@ -21,14 +21,15 @@ class PsGadgetTrace {
             $null = New-Item -Path $logDir -ItemType Directory -Force
         }
 
-        $ts = $this.StartTime.ToString('yyyyMMdd-HHmmss')
-        $this.TraceFilePath = Join-Path $logDir "trace-$ts.log"
+        # Fixed filename — no timestamp.  Truncated (Create) on each Open-PsGadgetTrace call
+        # so the viewer always watches the same file and always starts from a clean slate.
+        $this.TraceFilePath = Join-Path $logDir 'trace.log'
 
         try {
-            # ReadWrite share so Get-Content -Wait in the viewer window can read while we write
+            # Create (truncate) + ReadWrite share so Get-Content -Wait sees every write.
             $fs = [System.IO.File]::Open(
                 $this.TraceFilePath,
-                [System.IO.FileMode]::Append,
+                [System.IO.FileMode]::Create,
                 [System.IO.FileAccess]::Write,
                 [System.IO.FileShare]::ReadWrite
             )

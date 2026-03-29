@@ -21,6 +21,7 @@ install the module, connect hardware, and use every exported function.
 | [Function Reference](Function-Reference.md) | Every exported function: parameters, return types, examples |
 | [Config Key Reference](Configuration.md) | Deep reference for every config key |
 | [Daemon Reference](Daemon.md) | Background device daemons: named pipe IPC, file drop, systemd integration |
+| [Logging and Protocol Trace](Logging.md) | Session logs, live protocol trace viewer, log file management |
 
 ### Device Workflows
 
@@ -50,3 +51,4 @@ install the module, connect hardware, and use every exported function.
 - **Know what you want to call?** Go straight to the [Function Reference](Function-Reference.md).
 - **Wiring a specific device?** The [Workflow Reference](../../examples/psgadget_workflow.md) has pin maps and step-by-step commands.
 - **Adjusting behavior for your rig?** See [Configuration](Configuration.md).
+- **Watching wire traffic in real time?** See [Logging and Protocol Trace](Logging.md).

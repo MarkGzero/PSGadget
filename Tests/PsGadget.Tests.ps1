@@ -132,11 +132,22 @@ Describe 'PsGadget Module Tests' {
             $ExportedFunctions | Should -Contain 'Open-PsGadgetTrace'
         }
 
-        It 'Module-level $script:PsGadgetTrace should be active after import' {
+        It 'Module-level $script:PsGadgetTrace should be null until Open-PsGadgetTrace is called' {
             InModuleScope PSGadget {
+                # Trace is opt-in — null at import time, activated by Open-PsGadgetTrace
+                $script:PsGadgetTrace | Should -BeNullOrEmpty
+            }
+        }
+
+        It 'Open-PsGadgetTrace -PassThru should activate the trace and return trace.log path' {
+            InModuleScope PSGadget {
+                $path = Open-PsGadgetTrace -PassThru
+                $path | Should -Match 'trace\.log$'
                 $script:PsGadgetTrace | Should -Not -BeNullOrEmpty
-                $script:PsGadgetTrace.TraceFilePath | Should -Not -BeNullOrEmpty
-                Test-Path -LiteralPath $script:PsGadgetTrace.TraceFilePath | Should -Be $true
+                Test-Path -LiteralPath $path | Should -Be $true
+                # Cleanup
+                $script:PsGadgetTrace.Dispose()
+                $script:PsGadgetTrace = $null
             }
         }
     }

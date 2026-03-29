@@ -1,38 +1,38 @@
 #Requires -Version 5.1
 # Open-PsGadgetTrace.ps1
-# Opens a colorized protocol trace viewer in a new terminal window (Windows),
-# or prints the tail command to run in a second terminal (Linux/macOS).
+# Activates the PSGadget protocol trace and opens a colorized viewer in a new terminal.
+# Calling this is the switch: tracing is off until Open-PsGadgetTrace runs.
 
 function Open-PsGadgetTrace {
     <#
     .SYNOPSIS
-    Opens the PSGadget protocol trace viewer in a new terminal window.
+    Activates the PSGadget protocol trace and opens a live viewer in a new terminal window.
 
     .DESCRIPTION
-    Launches a second PowerShell window that tails the current session's protocol
-    trace log with color-coded output per subsystem:
-      Cyan    = I2C operations
-      Green   = GPIO operations
-      Yellow  = Stepper motor steps
-      Magenta = SSD1306 OLED writes
-      DarkCyan= MPSSE commands / RAW bytes
-      DarkGray= CONNECT / DISCONNECT events
+    Open-PsGadgetTrace is the on/off switch for the protocol trace.  Tracing is disabled
+    until this function is called.  Each call truncates the previous trace and starts fresh.
 
-    On Windows, a new pwsh (or powershell.exe) window opens automatically.
-    On Linux/macOS, the tail command is printed to the console — run it in a
-    second terminal.
+    All hardware operations after this call — I2C transactions, GPIO state changes, MPSSE
+    commands, SSD1306 framebuffer writes, stepper moves — are recorded to:
+        ~/.psgadget/logs/trace.log
+
+    On Windows, a new pwsh (or powershell.exe) window opens automatically with colorized
+    output.  On Linux/macOS, the tail command is printed to run in a second terminal.
+
+    Typical usage:
+        Open-PsGadgetTrace         # start trace + open viewer
+        $dev = New-PsGadgetFtdi    # hardware ops now appear in the viewer
+        $dev.SetPin(0, 'HIGH')
 
     .PARAMETER PassThru
-    Return the trace file path instead of opening a viewer.
+    Return the trace file path instead of opening a viewer window.
 
     .EXAMPLE
-    # Open the trace viewer, then run your hardware script
     Open-PsGadgetTrace
     $dev = New-PsGadgetFtdi -Index 0
-    $dev.SetPin(0, 'HIGH')
+    $dev.Display('hello', 0)
 
     .EXAMPLE
-    # Get the path and tail with your own tool
     $path = Open-PsGadgetTrace -PassThru
     # Linux: tail -f $path
     #>
@@ -43,8 +43,17 @@ function Open-PsGadgetTrace {
         [switch]$PassThru
     )
 
-    if (-not $script:PsGadgetTrace -or -not $script:PsGadgetTrace.TraceFilePath) {
-        Write-Warning 'Protocol trace is not active. Import-Module PSGadget to start it.'
+    # Dispose any existing trace writer before creating a new one
+    if ($script:PsGadgetTrace) {
+        $script:PsGadgetTrace.Dispose()
+        $script:PsGadgetTrace = $null
+    }
+
+    # Create the trace writer — truncates trace.log and writes the session header
+    try {
+        $script:PsGadgetTrace = [PsGadgetTrace]::new()
+    } catch {
+        Write-Warning "Open-PsGadgetTrace: could not create trace writer: $_"
         return
     }
 
@@ -54,8 +63,7 @@ function Open-PsGadgetTrace {
         return $tracePath
     }
 
-    # Inline viewer script — embedded as a string so it runs cleanly in a new process
-    # with no module dependency (just Get-Content + Write-Host coloring)
+    # Inline viewer script — runs in a new process with no module dependency
     $viewerScript = @"
 `$path = '$($tracePath -replace "'", "''")'
 `$Host.UI.RawUI.WindowTitle = 'PSGadget Trace'
@@ -84,17 +92,14 @@ Get-Content -LiteralPath `$path -Wait | ForEach-Object {
         $bytes   = [System.Text.Encoding]::Unicode.GetBytes($viewerScript)
         $encoded = [Convert]::ToBase64String($bytes)
 
-        # Prefer pwsh (PS 7+) for colour support; fall back to powershell.exe (PS 5.1)
         $exe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
         Start-Process $exe -ArgumentList '-NoExit', '-EncodedCommand', $encoded
         Write-Verbose "Trace viewer opened in new $exe window: $tracePath"
     } else {
-        # Linux/macOS: no portable way to spawn a new terminal window
         Write-Host ''
         Write-Host 'Run this in a second terminal to follow the protocol trace:' -ForegroundColor White
         Write-Host ''
         Write-Host "  Get-Content -LiteralPath '$tracePath' -Wait" -ForegroundColor Cyan
         Write-Host ''
-        Write-Host "Or with color (copy Open-PsGadgetTrace viewer script above)." -ForegroundColor DarkGray
     }
 }
