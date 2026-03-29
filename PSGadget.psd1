@@ -1,7 +1,7 @@
 @{
     # Module metadata
     RootModule           = 'PSGadget.psm1'
-    ModuleVersion        = '0.3.7'
+    ModuleVersion        = '0.4.0'
     CompatiblePSEditions = @('Desktop', 'Core')
     GUID                 = '72440f23-d3c6-4249-83eb-9affa6df882b'
 
@@ -40,21 +40,21 @@
         'Open-PsGadgetTrace'
     )
     
-    # No cmdlets, variables, or aliases exported
+    # No cmdlets, variables exported
     CmdletsToExport = @()
     VariablesToExport = @()
-    AliasesToExport = @('Test-PsGadgetSetup')
+    AliasesToExport = @('Test-PsGadgetSetup', 'Get-PsGadgetOption', 'Set-PsGadgetOption')
     
     # Files included in this module
     FileList = @(
         'PSGadget.psm1',
-        'Classes/PsGadgetTrace.ps1',
         'Classes/PsGadgetLogger.ps1',
         'Classes/PsGadgetI2CDevice.ps1',
         'Classes/PsGadgetSsd1306.ps1',
         'Classes/PsGadgetFtdi.ps1',
         'Classes/PsGadgetMpy.ps1',
         'Classes/PsGadgetPca9685.ps1',
+        'Private/Get-PsGadgetModuleLogger.ps1',
         'Private/Ftdi.PInvoke.ps1',
         'Private/Stepper.Backend.ps1',
         'Private/Ftdi.Backend.ps1',

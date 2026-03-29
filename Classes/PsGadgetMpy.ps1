@@ -8,7 +8,7 @@ class PsGadgetMpy {
     # Constructor
     PsGadgetMpy([string]$Port) {
         $this.SerialPort = $Port
-        $this.Logger = [PsGadgetLogger]::new()
+        $this.Logger = Get-PsGadgetModuleLogger
         
         $this.Logger.WriteInfo("Created PsGadgetMpy instance for serial port: $Port")
     }

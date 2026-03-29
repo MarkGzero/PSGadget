@@ -164,10 +164,8 @@ function Invoke-PsGadgetStepperMove {
     }
 
     $log.WriteTrace("StepperMove: phase buffer $Steps bytes built")
-    if ($script:PsGadgetTrace) {
-        $script:PsGadgetTrace.Write('STEPPER',
+    $script:PsGadgetLogger.WriteProto('STEPPER',
             "MOVE  $Steps steps  $StepMode  $Direction  ${DelayMs}ms/step  bank=$bankLabel")
-    }
 
     $conn      = $Ftdi._connection
     $gpioMethod = if ($conn -and $conn.PSObject.Properties['GpioMethod']) { $conn.GpioMethod } else { '' }
@@ -214,9 +212,7 @@ function Invoke-PsGadgetStepperMove {
                     while ($sw.ElapsedTicks -lt $targetTicks) {}
                 }
                 $log.WriteInfo("StepperMove: completed $Steps steps (MPSSE/$bankLabel)")
-                if ($script:PsGadgetTrace) {
-                    $script:PsGadgetTrace.Write('STEPPER', "DONE  $Steps steps  MPSSE/$bankLabel")
-                }
+                $script:PsGadgetLogger.WriteProto('STEPPER', "DONE  $Steps steps  MPSSE/$bankLabel")
             } catch [System.NotImplementedException] {
                 $log.WriteTrace("StepperMove stub: FT_Write not implemented (no hardware)")
             } catch {
@@ -262,9 +258,7 @@ function Invoke-PsGadgetStepperMove {
                     while ($sw.ElapsedTicks -lt $targetTicks) {}
                 }
                 $log.WriteInfo("StepperMove: completed $Steps steps (AsyncBitBang)")
-                if ($script:PsGadgetTrace) {
-                    $script:PsGadgetTrace.Write('STEPPER', "DONE  $Steps steps  AsyncBitBang")
-                }
+                $script:PsGadgetLogger.WriteProto('STEPPER', "DONE  $Steps steps  AsyncBitBang")
             } catch [System.NotImplementedException] {
                 $log.WriteTrace("StepperMove stub: FT_Write not implemented (no hardware)")
             } catch {

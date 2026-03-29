@@ -46,7 +46,13 @@ Describe 'PsGadget Module Tests' {
         }
         
         It 'Should have the correct module version' {
-            (Get-Module PSGadget).Version.ToString() | Should -Be '0.3.7'
+            (Get-Module PSGadget).Version.ToString() | Should -Be '0.4.0'
+        }
+
+        It 'Should export Get-PsGadgetOption and Set-PsGadgetOption aliases' {
+            $ExportedAliases = (Get-Module PSGadget).ExportedAliases.Keys
+            $ExportedAliases | Should -Contain 'Get-PsGadgetOption'
+            $ExportedAliases | Should -Contain 'Set-PsGadgetOption'
         }
     }
 
@@ -64,66 +70,53 @@ Describe 'PsGadget Module Tests' {
         }
     }
 
-    Context 'Protocol Trace Class' {
-        It 'Should create a trace instance with a valid file path' {
+    Context 'Logger Class' {
+        It 'Should initialize singleton logger at module import' {
             InModuleScope PSGadget {
-                $trace = [PsGadgetTrace]::new()
-                $trace.TraceFilePath | Should -Not -BeNullOrEmpty
-                $trace.SessionId     | Should -Not -BeNullOrEmpty
-                $trace.Dispose()
+                $script:PsGadgetLogger | Should -Not -BeNullOrEmpty
             }
         }
 
-        It 'Should create the trace file on disk' {
+        It 'Singleton logger should have a valid LogFilePath ending in psgadget.log' {
             InModuleScope PSGadget {
-                $trace = [PsGadgetTrace]::new()
-                Test-Path -LiteralPath $trace.TraceFilePath | Should -Be $true
-                $trace.Dispose()
+                $script:PsGadgetLogger.LogFilePath | Should -Match 'psgadget\.log$'
             }
         }
 
-        It 'Should write a session header to the trace file' {
+        It 'Singleton logger should have a non-empty SessionId' {
             InModuleScope PSGadget {
-                $trace = [PsGadgetTrace]::new()
-                Start-Sleep -Milliseconds 50
-                $content = Get-Content -LiteralPath $trace.TraceFilePath -Raw
-                $content | Should -Match '=== PsGadget Trace'
-                $trace.Dispose()
+                $script:PsGadgetLogger.SessionId | Should -Not -BeNullOrEmpty
             }
         }
 
-        It 'Should write semantic-only trace entries' {
+        It 'psgadget.log should exist on disk after module import' {
             InModuleScope PSGadget {
-                $trace = [PsGadgetTrace]::new()
-                $trace.Write('GPIO.WRITE', 'ACBUS val=0x01 dir=0xFF')
-                Start-Sleep -Milliseconds 50
-                $content = Get-Content -LiteralPath $trace.TraceFilePath -Raw
-                $content | Should -Match 'GPIO.WRITE'
-                $content | Should -Match 'ACBUS val=0x01'
-                $trace.Dispose()
+                Test-Path -LiteralPath $script:PsGadgetLogger.LogFilePath | Should -Be $true
             }
         }
 
-        It 'Should write trace entries with RAW hex line' {
+        It 'psgadget.log should contain a session header' {
             InModuleScope PSGadget {
-                $trace = [PsGadgetTrace]::new()
-                $trace.Write('I2C.WRITE', 'addr=0x3C 2B', '00 AE')
-                Start-Sleep -Milliseconds 50
-                $content = Get-Content -LiteralPath $trace.TraceFilePath -Raw
-                $content | Should -Match 'I2C.WRITE'
-                $content | Should -Match 'RAW'
-                $content | Should -Match '00 AE'
-                $trace.Dispose()
+                $content = Get-Content -LiteralPath $script:PsGadgetLogger.LogFilePath -Raw
+                $content | Should -Match '\[HEADER\]'
             }
         }
 
-        It 'Should truncate FormatHex output at 64 bytes with suffix' {
+        It 'Get-PsGadgetModuleLogger should return the module singleton' {
             InModuleScope PSGadget {
-                $trace = [PsGadgetTrace]::new()
-                $bytes = [byte[]](0..99)
-                $hex = $trace.FormatHex($bytes)
-                $hex | Should -Match '\[\.\.\.\+'
-                $trace.Dispose()
+                $logger = Get-PsGadgetModuleLogger
+                $logger | Should -Not -BeNullOrEmpty
+                # Should be the same object (same session ID) as the module singleton
+                $logger.SessionId | Should -Be $script:PsGadgetLogger.SessionId
+            }
+        }
+
+        It 'Should write INFO entries to psgadget.log' {
+            InModuleScope PSGadget {
+                $marker = "TestEntry-$([guid]::NewGuid().ToString('N').Substring(0,8))"
+                $script:PsGadgetLogger.WriteInfo($marker)
+                $content = Get-Content -LiteralPath $script:PsGadgetLogger.LogFilePath -Raw
+                $content | Should -Match $marker
             }
         }
 
@@ -132,51 +125,51 @@ Describe 'PsGadget Module Tests' {
             $ExportedFunctions | Should -Contain 'Open-PsGadgetTrace'
         }
 
-        It 'Module-level $script:PsGadgetTrace should be null until Open-PsGadgetTrace is called' {
+        It 'TraceEnabled should be false at module import' {
             InModuleScope PSGadget {
-                # Trace is opt-in — null at import time, activated by Open-PsGadgetTrace
-                $script:PsGadgetTrace | Should -BeNullOrEmpty
+                $script:PsGadgetLogger.TraceEnabled | Should -Be $false
             }
         }
 
-        It 'Open-PsGadgetTrace -PassThru should activate the trace and return trace.log path' {
+        It 'Open-PsGadgetTrace -PassThru should set TraceEnabled and return psgadget.log path' {
             InModuleScope PSGadget {
                 $path = Open-PsGadgetTrace -PassThru
-                $path | Should -Match 'trace\.log$'
-                $script:PsGadgetTrace | Should -Not -BeNullOrEmpty
+                $path | Should -Match 'psgadget\.log$'
+                $script:PsGadgetLogger.TraceEnabled | Should -Be $true
                 Test-Path -LiteralPath $path | Should -Be $true
-                # Cleanup
-                $script:PsGadgetTrace.Dispose()
-                $script:PsGadgetTrace = $null
+                # Reset for subsequent tests
+                $script:PsGadgetLogger.TraceEnabled = $false
             }
         }
-    }
 
-    Context 'Logger Class' {
-        # PsGadgetLogger is a module-internal PS class; use InModuleScope to access it.
-        It 'Should create logger instances' {
+        It 'FormatHex should truncate output at 64 bytes with [...+N] suffix' {
             InModuleScope PSGadget {
-                $Logger = [PsGadgetLogger]::new()
-                $Logger | Should -Not -BeNullOrEmpty
-                $Logger.LogFilePath | Should -Not -BeNullOrEmpty
-                $Logger.SessionId | Should -Not -BeNullOrEmpty
+                $bytes = [byte[]](0..99)
+                $hex = $script:PsGadgetLogger.FormatHex($bytes)
+                $hex | Should -Match '\[\.\.\.\+'
             }
         }
-        
-        It 'Should create log file' {
+
+        It 'WriteProto should be a no-op when TraceEnabled is false' {
             InModuleScope PSGadget {
-                $Logger = [PsGadgetLogger]::new()
-                Test-Path -Path $Logger.LogFilePath | Should -Be $true
+                $script:PsGadgetLogger.TraceEnabled = $false
+                $before = (Get-Item -LiteralPath $script:PsGadgetLogger.LogFilePath).Length
+                $script:PsGadgetLogger.WriteProto('TEST', 'should-not-appear')
+                $after  = (Get-Item -LiteralPath $script:PsGadgetLogger.LogFilePath).Length
+                $after | Should -Be $before
             }
         }
-        
-        It 'Should write log entries' {
+
+        It 'WriteProto should write PROTO entries when TraceEnabled is true' {
             InModuleScope PSGadget {
-                $Logger = [PsGadgetLogger]::new()
-                $Logger.WriteInfo('Test log entry')
-                Start-Sleep -Milliseconds 100  # Allow file write to complete
-                $LogContent = Get-Content -Path $Logger.LogFilePath -Raw
-                $LogContent | Should -Match 'Test log entry'
+                $script:PsGadgetLogger.TraceEnabled = $true
+                $marker = "ProtoTest-$([guid]::NewGuid().ToString('N').Substring(0,8))"
+                $script:PsGadgetLogger.WriteProto('TEST', $marker)
+                $content = Get-Content -LiteralPath $script:PsGadgetLogger.LogFilePath -Raw
+                $content | Should -Match '\[PROTO\]'
+                $content | Should -Match $marker
+                # Reset
+                $script:PsGadgetLogger.TraceEnabled = $false
             }
         }
     }

@@ -24,13 +24,10 @@ $script:PsGadgetConfigDefaults = [PSCustomObject]@{
     logging = [PSCustomObject]@{
         # Minimum severity level written to log files.
         # Valid values (ascending verbosity): ERROR, WARN, INFO, DEBUG, TRACE
-        level           = 'INFO'
+        level      = 'INFO'
 
-        # Maximum size of a single log file in megabytes before it is rotated.
-        maxFileSizeMb   = 10
-
-        # Number of days to retain rotated log files before deletion.
-        retainDays      = 30
+        # Maximum size of psgadget.log in megabytes before it is rolled to psgadget.1.log.
+        maxSizeMb  = 50
     }
 }
 
@@ -66,9 +63,8 @@ function Initialize-PsGadgetConfig {
             rIsD2XX        = $script:PsGadgetConfigDefaults.ftdi.rIsD2XX
         }
         logging = [PSCustomObject]@{
-            level         = $script:PsGadgetConfigDefaults.logging.level
-            maxFileSizeMb = $script:PsGadgetConfigDefaults.logging.maxFileSizeMb
-            retainDays    = $script:PsGadgetConfigDefaults.logging.retainDays
+            level     = $script:PsGadgetConfigDefaults.logging.level
+            maxSizeMb = $script:PsGadgetConfigDefaults.logging.maxSizeMb
         }
     }
 
@@ -93,8 +89,9 @@ function Initialize-PsGadgetConfig {
                                        "Valid values: $($validLevels -join ', '). Using default 'INFO'.")
                     }
                 }
-                if ($null -ne $disk.logging.maxFileSizeMb) { $config.logging.maxFileSizeMb = [int]$disk.logging.maxFileSizeMb }
-                if ($null -ne $disk.logging.retainDays)    { $config.logging.retainDays    = [int]$disk.logging.retainDays }
+                # Accept both new key (maxSizeMb) and old key (maxFileSizeMb) for migration
+                if ($null -ne $disk.logging.maxSizeMb)     { $config.logging.maxSizeMb = [int]$disk.logging.maxSizeMb }
+                elseif ($null -ne $disk.logging.maxFileSizeMb) { $config.logging.maxSizeMb = [int]$disk.logging.maxFileSizeMb }
             }
 
             Write-Verbose "PSGadget: loaded config from $ConfigFile"

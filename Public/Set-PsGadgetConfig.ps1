@@ -24,8 +24,7 @@ function Set-PsGadgetConfig {
         ftdi.pullDownEnable
         ftdi.rIsD2XX
         logging.level
-        logging.maxFileSizeMb
-        logging.retainDays
+        logging.maxSizeMb
 
     .PARAMETER Value
     New value for the setting. PowerShell will coerce the type if possible
@@ -44,8 +43,8 @@ function Set-PsGadgetConfig {
     Set-PsGadgetConfig -Key logging.level -Value DEBUG
 
     .EXAMPLE
-    # Reduce log retention
-    Set-PsGadgetConfig -Key logging.retainDays -Value 7
+    # Increase log max size to 100 MB before rolling
+    Set-PsGadgetConfig -Key logging.maxSizeMb -Value 100
 
     .NOTES
     Configuration is stored at:  ~/.psgadget/config.json
@@ -60,8 +59,7 @@ function Set-PsGadgetConfig {
             'ftdi.pullDownEnable',
             'ftdi.rIsD2XX',
             'logging.level',
-            'logging.maxFileSizeMb',
-            'logging.retainDays'
+            'logging.maxSizeMb'
         )]
         [string]$Key,
 
@@ -90,8 +88,7 @@ function Set-PsGadgetConfig {
             }
             $upper
         }
-        'logging.maxFileSizeMb' { [int]$Value }
-        'logging.retainDays'    { [int]$Value }
+        'logging.maxSizeMb'     { [int]$Value }
         default                 { $Value }
     }
 

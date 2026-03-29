@@ -61,6 +61,11 @@ try {
     Write-Warning "Failed to initialize PsGadget environment: $_"
 }
 
-# 6. Protocol trace slot — null until Open-PsGadgetTrace is called.
-# Guard clause "if ($script:PsGadgetTrace)" in all backend functions is a no-op until then.
-$script:PsGadgetTrace = $null
+# 6. Singleton session logger — shared by all device instances.
+# Created after Initialize-PsGadgetEnvironment so config (logging.maxSizeMb) is ready.
+# All class constructors call Get-PsGadgetModuleLogger() to reference this instance.
+$script:PsGadgetLogger = [PsGadgetLogger]::new()
+
+# 7. Convenience aliases
+Set-Alias -Name Get-PsGadgetOption -Value Get-PsGadgetConfig -Scope Script
+Set-Alias -Name Set-PsGadgetOption -Value Set-PsGadgetConfig -Scope Script

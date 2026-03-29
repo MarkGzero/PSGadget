@@ -37,7 +37,7 @@ class PsGadgetFtdi : System.IDisposable {
         $this.IsOpen       = $false
         $this.Description  = "FTDI $SerialNumber"
         $this._i2cDevices  = @{}
-        $this.Logger = [PsGadgetLogger]::new()
+        $this.Logger = Get-PsGadgetModuleLogger
         $this.Logger.WriteInfo("PsGadgetFtdi created for serial: $SerialNumber")
     }
 
@@ -49,7 +49,7 @@ class PsGadgetFtdi : System.IDisposable {
         $this.IsOpen       = $false
         $this.Description  = "FTDI device index $DeviceIndex"
         $this._i2cDevices  = @{}
-        $this.Logger = [PsGadgetLogger]::new()
+        $this.Logger = Get-PsGadgetModuleLogger
         $this.Logger.WriteInfo("PsGadgetFtdi created for index: $DeviceIndex")
     }
 
