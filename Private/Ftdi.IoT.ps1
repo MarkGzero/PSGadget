@@ -172,6 +172,10 @@ function Invoke-FtdiIotOpen {
 
         # Close - disposes GpioController then Ft232HDevice
         $connection | Add-Member -MemberType ScriptMethod -Name 'Close' -Value {
+            if ($script:PsGadgetTrace) {
+                $script:PsGadgetTrace.Write('DISCONNECT',
+                    "$($this.Type)  serial=$($this.SerialNumber)  backend=IoT")
+            }
             if ($this.GpioController) {
                 try { $this.GpioController.Dispose() } catch {}
                 $this.GpioController = $null
@@ -203,6 +207,10 @@ function Invoke-FtdiIotOpen {
         }
 
         Write-Verbose "Successfully opened $($DeviceInfo.Type) via IoT backend"
+        if ($script:PsGadgetTrace) {
+            $script:PsGadgetTrace.Write('CONNECT',
+                "$($connection.Type)  serial=$($connection.SerialNumber)  backend=IoT")
+        }
         return $connection
 
     } catch [System.NotImplementedException] {
@@ -264,6 +272,10 @@ function Set-FtdiIotGpioPins {
             }
         }
 
+        if ($script:PsGadgetTrace) {
+            $script:PsGadgetTrace.Write('GPIO.WRITE',
+                ("IoT ACBUS pins=[{0}] → {1}" -f ($Pins -join ','), $State))
+        }
         return $true
 
     } catch {

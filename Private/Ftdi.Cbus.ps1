@@ -657,6 +657,11 @@ function Set-FtdiCbusBits {
 
         Write-Verbose ("CBUS bit-bang: pins=[{0}] state={1} dir=0x{2:X1} val=0x{3:X1} mask=0x{4:X2}" -f
             ($Pins -join ','), $State, $dirNibble, $valNibble, $mask)
+        if ($script:PsGadgetTrace) {
+            $script:PsGadgetTrace.Write('CBUS.WRITE',
+                ("pins=[{0}] → {1}  dir=0x{2:X1} val=0x{3:X1}" -f ($Pins -join ','), $State, $dirNibble, $valNibble),
+                ("SetBitMode mask=0x{0:X2} mode=0x20" -f $mask))
+        }
 
         if ($script:FtdiInitialized -and $null -ne $Connection.Device) {
             # Windows path: FTD2XX_NET managed object

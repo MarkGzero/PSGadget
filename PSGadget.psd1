@@ -36,7 +36,8 @@
         'Get-PsGadgetEspNowDevices',
         'Invoke-PsGadgetI2CScan',
         'Invoke-PsGadgetI2C',
-        'Invoke-PsGadgetStepper'
+        'Invoke-PsGadgetStepper',
+        'Open-PsGadgetTrace'
     )
     
     # No cmdlets, variables, or aliases exported
@@ -47,6 +48,7 @@
     # Files included in this module
     FileList = @(
         'PSGadget.psm1',
+        'Classes/PsGadgetTrace.ps1',
         'Classes/PsGadgetLogger.ps1',
         'Classes/PsGadgetI2CDevice.ps1',
         'Classes/PsGadgetSsd1306.ps1',
@@ -87,6 +89,7 @@
         'Public/Set-PsGadgetFtdiEeprom.ps1',
         'Public/Set-PsGadgetFtdiMode.ps1',
         'Public/Set-PsGadgetGpio.ps1',
+        'Public/Open-PsGadgetTrace.ps1',
         'lib/net48/FTD2XX_NET.dll',
         'lib/net48/FTD2XX_NET.xml',
         'lib/netstandard20/FTD2XX_NET.dll',

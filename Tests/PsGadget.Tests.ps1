@@ -37,6 +37,7 @@ Describe 'PsGadget Module Tests' {
             $ExportedFunctions | Should -Contain 'Invoke-PsGadgetI2C'
             $ExportedFunctions | Should -Contain 'Invoke-PsGadgetI2CScan'
             $ExportedFunctions | Should -Contain 'Invoke-PsGadgetStepper'
+            $ExportedFunctions | Should -Contain 'Open-PsGadgetTrace'
             $ExportedFunctions | Should -Not -Contain 'Connect-PsGadgetPca9685'
             $ExportedFunctions | Should -Not -Contain 'Connect-PsGadgetSsd1306'
             $ExportedFunctions | Should -Not -Contain 'Write-PsGadgetSsd1306'
@@ -60,6 +61,83 @@ Describe 'PsGadget Module Tests' {
             $UserHome = [Environment]::GetFolderPath("UserProfile")  
             $LogsDir = Join-Path -Path $UserHome -ChildPath ".psgadget/logs"
             Test-Path -Path $LogsDir | Should -Be $true
+        }
+    }
+
+    Context 'Protocol Trace Class' {
+        It 'Should create a trace instance with a valid file path' {
+            InModuleScope PSGadget {
+                $trace = [PsGadgetTrace]::new()
+                $trace.TraceFilePath | Should -Not -BeNullOrEmpty
+                $trace.SessionId     | Should -Not -BeNullOrEmpty
+                $trace.Dispose()
+            }
+        }
+
+        It 'Should create the trace file on disk' {
+            InModuleScope PSGadget {
+                $trace = [PsGadgetTrace]::new()
+                Test-Path -LiteralPath $trace.TraceFilePath | Should -Be $true
+                $trace.Dispose()
+            }
+        }
+
+        It 'Should write a session header to the trace file' {
+            InModuleScope PSGadget {
+                $trace = [PsGadgetTrace]::new()
+                Start-Sleep -Milliseconds 50
+                $content = Get-Content -LiteralPath $trace.TraceFilePath -Raw
+                $content | Should -Match '=== PsGadget Trace'
+                $trace.Dispose()
+            }
+        }
+
+        It 'Should write semantic-only trace entries' {
+            InModuleScope PSGadget {
+                $trace = [PsGadgetTrace]::new()
+                $trace.Write('GPIO.WRITE', 'ACBUS val=0x01 dir=0xFF')
+                Start-Sleep -Milliseconds 50
+                $content = Get-Content -LiteralPath $trace.TraceFilePath -Raw
+                $content | Should -Match 'GPIO.WRITE'
+                $content | Should -Match 'ACBUS val=0x01'
+                $trace.Dispose()
+            }
+        }
+
+        It 'Should write trace entries with RAW hex line' {
+            InModuleScope PSGadget {
+                $trace = [PsGadgetTrace]::new()
+                $trace.Write('I2C.WRITE', 'addr=0x3C 2B', '00 AE')
+                Start-Sleep -Milliseconds 50
+                $content = Get-Content -LiteralPath $trace.TraceFilePath -Raw
+                $content | Should -Match 'I2C.WRITE'
+                $content | Should -Match 'RAW'
+                $content | Should -Match '00 AE'
+                $trace.Dispose()
+            }
+        }
+
+        It 'Should truncate FormatHex output at 64 bytes with suffix' {
+            InModuleScope PSGadget {
+                $trace = [PsGadgetTrace]::new()
+                $bytes = [byte[]](0..99)
+                $hex = $trace.FormatHex($bytes)
+                $hex | Should -Match '\[\.\.\.\+'
+                $trace.Dispose()
+            }
+        }
+
+        It 'Should export Open-PsGadgetTrace' {
+            $ExportedFunctions = (Get-Module PSGadget).ExportedFunctions.Keys
+            $ExportedFunctions | Should -Contain 'Open-PsGadgetTrace'
+        }
+
+        It 'Module-level $script:PsGadgetTrace should be active after import' {
+            InModuleScope PSGadget {
+                $script:PsGadgetTrace | Should -Not -BeNullOrEmpty
+                $script:PsGadgetTrace.TraceFilePath | Should -Not -BeNullOrEmpty
+                Test-Path -LiteralPath $script:PsGadgetTrace.TraceFilePath | Should -Be $true
+            }
         }
     }
 

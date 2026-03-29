@@ -8,6 +8,7 @@ $ModuleRoot = $PSScriptRoot
 
 # 1. Load all Class files first (dependency order matters)
 $ClassFiles = @(
+    'PsGadgetTrace.ps1',
     'PsGadgetLogger.ps1',
     'PsGadgetI2CDevice.ps1',
     'PsGadgetSsd1306.ps1',
@@ -58,4 +59,13 @@ try {
     Initialize-PsGadgetEnvironment
 } catch {
     Write-Warning "Failed to initialize PsGadget environment: $_"
+}
+
+# 6. Start the always-on module-level protocol trace writer
+try {
+    $script:PsGadgetTrace = [PsGadgetTrace]::new()
+    Write-Verbose "Protocol trace started: $($script:PsGadgetTrace.TraceFilePath)"
+} catch {
+    Write-Verbose "Protocol trace could not be started: $_"
+    $script:PsGadgetTrace = $null
 }
