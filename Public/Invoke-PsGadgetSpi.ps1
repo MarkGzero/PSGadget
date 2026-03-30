@@ -71,8 +71,24 @@ function Invoke-PsGadgetSpi {
     $dev = New-PsGadgetFtdi -Index 0
     $rx  = Invoke-PsGadgetSpi -PsGadget $dev -Data @(0x9F) -ReadCount 3
 
+    .EXAMPLE
+    # Polling loop — keep device open to avoid per-call open/close overhead
+    $dev = New-PsGadgetFtdi -SerialNumber 'FT4ABCDE'
+    try {
+        while ($true) {
+            # MCP3208 8-ch ADC: start=1, single-ended ch0, pad=0x00
+            $raw = Invoke-PsGadgetSpi -PsGadget $dev -Data @(0x01, 0x80, 0x00) -ReadCount 3
+            $value = (($raw[1] -band 0x0F) -shl 8) -bor $raw[2]
+            Write-Host "ADC ch0: $value"
+            Start-Sleep -Seconds 5
+        }
+    } finally {
+        $dev.Close()
+    }
+
     .OUTPUTS
     Write-only:   [bool] $true on success, $false on failure.
+                  To suppress the bool from the pipeline use [void]: [void](Invoke-PsGadgetSpi ...)
     Read-only:    [byte[]] received bytes.
     Full-duplex:  [byte[]] received bytes (length = ReadCount).
 

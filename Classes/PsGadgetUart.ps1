@@ -114,20 +114,21 @@ class PsGadgetUart {
     }
 
     # Read bytes until a newline (\n) arrives or TimeoutMs elapses.
-    # Returns the line as a UTF-8 string with leading/trailing whitespace preserved.
-    # \r is stripped; \n terminates the read.
-    [string] ReadLine() {
+    # Returns the line as a UTF-8 string (\r stripped, \n not included).
+    # Returns $null when no newline was received within the timeout (distinguishable
+    # from a device that sent a bare \n, which returns "").
+    [object] ReadLine() {
         return $this.ReadLine(1024, 2000)
     }
 
-    [string] ReadLine([int]$maxLength) {
+    [object] ReadLine([int]$maxLength) {
         return $this.ReadLine($maxLength, 2000)
     }
 
-    [string] ReadLine([int]$maxLength, [int]$timeoutMs) {
+    [object] ReadLine([int]$maxLength, [int]$timeoutMs) {
         if (-not $this.IsInitialized) {
             $this.Logger.WriteError("UART not initialized. Call Initialize() first.")
-            return ''
+            return $null
         }
         return (Invoke-FtdiUartReadLine `
             -DeviceHandle $this.FtdiDevice `

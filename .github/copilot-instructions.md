@@ -55,7 +55,7 @@ Authoritative references:
 
 Current loader order in `PSGadget.psm1`:
 
-1. Classes in dependency order: `PsGadgetLogger.ps1`, `PsGadgetI2CDevice.ps1`, `PsGadgetSsd1306.ps1`, `PsGadgetFtdi.ps1`, `PsGadgetMpy.ps1`, `PsGadgetPca9685.ps1`
+1. Classes in dependency order: `PsGadgetLogger.ps1`, `PsGadgetI2CDevice.ps1`, `PsGadgetSsd1306.ps1`, `PsGadgetSpi.ps1`, `PsGadgetUart.ps1`, `PsGadgetFtdi.ps1`, `PsGadgetMpy.ps1`, `PsGadgetPca9685.ps1`
 2. All files in `Private/`
 3. All files in `Public/`
 4. FTDI initialization

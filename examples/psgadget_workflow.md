@@ -13,6 +13,8 @@ public functions are added.
 - [FT232R Workflow (CBUS bit-bang - CBUS0-3)](#ft232r-workflow-cbus-bit-bang---cbus0-3)
 - [Stepper Motor Workflow (Async Bit-Bang, FT232R or FT232H)](#stepper-motor-workflow-async-bit-bang-ft232r-or-ft232h)
 - [SSD1306 OLED Display (FT232H via MPSSE I2C)](#ssd1306-oled-display-ft232h-via-mpsse-i2c)
+- [SPI Workflow (FT232H via MPSSE)](#spi-workflow-ft232h-via-mpsse)
+- [UART Workflow (FT232H and FT232R)](#uart-workflow-ft232h-and-ft232r)
 - [ESP-NOW Wireless Telemetry (MicroPython + FT232H UART)](#esp-now-wireless-telemetry-micropython--ft232h-uart)
 - [Device Capability Comparison](#device-capability-comparison)
 - [Available CBUS Mode Options (FT232R)](#available-cbus-mode-options-ft232r)
@@ -424,6 +426,129 @@ $ftdi.Close()
 
 ---
 
+## SPI Workflow (FT232H via MPSSE)
+
+MPSSE SPI is available on the FT232H only. FT232R does not support MPSSE and
+cannot be used for SPI. No EEPROM programming is required.
+
+The MPSSE pins ADBUS0-2 are reserved for the SPI bus. Chip-select uses ADBUS3
+by default and is configurable to ADBUS3-7 via `-CsPin`. SPI modes 0-3 are
+supported via `-SpiMode`.
+
+### Hardware Wiring
+
+| FT232H pin        | MPSSE signal | SPI role        | Connect to              |
+|-------------------|--------------|-----------------|-------------------------|
+| ADBUS0 (D0)       | TCK/SCK      | SPI clock       | SCK on SPI device       |
+| ADBUS1 (D1)       | TDI          | MOSI            | MOSI / SDI on device    |
+| ADBUS2 (D2)       | TDO          | MISO            | MISO / SDO on device    |
+| ADBUS3 (D3)       | GPIOL0       | Chip select (CS)| CS / nSS on device      |
+| 3.3V or 5V        | Power        | VCC             | VCC on device           |
+| GND               | Ground       | GND             | GND on device           |
+
+Add a 10k pull-up resistor between D3 (CS) and VCC to keep CS inactive when idle.
+
+### Commands
+
+```powershell
+# Confirm FT232H with HasMpsse = True at index 0
+Get-FtdiDevice | Format-Table Index, Type, HasMpsse, SerialNumber
+
+# Write 3 bytes to a SPI device register (write-only, no read)
+# Returns [bool] $true; use [void] to suppress: [void](Invoke-PsGadgetSpi ...)
+Invoke-PsGadgetSpi -Index 0 -Data @(0x02, 0x00, 0xFF)
+
+# Read 4 bytes from SPI device (MOSI stays LOW during read)
+$bytes = Invoke-PsGadgetSpi -Index 0 -ReadCount 4
+
+# Full-duplex: send 4-byte command, receive 4-byte response simultaneously
+$response = Invoke-PsGadgetSpi -Index 0 -Data @(0x01, 0x00, 0x00, 0x00) -ReadCount 4
+
+# 10 MHz clock, SPI Mode 3, chip select on ADBUS4
+Invoke-PsGadgetSpi -Index 0 -Data @(0xAB) -ClockHz 10000000 -SpiMode 3 -CsPin 4
+
+# Address by serial number (stable across replug and hub changes)
+Invoke-PsGadgetSpi -SerialNumber "FT4ABCDE" -Data @(0x9F) -ReadCount 3
+
+# Polling loop -- keep device open across iterations
+$dev = New-PsGadgetFtdi -SerialNumber "FT4ABCDE"
+try {
+    while ($true) {
+        # MCP3208 8-ch ADC: start=1, single-ended ch0=0x80, pad=0x00
+        $raw = Invoke-PsGadgetSpi -PsGadget $dev -Data @(0x01, 0x80, 0x00) -ReadCount 3
+        $value = (($raw[1] -band 0x0F) -shl 8) -bor $raw[2]
+        Write-Host "ADC ch0: $value"
+        Start-Sleep -Seconds 5
+    }
+} finally {
+    $dev.Close()
+}
+```
+
+> **FT232R note**: Calling `Invoke-PsGadgetSpi` with an FT232R device fails at
+> initialization. Verify `HasMpsse = True` in `Get-FtdiDevice` before proceeding.
+
+---
+
+## UART Workflow (FT232H and FT232R)
+
+D2XX UART works on FT232R, FT232H, and compatible FTDI devices. It uses the
+factory-default bit mode — no EEPROM programming required. The device acts as a
+USB-to-serial bridge: TX transmits, RX receives.
+
+### Hardware Wiring
+
+| FT232H/FT232R pin | Signal | Connect to               |
+|-------------------|--------|--------------------------|
+| TXD / ADBUS0 (D0) | TX     | RX pin on target device  |
+| RXD / ADBUS1 (D1) | RX     | TX pin on target device  |
+| GND               | GND    | GND on target device     |
+
+> **Cross-wiring rule**: TX on the FT232x goes to RX on the target, and RX goes
+> to TX. Swapped TX/RX is the most common setup error.
+
+### Commands
+
+```powershell
+# Send "AT\r\n" and read the response line (waits up to 2 seconds by default)
+$resp = Invoke-PsGadgetUart -Index 0 -Data "AT`r`n" -ReadLine -BaudRate 9600
+
+# $null = timeout (no \n received); "" = device sent bare \n; non-empty = response
+if ($null -eq $resp) {
+    Write-Host "No response within timeout -- check baud rate and wiring"
+} else {
+    Write-Host "Response: $resp"
+}
+
+# Raw read of 16 bytes at 115200 baud
+$bytes = Invoke-PsGadgetUart -Index 0 -ReadCount 16 -BaudRate 115200
+
+# Write binary bytes (no read)
+Invoke-PsGadgetUart -Index 0 -Data ([byte[]](0x01, 0x02, 0x03)) -BaudRate 57600
+
+# Address by serial number (stable across replug and USB hub changes)
+Invoke-PsGadgetUart -SerialNumber "BG01X3GX" -Data "STATUS`r`n" -ReadLine -BaudRate 9600
+
+# Increase readline timeout for slow-to-boot devices (5 seconds)
+$resp = Invoke-PsGadgetUart -Index 0 -Data "BOOT`r`n" -ReadLine -LineTimeout 5000 -BaudRate 9600
+
+# Polling loop -- keep device open to avoid per-call open/close overhead
+$dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"
+try {
+    while ($true) {
+        $resp = Invoke-PsGadgetUart -PsGadget $dev -Data "READ`r`n" -ReadLine
+        if ($null -ne $resp) {
+            Write-Host "$(Get-Date -Format 'HH:mm:ss')  $resp"
+        }
+        Start-Sleep -Seconds 30
+    }
+} finally {
+    $dev.Close()
+}
+```
+
+---
+
 ## ESP-NOW Wireless Telemetry (MicroPython + FT232H UART)
 
 ESP-NOW is a connectionless 802.11 protocol that lets ESP32 nodes send telemetry
@@ -529,7 +654,7 @@ All fields are optional; omitted keys use built-in defaults.
 | EEPROM programming   | Set-PsGadgetFtdiEeprom (Windows)    | Set-PsGadgetFtdiEeprom (Windows) |
 | GpioMethod value     | MPSSE           | CBUS                 |
 | HasMpsse             | True            | False                |
-| SPI / I2C / JTAG     | Yes (MPSSE)     | No                   |
+| SPI / I2C / JTAG     | Yes (MPSSE) — `Invoke-PsGadgetSpi`, `Invoke-PsGadgetI2C` | No |
 | SSD1306 OLED display | Yes             | No                   |
 | Async bit-bang ADBUS | Yes             | Yes (stepper motor primary path) |
 | Stepper motor        | Yes (Invoke-PsGadgetStepper) | Yes (Invoke-PsGadgetStepper) |
@@ -656,6 +781,8 @@ $conn.Close()
 | Set-PsGadgetGpio            | Set GPIO pin state (FT232H and FT232R; -Connection supported) |
 | Invoke-PsGadgetI2C          | Unified I2C dispatch (-I2CModule PCA9685 for servo control, SSD1306 for OLED); auto-opens/closes device unless -PsGadget supplied |
 | Invoke-PsGadgetI2CScan      | Scan I2C bus and report devices found (-Index, -SerialNumber) |
+| Invoke-PsGadgetSpi          | MPSSE SPI on FT232H: -Data write, -ReadCount read, or both for full-duplex; -ClockHz, -SpiMode 0-3, -CsPin; auto-opens/closes unless -PsGadget supplied |
+| Invoke-PsGadgetUart         | D2XX UART on FT232H/FT232R: -Data write, -ReadCount raw read, or -ReadLine (returns $null on timeout); -BaudRate, -LineTimeout; auto-opens/closes unless -PsGadget supplied |
 | Invoke-PsGadgetStepper      | Drive a stepper motor via async bit-bang ADBUS0-3 (FT232R or FT232H); -Steps or -Degrees; -StepsPerRevolution for calibrated angles (28BYJ-48 default ~4075.77 half-steps/rev, NOT 4096) |
 | Get-PsGadgetMpy            | Enumerate MicroPython serial ports                            |
 | Connect-PsGadgetMpy         | Open a MicroPython REPL connection                            |

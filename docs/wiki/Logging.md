@@ -76,6 +76,10 @@ both the active log and the rolled backup (`psgadget.1.log`).
 **Protocol tracing is off by default.** Wire-level `[PROTO]` entries are
 written only after `Open-PsGadgetTrace` is called.
 
+> **Call `Open-PsGadgetTrace` before connecting or running protocol commands.**
+> Enabling tracing mid-session does not retroactively capture past operations.
+> Commands run before `Open-PsGadgetTrace` produce no `[PROTO]` entries.
+
 ```powershell
 Open-PsGadgetTrace              # enable tracing + open live viewer
 $dev = New-PsGadgetFtdi         # CONNECT appears in viewer
@@ -104,6 +108,13 @@ $logPath = Open-PsGadgetTrace -PassThru
 | `CBUS.WRITE` | Dark green | FT232R CBUS pin state change |
 | `MPSSE.INIT` | Dark cyan | MPSSE sync and ADBUS initialization |
 | `SSD1306` | Magenta | SSD1306 init sequence, page write, full display write |
+| `SPI.INIT` | Blue | MPSSE SPI clock frequency and CS pin configuration |
+| `SPI.WRITE` | Blue | SPI write transaction (byte count, CS pin, hex payload) |
+| `SPI.READ` | Blue | SPI read transaction (byte count, MOSI=0x00) |
+| `SPI.XFER` | Blue | SPI full-duplex transfer (TX and RX byte counts) |
+| `UART.TX` | DarkYellow | UART transmit bytes (byte count, ASCII if printable) |
+| `UART.RX` | DarkYellow | UART receive bytes or ReadLine result |
+| `UART.FLUSH` | DarkYellow | TX+RX buffer purge |
 | `STEPPER` | Yellow | Stepper move start, completion |
 | `CONNECT` | Dark gray | Device opened |
 | `DISCONNECT` | Dark gray | Device closed |

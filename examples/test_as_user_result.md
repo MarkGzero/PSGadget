@@ -1,109 +1,118 @@
-I will run a quick context pass first: load the testing skill file from disk, then read the key user-facing docs to identify the primary persona, daily workflow, and the command surfaces the user actually interacts with.
+# Test-As-User Results
 
-Read skill [test-as-user](file:///c%3A/Users/mark/.agents/skills/test-as-user/SKILL.md?vscodeLinkType%3Dskill)
+This file records UX simulation findings produced by the `/test-as-user` skill.
+Each run targets a specific persona and feature area. Findings that have been
+resolved are marked **FIXED** with the fix location.
 
-I have the skill requirements loaded; next I am collecting the repository’s user-facing documentation and workflow guides in parallel so the persona and simulation are grounded in what users actually see and do.
+---
 
-Read [](file:///c%3A/temp/psgadget/docs/QUICKSTART.md)
+## Run 2 — 2026-03-30 — SPI and UART (v0.4.2)
 
-Read [](file:///c%3A/temp/psgadget/docs/PERSONAS.md)
+### Persona
 
-Read [](file:///c%3A/temp/psgadget/README.md)
+Jordan, automation scripter at a hardware test lab. Comfortable with PowerShell,
+understands serial protocols at a conceptual level. Just upgraded to PSGadget
+v0.4.2, wants to read a SPI ADC periodically and poll a UART sensor. Has an
+FT232H on the bench.
 
-Read [](file:///c%3A/temp/psgadget/examples/psgadget_workflow.md#1-1), lines 1 to 320
+### What Works Well
 
-The first pass shows this is a command-driven module with personas and workflow docs moved into the wiki, so I am now reading the wiki pages that define real user paths and reference behavior to run the simulation accurately.
+- `Get-Help Invoke-PsGadgetSpi -Full` and `Get-Help Invoke-PsGadgetUart -Full` are
+  thorough: 5-6 examples each, wire guide in NOTES, clear MPSSE-only SPI constraint.
+- Auto-close behavior (`-PsGadget` reuse vs. auto open/close) is well-designed.
+- SPI mode table (CPOL/CPHA) in cmdlet help is clear and correct.
+- UART's separate `-LineTimeout` vs `-ReadTimeout` parameters prevent a common
+  "wrong timeout" mistake.
+- Unified log file eliminates per-device log confusion from older versions.
 
-Read [](file:///c%3A/temp/psgadget/docs/wiki/Function-Reference.md#1-1), lines 1 to 340
+### Findings
 
-Read [](file:///c%3A/temp/psgadget/docs/wiki/Troubleshooting.md#1-1), lines 1 to 280
+#### High — Dead Ends
 
-Read [](file:///c%3A/temp/psgadget/docs/wiki/Getting-Started.md)
+**[High] SPI and UART had no workflow section in `psgadget_workflow.md`** — FIXED
+- Workflow step: Arrival — Jordan opens the primary reference to find the new protocol commands
+- Observed: No SPI or UART (generic) section in the workflow file
+- Fix: Added "SPI Workflow (FT232H via MPSSE)" and "UART Workflow (FT232H and FT232R)"
+  sections to [examples/psgadget_workflow.md](psgadget_workflow.md)
 
-Read [](file:///c%3A/temp/psgadget/docs/wiki/Configuration.md)
+**[High] `Open-PsGadgetTrace` "must be called first" constraint was undocumented** — FIXED
+- Workflow step: Debugging — Jordan calls `Open-PsGadgetTrace` after a command, sees no
+  PROTO output, concludes tracing is broken
+- Fix: Added a callout box in [docs/wiki/Logging.md](../docs/wiki/Logging.md) under
+  "Protocol tracing": "Call `Open-PsGadgetTrace` before connecting or running any protocol
+  commands. Enabling tracing mid-session does not retroactively capture past operations."
 
-I still need the explicit persona definitions from the current wiki, so I am locating the active personas page and one representative walkthrough to anchor a realistic day-in-the-life simulation.
+#### Medium — Friction
 
-Searched for files matching `**/docs/wiki/*Persona*`, no matches
+**[Medium] `Invoke-PsGadgetUart -ReadLine` returned `""` on timeout** — FIXED
+- Workflow step: Action — Jordan could not distinguish a 2-second timeout from a device that
+  sent an empty line
+- Fix: `Invoke-FtdiUartReadLine` in [Private/Ftdi.Uart.ps1](../Private/Ftdi.Uart.ps1) now
+  tracks a `$gotNewline` flag. Returns `$null` on timeout; returns `""` only when a bare `\n`
+  was actually received. Return type on `PsGadgetUart.ReadLine()` changed from `[string]` to
+  `[object]` to allow `$null` through PS5.1 type coercion.
 
-Searched for files matching `**/docs/wiki/*PERSONA*`, no matches
+**[Medium] Logging.md color table was missing SPI and UART subsystems** — FIXED
+- Workflow step: Debugging — Jordan sees `SPI.WRITE` in the trace window but can't confirm
+  the color is intentional
+- Fix: Added `SPI.INIT`, `SPI.WRITE`, `SPI.READ`, `SPI.XFER` (Blue) and `UART.TX`,
+  `UART.RX`, `UART.FLUSH` (DarkYellow) to the subsystem color table in
+  [docs/wiki/Logging.md](../docs/wiki/Logging.md)
 
-Searched for files matching `**/examples/Example-*.md`, 8 matches
+**[Medium] No polling loop example for SPI or UART** — FIXED
+- Workflow step: Action — Jordan opens/closes device each iteration, adding latency and log noise
+- Fix: Added a `while ($true)` + `-PsGadget` reuse example to both
+  [Public/Invoke-PsGadgetSpi.ps1](../Public/Invoke-PsGadgetSpi.ps1) and
+  [Public/Invoke-PsGadgetUart.ps1](../Public/Invoke-PsGadgetUart.ps1)
 
-Read [](file:///c%3A/temp/psgadget/examples/Example-Ssd1306.md#1-1), lines 1 to 280
+**[Medium] `Invoke-PsGadgetSpi` write-only return type flip (`bool` vs `byte[]`)** — DOCUMENTED
+- Workflow step: Action — Jordan pipes write-only result expecting bytes, gets `$true` cast to 1
+- Fix: Updated `.OUTPUTS` section in [Public/Invoke-PsGadgetSpi.ps1](../Public/Invoke-PsGadgetSpi.ps1)
+  with explicit note: "To suppress the bool from the pipeline use `[void]`: `[void](Invoke-PsGadgetSpi ...)`"
+  Also noted in the SPI workflow section in psgadget_workflow.md.
 
-I have enough context to simulate an end-user day credibly from the current docs and command workflow, and I am now producing a step-by-step persona walkthrough with impact-ranked findings and concrete low-change fixes.Context established from README.md, Getting-Started.md, Function-Reference.md, Troubleshooting.md, Configuration.md, psgadget_workflow.md, and Example-Ssd1306.md.
+#### Low — Polish
 
-Persona: Jordan, automation scripter at a small hardware lab. Responsible for daily bench checks on FT232H/FT232R rigs used for LED indicators, small OLED status screens, and MicroPython test nodes. Works under time pressure to validate devices before teammates start firmware testing. Comfortable with PowerShell scripting, not deep in USB driver internals. Today’s task is to detect connected FTDI devices, verify environment health, run one GPIO action, and confirm SSD1306 output on a known test fixture.
+**[Low] Device Capability Comparison table didn't link SPI to its cmdlet** — FIXED
+- Fix: Updated the "SPI / I2C / JTAG" row in the table to include cmdlet names
+  (`Invoke-PsGadgetSpi`, `Invoke-PsGadgetI2C`) in [examples/psgadget_workflow.md](psgadget_workflow.md)
 
-Primary goal: complete a reliable hardware sanity check quickly, with clear signals for what is ready, what failed, and what to do next.
+**[Low] UART and SPI wire guides only existed in cmdlet `.NOTES`** — FIXED
+- Fix: Both new workflow sections in [examples/psgadget_workflow.md](psgadget_workflow.md)
+  include a Hardware Wiring table with pin-to-signal mapping
 
-**Workflow Simulation**
-1. Arrival
-- User intent: Start day and confirm PSGadget is ready.
-- App offers: Getting-started sequence and Test-PsGadgetEnvironment guidance in docs.
-- Result: Good orientation if user opens docs first; less guidance if they jump straight into shell commands.
+**[Low] `Invoke-PsGadgetSpi` and `Invoke-PsGadgetUart` missing from Quick Reference table** — FIXED
+- Fix: Both cmdlets added to the Public Function Quick Reference table in
+  [examples/psgadget_workflow.md](psgadget_workflow.md)
 
-2. Discovery
-- User intent: Find connected devices and decide which one to use.
-- App offers: Get-FtdiDevice with key columns (Type, GpioMethod, HasMpsse, Driver, Serial).
-- Result: Strong visibility for capable users; dual-enumeration concepts are still cognitively heavy for first-time FT232R users.
+---
 
-3. Triage
-- User intent: Decide what is urgent to fix if something fails.
-- App offers: Troubleshooting page with symptom index and next steps.
-- Result: Good breadth of coverage; triage speed depends on user knowing which symptom category to open.
+## Run 1 — 2026-03-29 — GPIO and I2C (v0.4.0)
 
-4. Action
-- User intent: Perform a real action in context (GPIO toggle, FT232R CBUS prep, SSD1306 check).
-- App offers: Clear commands and examples; FT232R has explicit setup flow and warnings.
-- Result: End-to-end flow is workable and technically complete.
+### Persona
 
-5. Completion
-- User intent: Know “I’m done and bench is good.”
-- App offers: Implied success through command output and expected examples.
-- Result: No single, consolidated “daily pass” check output.
+Jordan, automation scripter at a hardware test lab. Today's task: detect connected
+FTDI devices, verify environment health, run one GPIO action, and confirm SSD1306 output.
 
-6. Re-entry
-- User intent: Continue tomorrow without relearning setup.
-- App offers: Persistent config and logs, serial/location-based addressing guidance.
-- Result: Re-entry is decent, but there is no compact “resume where you left off” routine.
+### What Works Well
 
-What works well end-to-end:
-- The core daily path is achievable with existing commands and docs.
+- Core daily path is achievable with existing commands and docs.
 - FT232R one-time EEPROM configuration is documented more clearly than typical FTDI toolchains.
 - Troubleshooting content is substantial and practical.
 
-**Findings**
+### Findings
 
-[High] No single daily health command pattern for completion confidence
-- Workflow step: Completion
-- Observed behavior: The user runs several separate commands (import, environment test, enumerate, action) and mentally combines results.
-- User impact: Under time pressure, Jordan can miss one failing signal and still assume the bench is ready.
-- Suggested fix: Add a short “Daily Sanity Check” block to Getting-Started.md with one recommended command sequence and explicit pass/fail interpretation criteria.
+**[High] No single daily health command pattern** — PARTIALLY ADDRESSED
+- Suggested fix: Add a "Daily Sanity Check" block to Getting-Started.md
 
-[High] Discovery path relies on prior FTDI driver model knowledge
-- Workflow step: Discovery and triage
-- Observed behavior: Dual D2XX/VCP behavior is explained, but understanding which entry to use still requires careful reading across workflow docs.
-- User impact: First-time users can pick the wrong target and lose time on avoidable retries.
-- Suggested fix: In Getting-Started.md, add a compact “Use this row” rule directly under the first Get-FtdiDevice example (for example: always choose the D2XX row for PSGadget actions).
+**[High] Discovery path relies on prior FTDI driver model knowledge**
+- Suggested fix: Add a "Use this row" rule under the first Get-FtdiDevice example
 
-[Medium] Arrival friction from documentation split and redirects
-- Workflow step: Arrival
-- Observed behavior: Some docs in root docs folder are redirect stubs, while active content lives under docs/wiki.
-- User impact: New users can briefly lose momentum and confidence at session start.
-- Suggested fix: Add one prominent “start here” pointer near the top of README.md that links directly to Getting-Started.md and psgadget_workflow.md.
+**[Medium] Arrival friction from documentation split and redirects**
+- Suggested fix: Add a prominent "start here" pointer near the top of README.md
 
-[Medium] Triage is comprehensive but not prioritized for “today’s urgent tasks”
-- Workflow step: Triage
-- Observed behavior: Troubleshooting is thorough, but users must choose from many sections.
-- User impact: During bench bring-up, time-to-fix can increase because the user has to classify symptoms first.
-- Suggested fix: Add a short “Top 5 first checks” section at top of Troubleshooting.md for fastest elimination path.
+**[Medium] Troubleshooting is comprehensive but not prioritized**
+- Suggested fix: Add a "Top 5 first checks" section at the top of Troubleshooting.md
 
-[Low] Re-entry workflow lacks a concise “yesterday to today” checklist
-- Workflow step: Re-entry
-- Observed behavior: Persistence exists via config/logs, but no explicit next-day workflow snippet.
-- User impact: Users re-run full setup unnecessarily.
-- Suggested fix: Add a “Returning user 60-second check” section in Getting-Started.md reusing existing commands only.
-
-If you want, I can turn this into a commit-ready markdown assessment in Tests/ with the same severity structure used in your prior UX assessment file.
+**[Low] Re-entry workflow lacks a concise "yesterday to today" checklist**
+- Suggested fix: Add a "Returning user 60-second check" in Getting-Started.md

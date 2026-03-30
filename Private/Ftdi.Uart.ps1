@@ -266,7 +266,7 @@ function Invoke-FtdiUartReadLine {
     Maximum milliseconds to wait for a complete line. Default 2000.
     #>
     [CmdletBinding()]
-    [OutputType([string])]
+    [OutputType([object])]
     param(
         [Parameter(Mandatory = $true)]  [System.Object]$DeviceHandle,
         [Parameter(Mandatory = $false)] [ValidateRange(1, 65536)] [int]$MaxLength  = 1024,
@@ -286,6 +286,7 @@ function Invoke-FtdiUartReadLine {
             $deadline = [System.Diagnostics.Stopwatch]::StartNew()
             $lineBytes = [System.Collections.Generic.List[byte]]::new()
             [byte[]]$oneByte = [byte[]]::new(1)
+            [bool]$gotNewline = $false
 
             while ($deadline.ElapsedMilliseconds -lt $TimeoutMs -and $lineBytes.Count -lt $MaxLength) {
                 [uint32]$available = 0
@@ -298,29 +299,37 @@ function Invoke-FtdiUartReadLine {
                 $st = $rawDevice.Read($oneByte, 1, [ref]$br)
                 if ($st -ne $ftdi_ok -or $br -eq 0) { break }
                 $b = $oneByte[0]
-                if ($b -eq 0x0A) { break }   # newline — end of line
+                if ($b -eq 0x0A) { $gotNewline = $true; break }   # newline -- end of line
                 if ($b -ne 0x0D) {            # strip \r, keep everything else
                     $lineBytes.Add($b)
                 }
             }
 
+            $deadline.Stop()
             [byte[]]$lineArr = $lineBytes.ToArray()
+            $elapsed = $deadline.ElapsedMilliseconds
+
+            if (-not $gotNewline) {
+                # Timed out without receiving a newline. Return $null so callers can
+                # distinguish timeout from a device that sent an empty line (bare \n).
+                $script:PsGadgetLogger.WriteProto('UART.RX', "ReadLine  timeout=${elapsed}ms  (no newline received)")
+                return $null
+            }
+
             $line = [System.Text.Encoding]::UTF8.GetString($lineArr)
             $hexStr = $script:PsGadgetLogger.FormatHex($lineArr)
-            $elapsed = $deadline.ElapsedMilliseconds
             $script:PsGadgetLogger.WriteProto('UART.RX',
                 "$($lineArr.Length)B  line=${elapsed}ms  `"$($line -replace '"','\"')`"",
                 $hexStr)
-            $deadline.Stop()
             return $line
         } else {
             $script:PsGadgetLogger.WriteProto('UART.RX', "ReadLine  (STUB)")
-            return ''
+            return $null
         }
 
     } catch {
         Write-Error "UART ReadLine failed: $_"
-        return ''
+        return $null
     }
 }
 

@@ -38,7 +38,8 @@ function Invoke-PsGadgetUart {
 
     .PARAMETER ReadLine
     After the optional write, read bytes until a newline (\n) is received or
-    LineTimeout elapses.
+    LineTimeout elapses. Returns $null on timeout, "" if device sent a bare \n,
+    or the received line (with \r stripped) otherwise.
 
     .PARAMETER BaudRate
     Baud rate in bits per second. Default 9600.
@@ -84,10 +85,28 @@ function Invoke-PsGadgetUart {
     $dev  = New-PsGadgetFtdi -SerialNumber 'FTAXBFCQ'
     $line = Invoke-PsGadgetUart -PsGadget $dev -Data "STATUS`r`n" -ReadLine
 
+    .EXAMPLE
+    # Polling loop — keep device open to avoid per-call open/close overhead
+    $dev = New-PsGadgetFtdi -SerialNumber 'FTAXBFCQ'
+    try {
+        while ($true) {
+            $resp = Invoke-PsGadgetUart -PsGadget $dev -Data "READ`r`n" -ReadLine
+            # $null = timeout (no \n received); "" = device sent bare \n; else = response line
+            if ($null -ne $resp) {
+                Write-Host "$(Get-Date -Format 'HH:mm:ss')  $resp"
+            }
+            Start-Sleep -Seconds 30
+        }
+    } finally {
+        $dev.Close()
+    }
+
     .OUTPUTS
     Write-only:   [bool] $true on success, $false on failure.
-    Read-only:    [byte[]] for -ReadCount, [string] for -ReadLine.
-    Write+Read:   [byte[]] or [string] depending on read mode.
+    Read-only:    [byte[]] for -ReadCount.
+                  [string] for -ReadLine when a newline was received (may be "" for bare \n).
+                  $null for -ReadLine when LineTimeout elapsed without receiving a newline.
+    Write+Read:   [byte[]] or [string]/$null depending on read mode.
 
     .NOTES
     Supported on FT232R, FT232H, FT2232H, FT4232H in UART mode (SetBitMode 0x00).
