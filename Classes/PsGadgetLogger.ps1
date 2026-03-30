@@ -64,7 +64,7 @@ class PsGadgetLogger {
             $this._writer = [System.IO.StreamWriter]::new($fs, [System.Text.Encoding]::UTF8)
             $this._writer.AutoFlush = $true
         } catch {
-            # Silent — log failure must never break hardware operations
+            # Silent -- log failure must never break hardware operations
             return
         }
 
@@ -92,7 +92,7 @@ class PsGadgetLogger {
         } catch {}
     }
 
-    # ── Standard log levels ──────────────────────────────────────────────────
+    # -- Standard log levels --------------------------------------------------
 
     [void] WriteInfo([string]$Message) {
         $this.WriteToFile('INFO', $Message)
@@ -113,7 +113,7 @@ class PsGadgetLogger {
         Write-Warning $Message
     }
 
-    # ── Protocol-level entries (WriteProto) ──────────────────────────────────
+    # -- Protocol-level entries (WriteProto) ----------------------------------
     # Written only when TraceEnabled = $true (set by Open-PsGadgetTrace).
     # Format:
     #   [timestamp] [PROTO]  {Subsystem,-12}  {Summary}
@@ -139,7 +139,7 @@ class PsGadgetLogger {
         } catch {}
     }
 
-    # ── Hex formatting helper (moved from PsGadgetTrace) ────────────────────
+    # -- Hex formatting helper (moved from PsGadgetTrace) --------------------
 
     [string] FormatHex([byte[]]$bytes) {
         return $this.FormatHex($bytes, 64)
@@ -153,6 +153,29 @@ class PsGadgetLogger {
             $hex += " [...+$($bytes.Length - $maxBytes)]"
         }
         return $hex
+    }
+
+    # Truncate the log file and reopen the writer so subsequent writes land at offset 0.
+    # Used by Open-PsGadgetTrace -Clear -- calling Clear-Content externally leaves the
+    # StreamWriter's position stale, causing writes to be preceded by a null-byte gap.
+    [void] Clear() {
+        try {
+            if ($this._writer) {
+                $this._writer.Flush()
+                $this._writer.Close()
+                $this._writer = $null
+            }
+            [System.IO.File]::WriteAllText($this.LogFilePath, '')
+            $fs = [System.IO.File]::Open(
+                $this.LogFilePath,
+                [System.IO.FileMode]::Append,
+                [System.IO.FileAccess]::Write,
+                [System.IO.FileShare]::ReadWrite
+            )
+            $this._writer = [System.IO.StreamWriter]::new($fs, [System.Text.Encoding]::UTF8)
+            $this._writer.AutoFlush = $true
+            $this.WriteHeader()
+        } catch {}
     }
 
     [void] Dispose() {

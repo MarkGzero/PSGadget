@@ -31,10 +31,10 @@ function Invoke-FtdiWindowsEnumerate {
         $enrichedDevices = @()
 
         if ($deviceCount -eq 0) {
-            Write-Verbose "No FTDI devices found via D2XX on Windows"
+            Write-Debug "No FTDI devices found via D2XX on Windows"
             $ftdi.Close() | Out-Null
         } else {
-        Write-Verbose "Found $deviceCount FTDI device(s) via D2XX on Windows"
+        Write-Debug "Found $deviceCount FTDI device(s) via D2XX on Windows"
         
         # Get device info list (use New-Object like the working old function)
         $deviceList = New-Object 'FTD2XX_NET.FTDI+FT_DEVICE_INFO_NODE[]' $deviceCount
@@ -94,7 +94,7 @@ function Invoke-FtdiWindowsEnumerate {
         } # end D2XX block
 
         # Supplement: find VCP-mode FTDI devices not visible to D2XX
-        Write-Verbose "Scanning registry for VCP-mode FTDI devices..."
+        Write-Debug "Scanning registry for VCP-mode FTDI devices..."
         $vcpDevices = Invoke-FtdiWindowsEnumerateVcp
         foreach ($vcpDev in $vcpDevices) {
             $alreadyFound = $false
@@ -115,7 +115,7 @@ function Invoke-FtdiWindowsEnumerate {
         }
 
         if ($enrichedDevices.Count -eq 0) {
-            Write-Verbose "No FTDI devices found on Windows"
+            Write-Debug "No FTDI devices found on Windows"
             return @()
         }
 
@@ -178,7 +178,7 @@ function Invoke-FtdiWindowsEnumerateVcp {
     $ftdibusPath = 'HKLM:\SYSTEM\CurrentControlSet\Enum\FTDIBUS'
 
     if (-not (Test-Path $ftdibusPath)) {
-        Write-Verbose "FTDIBUS registry key not found - no VCP FTDI devices installed"
+        Write-Debug "FTDIBUS registry key not found - no VCP FTDI devices installed"
         return $results
     }
 
@@ -247,7 +247,7 @@ function Invoke-FtdiWindowsEnumerateVcp {
             }
         }
     } catch {
-        Write-Verbose "VCP registry scan error: $($_.Exception.Message)"
+        Write-Debug "VCP registry scan error: $($_.Exception.Message)"
     }
 
     return $results
@@ -269,7 +269,7 @@ function Invoke-FtdiWindowsOpen {
             throw [System.NotImplementedException]::new("FTDI assembly not loaded - cannot open device")
         }
 
-        Write-Verbose "Opening FTDI device: $($DeviceInfo.Description) ($($DeviceInfo.SerialNumber))"
+        Write-Debug "Opening FTDI device: $($DeviceInfo.Description) ($($DeviceInfo.SerialNumber))"
         
         # Create new FTDI instance for this connection
         $ftdi = [FTD2XX_NET.FTDI]::new()
@@ -280,7 +280,7 @@ function Invoke-FtdiWindowsOpen {
 
         if ($status -ne $script:FTDI_OK) {
             # Fall back to index if serial number open failed and index is valid
-            Write-Verbose "OpenBySerialNumber failed ($status), trying OpenByIndex $($DeviceInfo.Index)..."
+            Write-Debug "OpenBySerialNumber failed ($status), trying OpenByIndex $($DeviceInfo.Index)..."
             $ftdi.Close() | Out-Null
             $ftdi = [FTD2XX_NET.FTDI]::new()
             $status = $ftdi.OpenByIndex([uint32]$DeviceInfo.Index)
@@ -292,7 +292,7 @@ function Invoke-FtdiWindowsOpen {
 
         # Configure device for MPSSE mode if supported
         if ($DeviceInfo.HasMpsse) {
-            Write-Verbose "Configuring device for MPSSE mode..."
+            Write-Debug "Configuring device for MPSSE mode..."
             
             # Reset the device
             $status = $ftdi.ResetDevice()
@@ -306,7 +306,7 @@ function Invoke-FtdiWindowsOpen {
                 Write-Warning "Failed to set MPSSE mode: $status"
                 # Continue anyway - some operations might still work
             } else {
-                Write-Verbose "MPSSE mode enabled successfully"
+                Write-Debug "MPSSE mode enabled successfully"
             }
 
             # Set timeouts
@@ -322,9 +322,9 @@ function Invoke-FtdiWindowsOpen {
             [uint32]$initBytesWritten = 0
             $ftdi.Write([byte[]](0x8A, 0x97, 0x8D), 3, [ref]$initBytesWritten) | Out-Null
             Start-Sleep -Milliseconds 5
-            Write-Verbose "MPSSE init sequence sent ($initBytesWritten bytes)"
+            Write-Debug "MPSSE init sequence sent ($initBytesWritten bytes)"
         } else {
-            Write-Verbose "Device uses $($DeviceInfo.GpioMethod) GPIO (no MPSSE setup needed on open)"
+            Write-Debug "Device uses $($DeviceInfo.GpioMethod) GPIO (no MPSSE setup needed on open)"
             $ftdi.SetTimeouts(5000, 5000) | Out-Null
         }
         
@@ -347,7 +347,7 @@ function Invoke-FtdiWindowsOpen {
         # Add methods to the connection object
         $connection | Add-Member -MemberType ScriptMethod -Name 'Close' -Value {
             if ($this.Device) {
-                $this.Device.Close()
+                $this.Device.Close() | Out-Null
                 $this.IsOpen = $false
             }
         }
@@ -385,7 +385,7 @@ function Invoke-FtdiWindowsOpen {
             if ([int]$status -ne 0) { throw "CyclePort failed: $status" }
 
             # Poll until device reappears by serial number (max 5 seconds, 250ms intervals)
-            Write-Verbose "USB port cycled for $serial - polling for re-enumeration..."
+            Write-Debug "USB port cycled for $serial - polling for re-enumeration..."
             $newConn    = $null
             $deadline   = (Get-Date).AddSeconds(5)
             while ((Get-Date) -lt $deadline) {
@@ -405,16 +405,16 @@ function Invoke-FtdiWindowsOpen {
             $this.Device       = $newConn.Device
             $this.IsOpen       = $newConn.IsOpen
             $this.MpsseEnabled = $newConn.MpsseEnabled
-            Write-Verbose "Reconnected to $serial after port cycle."
+            Write-Debug "Reconnected to $serial after port cycle."
         }
         
-        Write-Verbose "Successfully opened FTDI device $($DeviceInfo.SerialNumber)"
+        Write-Debug "Successfully opened FTDI device $($DeviceInfo.SerialNumber)"
         return $connection
         
     } catch [System.NotImplementedException] {
         # Return stub connection for development
         $stubSerial = if ($DeviceInfo) { $DeviceInfo.SerialNumber } else { 'WINSTUB' }
-        Write-Verbose "Creating stub connection for device $stubSerial (Windows)"
+        Write-Debug "Creating stub connection for device $stubSerial (Windows)"
         
         return [PSCustomObject]@{
             Device = $null
@@ -447,7 +447,7 @@ function Invoke-FtdiWindowsClose {
         throw [System.NotImplementedException]::new("Windows FTDI device close not yet implemented")
         
     } catch [System.NotImplementedException] {
-        Write-Verbose "Closed FTDI device handle $Handle on Windows (STUB MODE)"
+        Write-Debug "Closed FTDI device handle $Handle on Windows (STUB MODE)"
         return [PSCustomObject]@{
             Success = $true
             Message = "Device closed successfully (Windows STUB)"

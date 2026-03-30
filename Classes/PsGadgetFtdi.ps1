@@ -112,6 +112,13 @@ class PsGadgetFtdi : System.IDisposable {
 
         try {
             if ($this._connection -and $this._connection.Close) {
+                # For CBUS devices: release all pins to high-impedance input mode before closing.
+                # Direction nibble = 0 means no outputs driven; external pull resistors take over.
+                # Only done here (explicit Close) -- the stateless -Index path skips this so that
+                # fire-and-forget GPIO calls leave pins in the state they were set to.
+                if ($this._connection.GpioMethod -eq 'CBUS' -and $this._connection.Device) {
+                    $this._connection.Device.SetBitMode(0x00, 0x20) | Out-Null
+                }
                 $this._connection.Close()
             }
         } catch {
@@ -309,7 +316,7 @@ class PsGadgetFtdi : System.IDisposable {
     # ---------------------------------------------------------------------------
     # SPI shorthand methods.
     # GetSpi() returns a cached PsGadgetSpi object for direct .Write/.Read/.Transfer calls.
-    # Cache key: "ClockHz:Mode:CsPin" — different parameters create separate instances.
+    # Cache key: "ClockHz:Mode:CsPin" -- different parameters create separate instances.
     # ---------------------------------------------------------------------------
 
     # GetSpi() - 1 MHz, Mode 0, CS=ADBUS3

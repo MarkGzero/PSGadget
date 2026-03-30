@@ -14,10 +14,10 @@
 #   FT232H D2 -> MISO   FT232H D3 -> CS (with 10k pull-up to VCC)
 #
 # SPI mode table:
-#   Mode 0 (CPOL=0 CPHA=0) — most common. Clock idle LOW, sample rising edge.
-#   Mode 1 (CPOL=0 CPHA=1) — Clock idle LOW, sample falling edge.
-#   Mode 2 (CPOL=1 CPHA=0) — Clock idle HIGH, sample falling edge.
-#   Mode 3 (CPOL=1 CPHA=1) — Clock idle HIGH, sample rising edge.
+#   Mode 0 (CPOL=0 CPHA=0) -- most common. Clock idle LOW, sample rising edge.
+#   Mode 1 (CPOL=0 CPHA=1) -- Clock idle LOW, sample falling edge.
+#   Mode 2 (CPOL=1 CPHA=0) -- Clock idle HIGH, sample falling edge.
+#   Mode 3 (CPOL=1 CPHA=1) -- Clock idle HIGH, sample rising edge.
 #
 # MPSSE command mapping:
 #   CPHA=0: write 0x11 (out -ve edge), read 0x20 (in +ve edge), xfer 0x31
@@ -81,7 +81,7 @@ function Initialize-MpsseSpi {
         $clkIdle = [byte](if ($cpol) { 0x01 } else { 0x00 })
         $csHigh  = [byte]($csBit -bor $clkIdle)   # CS deasserted + CLK at idle
 
-        # SPI clock divisor (no 3-phase — that is I2C-only):
+        # SPI clock divisor (no 3-phase -- that is I2C-only):
         #   f = 60 MHz / ((1 + divisor) * 2)   [with divide-by-5 disabled]
         #   divisor = 60 MHz / (2 * f) - 1
         $divisor   = [int][Math]::Floor(60000000 / (2.0 * [double]$ClockFrequency) - 1)
@@ -122,8 +122,8 @@ function Initialize-MpsseSpi {
             # SPI MPSSE configuration:
             #   0x8A  Disable clock divide-by-5 (60 MHz base)
             #   0x97  Disable adaptive clocking
-            #   (no 0x8C 3-phase — I2C only)
-            #   (no 0x9E drive-zero — I2C open-drain only)
+            #   (no 0x8C 3-phase -- I2C only)
+            #   (no 0x9E drive-zero -- I2C open-drain only)
             #   0x86  Set clock divisor (lo, hi)
             #   0x85  Loopback off
             #   0x80  Set ADBUS: CS=1 (idle), CLK=CPOL, MOSI=0

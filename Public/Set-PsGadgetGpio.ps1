@@ -110,6 +110,13 @@ function Set-PsGadgetGpio {
         [ValidateSet('HIGH', 'LOW', 'H', 'L', '1', '0')]
         [string]$State,
 
+        # Optional: pins to drive LOW when -State HIGH (CBUS only).
+        # Allows setting mixed states in a single atomic SetBitMode call.
+        # Example: -Pins @(0,2) -State HIGH -LowPins @(1,3)  -> 0,2=HIGH  1,3=LOW
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(0, 3)]
+        [int[]]$LowPins,
+
         [Parameter(Mandatory = $false)]
         [ValidateRange(1, 60000)]
         [int]$DurationMs,
@@ -125,10 +132,17 @@ function Set-PsGadgetGpio {
         if ($PSCmdlet.ParameterSetName -eq 'ByConnection') {
             # Caller provides an already-open connection - use it directly, do not close on exit
             $ownsConnection = $false
+            # If the caller passed a PsGadgetFtdi wrapper object, unwrap to the raw connection
+            if ($Connection.GetType().Name -eq 'PsGadgetFtdi') {
+                if (-not $Connection._connection) {
+                    throw "PsGadgetFtdi internal connection is null. Device may not be connected."
+                }
+                $Connection = $Connection._connection
+            }
             if (-not $Connection.IsOpen) {
                 throw "The supplied connection is not open. Call Connect-PsGadgetFtdi or New-PsGadgetFtdi first."
             }
-            Write-Verbose "Using caller-supplied connection: $($Connection.Description) ($($Connection.SerialNumber))"
+            Write-Debug "Using caller-supplied connection: $($Connection.Description) ($($Connection.SerialNumber))"
         } elseif ($PSCmdlet.ParameterSetName -eq 'PsGadget') {
             # Caller provides a PsGadgetFtdi class instance - unwrap its internal connection
             $ownsConnection = $false
@@ -136,7 +150,7 @@ function Set-PsGadgetGpio {
                 throw "PsGadgetFtdi is not open. Use New-PsGadgetFtdi, which connects automatically."
             }
             $Connection = $PsGadget._connection
-            Write-Verbose "Using PsGadgetFtdi connection: $($Connection.Description) ($($Connection.SerialNumber))"
+            Write-Debug "Using PsGadgetFtdi connection: $($Connection.Description) ($($Connection.SerialNumber))"
         } else {
             # Get available devices
             $devices = Get-FtdiDeviceList
@@ -158,7 +172,7 @@ function Set-PsGadgetGpio {
                 }
             }
             
-            Write-Verbose "Targeting device: $($targetDevice.Description) ($($targetDevice.SerialNumber))"
+            Write-Debug "Targeting device: $($targetDevice.Description) ($($targetDevice.SerialNumber))"
             
             # Check if device is available
             if ($targetDevice.IsOpen) {
@@ -233,7 +247,8 @@ function Set-PsGadgetGpio {
                         Pins       = $Pins
                         State      = $State
                     }
-                    if ($DurationMs) { $cbusParams.DurationMs = $DurationMs }
+                    if ($LowPins)   { $cbusParams.LowPins   = $LowPins }
+                    if ($DurationMs){ $cbusParams.DurationMs = $DurationMs }
 
                     $success  = Set-FtdiCbusBits @cbusParams
                 }
@@ -285,7 +300,7 @@ function Set-PsGadgetGpio {
             }
 
             foreach ($p in $Pins) {
-                Write-Verbose "  pin $p → $State"
+                Write-Verbose "  pin $p -> $State"
             }
             
         } finally {

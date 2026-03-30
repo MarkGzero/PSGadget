@@ -269,7 +269,7 @@ function Set-FtdiIotGpioPins {
         }
 
         $script:PsGadgetLogger.WriteProto('GPIO.WRITE',
-                ("IoT ACBUS pins=[{0}] → {1}" -f ($Pins -join ','), $State))
+                ("IoT ACBUS pins=[{0}] -> {1}" -f ($Pins -join ','), $State))
         return $true
 
     } catch {

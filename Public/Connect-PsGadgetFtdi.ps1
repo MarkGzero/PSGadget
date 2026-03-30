@@ -60,7 +60,7 @@ function Connect-PsGadgetFtdi {
             $devices = @(Get-FtdiDeviceList)
             if ($devices.Count -gt 0) { break }
             if ($attempt -lt 3) {
-                Write-Verbose "Get-FtdiDeviceList returned empty on attempt $attempt; retrying after 150ms..."
+                Write-Debug "Get-FtdiDeviceList returned empty on attempt $attempt; retrying after 150ms..."
                 Start-Sleep -Milliseconds 150
             }
         }
@@ -93,7 +93,7 @@ function Connect-PsGadgetFtdi {
             $deviceIndex = $targetDevice.Index
         }
         
-        Write-Verbose "Connecting to: $($targetDevice.Description) ($($targetDevice.SerialNumber))"
+        Write-Debug "Connecting to: $($targetDevice.Description) ($($targetDevice.SerialNumber))"
         
         # Check if device is already in use
         if ($targetDevice.IsOpen) {
@@ -109,7 +109,7 @@ function Connect-PsGadgetFtdi {
         $connection = $null
 
         if (-not $connection -and $script:IotBackendAvailable) {
-            Write-Verbose "Using IoT .NET backend for connection"
+            Write-Debug "Using IoT .NET backend for connection"
             try {
                 $connection = Invoke-FtdiIotOpen -DeviceInfo $targetDevice
             } catch {
@@ -131,17 +131,17 @@ function Connect-PsGadgetFtdi {
                         "Falling back to stub mode."
                     )
                 } else {
-                    Write-Verbose "IoT open failed ($exType): $errMsg -- falling back to platform backend"
+                    Write-Debug "IoT open failed ($exType): $errMsg -- falling back to platform backend"
                 }
                 $connection = $null
             }
         }
         if (-not $connection) {
             if ($PSVersionTable.PSVersion.Major -le 5 -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
-                Write-Verbose "Using Windows FTDI backend for connection"
+                Write-Debug "Using Windows FTDI backend for connection"
                 $connection = Invoke-FtdiWindowsOpen -DeviceInfo $targetDevice
             } else {
-                Write-Verbose "Using Unix FTDI backend for connection"
+                Write-Debug "Using Unix FTDI backend for connection"
                 $connection = Invoke-FtdiUnixOpen -Index $deviceIndex
             }
         }
@@ -150,7 +150,7 @@ function Connect-PsGadgetFtdi {
             throw "Failed to establish connection to FTDI device"
         }
         
-        Write-Verbose "Successfully connected to FTDI device $deviceIndex"
+        Write-Debug "Successfully connected to FTDI device $deviceIndex"
         return $connection
         
     } catch {

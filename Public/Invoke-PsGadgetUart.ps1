@@ -31,7 +31,7 @@ function Invoke-PsGadgetUart {
 
     .PARAMETER Data
     Bytes or a string to write. Strings are UTF-8 encoded. No line ending is added
-    automatically — include "`r`n" or "`n" in the string as needed.
+    automatically -- include "`r`n" or "`n" in the string as needed.
 
     .PARAMETER ReadCount
     Number of raw bytes to read after the optional write.
@@ -86,7 +86,7 @@ function Invoke-PsGadgetUart {
     $line = Invoke-PsGadgetUart -PsGadget $dev -Data "STATUS`r`n" -ReadLine
 
     .EXAMPLE
-    # Polling loop — keep device open to avoid per-call open/close overhead
+    # Polling loop -- keep device open to avoid per-call open/close overhead
     $dev = New-PsGadgetFtdi -SerialNumber 'FTAXBFCQ'
     try {
         while ($true) {

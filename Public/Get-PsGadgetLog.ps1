@@ -9,7 +9,7 @@ function Get-PsGadgetLog {
     View the PSGadget session log.
 
     .DESCRIPTION
-    Displays the content of ~/.psgadget/logs/psgadget.log — the unified session log
+    Displays the content of ~/.psgadget/logs/psgadget.log -- the unified session log
     that contains INFO/DEBUG/ERROR entries from all device instances plus [PROTO]
     wire-level entries when Open-PsGadgetTrace has been called this session.
 

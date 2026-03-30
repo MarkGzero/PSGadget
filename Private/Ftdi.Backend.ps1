@@ -77,7 +77,7 @@ function Get-FtdiDeviceList {
     param()
     
     try {
-        Write-Verbose "Enumerating FTDI devices via platform-specific backend..."
+        Write-Debug "Enumerating FTDI devices via platform-specific backend..."
         
         # Determine platform and call appropriate implementation.
         # IoT backend is tried first on PS7.4+/.NET8+.  If it throws (e.g. libftd2xx.so
@@ -85,15 +85,15 @@ function Get-FtdiDeviceList {
         # platform-specific backend so that Unix stubs remain active.
         $devices = $null
         if ($script:IotBackendAvailable) {
-            Write-Verbose "Using IoT .NET backend for enumeration"
+            Write-Debug "Using IoT .NET backend for enumeration"
             try {
                 $devices = Invoke-FtdiIotEnumerate
             } catch {
-                Write-Verbose "IoT backend unavailable ($($_.Exception.GetType().Name)); falling back to platform-specific backend"
+                Write-Debug "IoT backend unavailable ($($_.Exception.GetType().Name)); falling back to platform-specific backend"
                 $devices = $null
             }
             if (-not $devices -or @($devices).Count -eq 0) {
-                Write-Verbose "IoT enumeration returned no devices; falling back to platform-specific backend"
+                Write-Debug "IoT enumeration returned no devices; falling back to platform-specific backend"
                 $devices = $null
             }
 
@@ -121,7 +121,7 @@ function Get-FtdiDeviceList {
                             Write-Warning "To enable D2XX/IoT hardware access: sudo rmmod ftdi_sio"
                             Write-Warning "To make permanent: echo 'blacklist ftdi_sio' | sudo tee /etc/modprobe.d/ftdi-d2xx.conf"
                         } else {
-                            Write-Verbose "IoT returned UnknownDevice (ftdi_sio not loaded); falling back to sysfs for chip identification"
+                            Write-Debug "IoT returned UnknownDevice (ftdi_sio not loaded); falling back to sysfs for chip identification"
                         }
                         $devices = $null   # trigger sysfs fallback below
                     }
@@ -130,17 +130,17 @@ function Get-FtdiDeviceList {
         }
         if ($null -eq $devices) {
             if ($PSVersionTable.PSVersion.Major -le 5 -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
-                Write-Verbose "Using Windows FTDI backend"
+                Write-Debug "Using Windows FTDI backend"
                 $devices = Invoke-FtdiWindowsEnumerate
             } else {
-                Write-Verbose "Using Unix FTDI backend"
+                Write-Debug "Using Unix FTDI backend"
                 $devices = Invoke-FtdiUnixEnumerate
             }
         }
         
         # Validate and enrich device list
         if ($devices -and @($devices).Count -gt 0) {
-            Write-Verbose "Successfully enumerated $(@($devices).Count) FTDI device(s)"
+            Write-Debug "Successfully enumerated $(@($devices).Count) FTDI device(s)"
             
             # Ensure consistent Index values and backfill any missing capability properties.
             # Windows and future platform backends may already stamp these; this pass ensures
@@ -164,12 +164,12 @@ function Get-FtdiDeviceList {
             
             return $deviceArray
         } else {
-            Write-Verbose "No FTDI devices found"
+            Write-Debug "No FTDI devices found"
             return @()
         }
         
     } catch [System.NotImplementedException] {
-        Write-Verbose "FTDI enumeration not implemented - returning unified stub devices"
+        Write-Debug "FTDI enumeration not implemented - returning unified stub devices"
         
         # Return platform-agnostic stub device list for development
         $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'

@@ -14,8 +14,8 @@ function Open-PsGadgetTrace {
     (~/.psgadget/logs/psgadget.log).  Protocol tracing is off by default; this function
     turns it on for the current session.
 
-    All hardware operations after this call — I2C transactions, GPIO state changes, MPSSE
-    commands, SSD1306 framebuffer writes, stepper moves — are recorded at [PROTO] level
+    All hardware operations after this call -- I2C transactions, GPIO state changes, MPSSE
+    commands, SSD1306 framebuffer writes, stepper moves -- are recorded at [PROTO] level
     in the same file as regular INFO/DEBUG/ERROR entries.
 
     On Windows, a new pwsh (or powershell.exe) window opens with colorized, auto-refreshing
@@ -34,6 +34,13 @@ function Open-PsGadgetTrace {
     $dev = New-PsGadgetFtdi -Index 0
     $dev.GetDisplay().ShowSplash()
 
+    .PARAMETER Clear
+    Truncate the session log before enabling tracing and opening the viewer.
+
+    .EXAMPLE
+    Open-PsGadgetTrace -Clear
+    $dev = New-PsGadgetFtdi -Index 0
+
     .EXAMPLE
     $path = Open-PsGadgetTrace -PassThru
     # Linux: Get-Content -LiteralPath $path -Wait
@@ -42,13 +49,19 @@ function Open-PsGadgetTrace {
     [CmdletBinding()]
     [OutputType([void])]
     param(
-        [switch]$PassThru
+        [switch]$PassThru,
+        [switch]$Clear
     )
 
     $logger = Get-PsGadgetModuleLogger
     if (-not $logger) {
         Write-Warning 'Open-PsGadgetTrace: logger not available'
         return
+    }
+
+    if ($Clear) {
+        $logger.Clear()   # closes writer, truncates file, reopens -- avoids null-byte gap
+        Write-Verbose "Cleared session log: $($logger.LogFilePath)"
     }
 
     $logger.TraceEnabled = $true
@@ -58,7 +71,7 @@ function Open-PsGadgetTrace {
         return $logPath
     }
 
-    # Inline viewer script — runs in a new process, no module dependency
+    # Inline viewer script -- runs in a new process, no module dependency
     $viewerScript = @"
 `$path = '$($logPath -replace "'", "''")'
 `$Host.UI.RawUI.WindowTitle = 'PSGadget Log'

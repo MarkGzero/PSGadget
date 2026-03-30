@@ -41,10 +41,10 @@ function Invoke-PsGadgetSpi {
 
     .PARAMETER SpiMode
     SPI mode 0-3 (CPOL/CPHA). Default 0 (most common: clock idle LOW, sample rising edge).
-        Mode 0: CPOL=0 CPHA=0 — idle LOW,  sample rising,  shift falling
-        Mode 1: CPOL=0 CPHA=1 — idle LOW,  sample falling, shift rising
-        Mode 2: CPOL=1 CPHA=0 — idle HIGH, sample falling, shift rising
-        Mode 3: CPOL=1 CPHA=1 — idle HIGH, sample rising,  shift falling
+        Mode 0: CPOL=0 CPHA=0 -- idle LOW,  sample rising,  shift falling
+        Mode 1: CPOL=0 CPHA=1 -- idle LOW,  sample falling, shift rising
+        Mode 2: CPOL=1 CPHA=0 -- idle HIGH, sample falling, shift rising
+        Mode 3: CPOL=1 CPHA=1 -- idle HIGH, sample rising,  shift falling
 
     .PARAMETER CsPin
     ADBUS pin number used for chip select (active low). Default 3 (ADBUS3 / D3).
@@ -72,7 +72,7 @@ function Invoke-PsGadgetSpi {
     $rx  = Invoke-PsGadgetSpi -PsGadget $dev -Data @(0x9F) -ReadCount 3
 
     .EXAMPLE
-    # Polling loop — keep device open to avoid per-call open/close overhead
+    # Polling loop -- keep device open to avoid per-call open/close overhead
     $dev = New-PsGadgetFtdi -SerialNumber 'FT4ABCDE'
     try {
         while ($true) {
