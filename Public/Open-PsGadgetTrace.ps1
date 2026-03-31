@@ -61,6 +61,7 @@ function Open-PsGadgetTrace {
 
     if ($Clear) {
         $logger.Clear()   # closes writer, truncates file, reopens -- avoids null-byte gap
+        Write-Host 'Log cleared. Close any old viewer windows -- they cannot rewind after truncation.' -ForegroundColor DarkYellow
         Write-Verbose "Cleared session log: $($logger.LogFilePath)"
     }
 
@@ -93,6 +94,9 @@ Get-Content -LiteralPath `$path -Wait | ForEach-Object {
     elseif (`$line -match '\[PROTO\].*(CONNECT|DISCONNECT)'){ Write-Host `$line -ForegroundColor DarkGray  }
     elseif (`$line -match '\[PROTO\].*RAW')                 { Write-Host `$line -ForegroundColor DarkCyan  }
     elseif (`$line -match '\[PROTO\]')                      { Write-Host `$line -ForegroundColor Gray      }
+    elseif (`$line -match '\[INFO\].*(Connected:|Closing FTDI|PsGadgetFtdi created)') { Write-Host `$line -ForegroundColor Cyan }
+    elseif (`$line -match '\[INFO\].*CBUS GPIO')            { Write-Host `$line -ForegroundColor DarkGreen }
+    elseif (`$line -match '\[INFO\].*(GPIO|MPSSE GPIO)')    { Write-Host `$line -ForegroundColor Green     }
     elseif (`$line -match '\[DEBUG\]')                      { Write-Host `$line -ForegroundColor DarkGray  }
     else                                                    { Write-Host `$line                            }
 }

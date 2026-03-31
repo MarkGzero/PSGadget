@@ -156,9 +156,9 @@ function Invoke-FtdiWindowsEnumerate {
                 Platform       = "Windows"
                 IsVcp          = $true
                 GpioMethod     = "CBUS"
-                GpioPins       = "CBUS0-3 (CBUS bit-bang), ADBUS0-7 (async bit-bang)"
+                GpioPins       = "CBUS0-3"
                 HasMpsse       = $false
-                CapabilityNote = "No MPSSE. CBUS bit-bang (mode 0x20): requires FT_PROG EEPROM config to set CBUS0-3 as 'CBUS I/O'. Async bit-bang (mode 0x01): uses ADBUS0-7 (UART lines), no EEPROM change needed."
+                CapabilityNote = "CBUS pins require EEPROM config before use. Run: Set-PsGadgetFt232rCbusMode -Index <n> -Pins @(0..3)"
             }
         )
     } catch {

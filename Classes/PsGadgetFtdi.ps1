@@ -108,7 +108,11 @@ class PsGadgetFtdi : System.IDisposable {
             return
         }
 
-        $this.Logger.WriteInfo("Closing FTDI device: $($this.SerialNumber)")
+        $varNames = @(Get-Variable -Scope Global -ErrorAction SilentlyContinue |
+            Where-Object { $_.Value -is [PsGadgetFtdi] -and [object]::ReferenceEquals($_.Value, $this) } |
+            Select-Object -ExpandProperty Name)
+        $varHint = if ($varNames.Count -gt 0) { " [$(($varNames | ForEach-Object { "`$$_" }) -join ', ')]" } else { '' }
+        $this.Logger.WriteInfo("Closing FTDI device: $($this.SerialNumber)$varHint")
 
         try {
             if ($this._connection -and $this._connection.Close) {

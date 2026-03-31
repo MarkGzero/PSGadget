@@ -250,6 +250,8 @@ function Send-MpsseAcbusCommand {
                 Write-Verbose ("MPSSE ACBUS command sent (5x): value=0x{0:X2} dir=0x{1:X2}" -f $Value, $DirectionMask)
                 # Update cached ACBUS state - eliminates USB reads from Get-FtdiGpioPins in hot loops
                 $DeviceHandle | Add-Member -MemberType NoteProperty -Name 'AcbusCachedState' -Value ([byte]$Value) -Force
+                $script:PsGadgetLogger.WriteInfo(
+                        ("MPSSE GPIO [{0} {1}]: ACBUS val=0x{2:X2} dir=0x{3:X2}" -f $DeviceHandle.SerialNumber, $DeviceHandle.Type, $Value, $DirectionMask))
                 $script:PsGadgetLogger.WriteProto('GPIO.WRITE',
                         ("ACBUS val=0x{0:X2} dir=0x{1:X2}  (MPSSE x5)" -f $Value, $DirectionMask),
                         ("0x82 0x{0:X2} 0x{1:X2}" -f $Value, $DirectionMask))

@@ -233,8 +233,8 @@ function Get-FtdiFt232rEeprom {
 
     try {
         if (-not $script:FtdiInitialized) {
-            $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
-            if (-not $isWindows) {
+            $isWinPlatform = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+            if (-not $isWinPlatform) {
                 Write-Warning (
                     "Get-PsGadgetFtdiEeprom: FT232R EEPROM read is not supported on Linux.`n" +
                     "Use an FT232H device instead -- it has MPSSE and full Linux support via the IoT backend."
@@ -434,8 +434,8 @@ function Set-FtdiFt232rCbusPinMode {
 
     try {
         if (-not $script:FtdiInitialized) {
-            $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
-            if (-not $isWindows) {
+            $isWinPlatform = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+            if (-not $isWinPlatform) {
                 # Linux/macOS: use native P/Invoke EEPROM path when available
                 if ($script:FtdiNativeAvailable) {
                     Write-Verbose "Set-FtdiFt232rCbusPinMode: using native P/Invoke EEPROM path on Linux"
@@ -665,6 +665,7 @@ function Set-FtdiCbusBits {
             "pins=[{0}] state={1}" -f ($Pins -join ','), $State
         }
         Write-Verbose ("CBUS bit-bang: {0} dir=0x{1:X1} val=0x{2:X1} mask=0x{3:X2}" -f $pinSummary, $dirNibble, $valNibble, $mask)
+        $script:PsGadgetLogger.WriteInfo("CBUS GPIO [$($Connection.SerialNumber) $($Connection.Type)]: $pinSummary  mask=0x$($mask.ToString('X2'))")
         $script:PsGadgetLogger.WriteProto('CBUS.WRITE',
                 ("{0}  dir=0x{1:X1} val=0x{2:X1}" -f $pinSummary, $dirNibble, $valNibble),
                 ("SetBitMode mask=0x{0:X2} mode=0x20" -f $mask))

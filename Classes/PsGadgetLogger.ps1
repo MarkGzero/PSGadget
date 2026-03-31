@@ -165,7 +165,15 @@ class PsGadgetLogger {
                 $this._writer.Close()
                 $this._writer = $null
             }
-            [System.IO.File]::WriteAllText($this.LogFilePath, '')
+            # Truncate using ReadWrite share so Get-Content -Wait in any open viewer
+            # does not cause WriteAllText (exclusive access) to fail silently.
+            $tfs = [System.IO.File]::Open(
+                $this.LogFilePath,
+                [System.IO.FileMode]::Truncate,
+                [System.IO.FileAccess]::Write,
+                [System.IO.FileShare]::ReadWrite
+            )
+            $tfs.Close()
             $fs = [System.IO.File]::Open(
                 $this.LogFilePath,
                 [System.IO.FileMode]::Append,

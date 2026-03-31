@@ -39,9 +39,9 @@ function Get-FtdiChipCapabilities {
         '^FT232R(L|NL)?$' {
             return @{
                 GpioMethod     = 'CBUS'
-                GpioPins       = 'CBUS0-4 (5 pins; CBUS0-3 runtime bit-bang, CBUS4 EEPROM-config only), ADBUS0-7 (async bit-bang)'
+                GpioPins       = 'CBUS0-3'
                 HasMpsse       = $false
-                CapabilityNote = 'No MPSSE. Device has CBUS0-4 (5 pins). CBUS bit-bang (mode 0x20) runtime: CBUS0-3 only (D2XX mask is 8 bits, 4 direction + 4 value). CBUS4 is EEPROM-configurable (Set-PsGadgetFt232rCbusMode -Pins @(4)) but cannot be driven at runtime via SetBitMode. Async bit-bang (mode 0x01): uses ADBUS0-7 (UART lines), no EEPROM change needed.'
+                CapabilityNote = 'CBUS pins require EEPROM config before use. Run: Set-PsGadgetFt232rCbusMode -Index <n> -Pins @(0..3)'
             }
         }
         '^FT231X$|^FT230X$|^FT-X' {
@@ -107,8 +107,8 @@ function Get-FtdiDeviceList {
             if ($devices -and @($devices).Count -gt 0) {
                 $allUnknown = (@($devices) | Where-Object { $_.Type -ne 'UnknownDevice' } | Measure-Object).Count
                 if ($allUnknown -eq 0) {
-                    $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
-                    if (-not $isWindows) {
+                    $isWinPlatform = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+                    if (-not $isWinPlatform) {
                         $ftdiSioLoaded = $false
                         try {
                             $lsmodOut = & lsmod 2>/dev/null
@@ -160,6 +160,72 @@ function Get-FtdiDeviceList {
                     $isVcp = $deviceArray[$i].Driver -like '*VCP*'
                     $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name IsVcp -Value $isVcp -Force
                 }
+
+                # For FT232R: read EEPROM to build a live CapabilityNote showing which CBUS pins are ready.
+                # Skip channel sub-interfaces (D2XX appends A/B/C/D to the parent serial; they cannot be opened independently).
+                $serial = $deviceArray[$i].SerialNumber
+                $isSubInterface = $serial.Length -gt 0 -and $serial[-1] -match '[A-D]' -and
+                                  ($devices | Where-Object { $_.SerialNumber -eq $serial.Substring(0, $serial.Length - 1) })
+                if ($deviceArray[$i].GpioMethod -eq 'CBUS' -and $deviceArray[$i].Type -match '^FT232R' -and -not $isSubInterface) {
+                    if ($deviceArray[$i].IsOpen) {
+                        $varNames = @(Get-Variable -Scope Global -ErrorAction SilentlyContinue |
+                            Where-Object { $_.Value -is [PsGadgetFtdi] -and $_.Value.SerialNumber -eq $serial -and $_.Value.IsOpen } |
+                            Select-Object -ExpandProperty Name)
+                        $hint = if ($varNames.Count -gt 0) { " Handle held by: $(($varNames | ForEach-Object { "`$$_" }) -join ', ')" } else { '' }
+                        $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name CapabilityNote -Value "Device open -- EEPROM not readable.$hint" -Force
+                    } else {
+                        try {
+                            $ee = Get-FtdiFt232rEeprom -Index $i -SerialNumber $serial -ErrorAction SilentlyContinue
+                            if ($ee) {
+                                $ready    = @(0..3 | Where-Object { $ee."Cbus$_" -eq 'FT_CBUS_IOMODE' })
+                                $notReady = @(0..3 | Where-Object { $ee."Cbus$_" -ne 'FT_CBUS_IOMODE' })
+                                if ($notReady.Count -eq 0) {
+                                    $note = "CBUS0-3 all configured as I/O MODE -- ready for GPIO."
+                                } elseif ($ready.Count -eq 0) {
+                                    $note = "No CBUS pins configured for GPIO. Run: Set-PsGadgetFt232rCbusMode -Index $i -Pins @(0..3)"
+                                } else {
+                                    $readyStr    = ($ready    | ForEach-Object { "CBUS$_" }) -join ','
+                                    $notReadyStr = ($notReady | ForEach-Object { "CBUS$_" }) -join ','
+                                    $pinsArg     = '@(' + ($notReady -join ',') + ')'
+                                    $note = "$readyStr ready; $notReadyStr need config. Run: Set-PsGadgetFt232rCbusMode -Index $i -Pins $pinsArg"
+                                }
+                                $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name CapabilityNote -Value $note -Force
+                            }
+                        } catch {
+                            # EEPROM read failed -- keep static note
+                        }
+                    }
+                }
+
+                # For FT232H: read EEPROM to report any ACBUS pins statically driven (Drive_0/Drive_1).
+                # Those pins cannot be overridden by MPSSE at runtime; all others are controllable.
+                if ($deviceArray[$i].GpioMethod -eq 'MPSSE' -and $deviceArray[$i].Type -eq 'FT232H' -and -not $isSubInterface) {
+                    if ($deviceArray[$i].IsOpen) {
+                        $varNames = @(Get-Variable -Scope Global -ErrorAction SilentlyContinue |
+                            Where-Object { $_.Value -is [PsGadgetFtdi] -and $_.Value.SerialNumber -eq $serial -and $_.Value.IsOpen } |
+                            Select-Object -ExpandProperty Name)
+                        $hint = if ($varNames.Count -gt 0) { " Handle held by: $(($varNames | ForEach-Object { "`$$_" }) -join ', ')" } else { '' }
+                        $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name CapabilityNote -Value "Device open -- EEPROM not readable.$hint" -Force
+                    } else {
+                        try {
+                            $ee = Get-FtdiFt232hEeprom -Index $i -SerialNumber $serial -ErrorAction SilentlyContinue
+                            if ($ee) {
+                                $static0 = @(0..7 | Where-Object { $ee."Cbus$_" -eq 'FT_CBUS_DRIVE_0' })
+                                $static1 = @(0..7 | Where-Object { $ee."Cbus$_" -eq 'FT_CBUS_DRIVE_1' })
+                                $static  = @($static0 + $static1) | Sort-Object
+                                if ($static.Count -eq 0) {
+                                    $note = "ACBUS0-7 all MPSSE-controllable."
+                                } else {
+                                    $staticStr = ($static | ForEach-Object { "ACBUS$_" }) -join ','
+                                    $note = "ACBUS0-7 MPSSE GPIO available. $staticStr statically driven (Drive_0/Drive_1) -- not runtime-controllable."
+                                }
+                                $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name CapabilityNote -Value $note -Force
+                            }
+                        } catch {
+                            # EEPROM read failed -- keep static note
+                        }
+                    }
+                }
             }
             
             return $deviceArray
@@ -172,7 +238,7 @@ function Get-FtdiDeviceList {
         Write-Debug "FTDI enumeration not implemented - returning unified stub devices"
         
         # Return platform-agnostic stub device list for development
-        $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+        $isWinPlatform = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
         
         $stubDevices = @(
             [PSCustomObject]@{
@@ -180,13 +246,13 @@ function Get-FtdiDeviceList {
                 Type           = 'FT232H'
                 Description    = 'FT232H USB-Serial (UNIFIED STUB)'
                 SerialNumber   = 'STUB001'
-                LocationId     = if ($isWindows) { 0x1234 } else { '/dev/ttyUSB0' }
+                LocationId     = if ($isWinPlatform) { 0x1234 } else { '/dev/ttyUSB0' }
                 IsOpen         = $false
                 Flags          = '0x00000000'
                 DeviceId       = '0x04036014'
                 Handle         = $null
-                Driver         = if ($isWindows) { 'ftd2xx.dll (STUB)' } else { 'libftdi (STUB)' }
-                Platform       = if ($isWindows) { 'Windows' } else { 'Unix' }
+                Driver         = if ($isWinPlatform) { 'ftd2xx.dll (STUB)' } else { 'libftdi (STUB)' }
+                Platform       = if ($isWinPlatform) { 'Windows' } else { 'Unix' }
                 IsVcp          = $false
                 GpioMethod     = 'MPSSE'
                 GpioPins       = 'ACBUS0-7, ADBUS0-7'
@@ -198,14 +264,14 @@ function Get-FtdiDeviceList {
                 Type           = 'FT232R'
                 Description    = 'FT232R USB UART (UNIFIED STUB)'
                 SerialNumber   = 'STUB002'
-                LocationId     = if ($isWindows) { 0x5678 } else { '/dev/ttyUSB1' }
+                LocationId     = if ($isWinPlatform) { 0x5678 } else { '/dev/ttyUSB1' }
                 IsOpen         = $false
                 Flags          = '0x00000000'
                 DeviceId       = '0x04036001'
                 Handle         = $null
-                Driver         = if ($isWindows) { 'ftdibus.sys (VCP) (STUB)' } else { 'libftdi (STUB)' }
-                Platform       = if ($isWindows) { 'Windows' } else { 'Unix' }
-                IsVcp          = if ($isWindows) { $true } else { $false }
+                Driver         = if ($isWinPlatform) { 'ftdibus.sys (VCP) (STUB)' } else { 'libftdi (STUB)' }
+                Platform       = if ($isWinPlatform) { 'Windows' } else { 'Unix' }
+                IsVcp          = if ($isWinPlatform) { $true } else { $false }
                 GpioMethod     = 'CBUS'
                 GpioPins       = 'CBUS0-3 (CBUS bit-bang), ADBUS0-7 (async bit-bang)'
                 HasMpsse       = $false
