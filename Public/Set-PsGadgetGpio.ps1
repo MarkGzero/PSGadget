@@ -118,6 +118,10 @@ function Set-PsGadgetGpio {
         [int[]]$LowPins,
 
         [Parameter()]
+        [ValidateRange(0, 7)]
+        [int[]]$InputPins,
+
+        [Parameter()]
         [ValidateRange(1, 60000)]
         [int]$DurationMs,
 
@@ -202,7 +206,8 @@ function Set-PsGadgetGpio {
                         Pins         = $Pins
                         Direction    = $State
                     }
-                    if ($DurationMs) { $params.DurationMs = $DurationMs }
+                    if ($DurationMs)  { $params.DurationMs  = $DurationMs }
+                    if ($InputPins)   { $params.InputPins   = $InputPins }
                     $success = Set-FtdiGpioPins @params
                 }
 

@@ -722,6 +722,60 @@ function Set-FtdiCbusBits {
     }
 }
 
+function Get-FtdiCbusBits {
+    <#
+    .SYNOPSIS
+    Reads the instantaneous logic level of FT232R CBUS pins via GetPinStates.
+
+    .DESCRIPTION
+    Calls GetPinStates() on the open D2XX connection. The returned byte has
+    bits 0-3 representing the current logic level of CBUS0-CBUS3 respectively,
+    regardless of whether each pin is configured as input or output.
+
+    Prerequisites:
+      - The connection must be open.
+      - SetBitMode(mask, 0x20) must have been called at least once so the
+        device is in CBUS bit-bang mode (Set-PsGadgetGpio handles this).
+
+    .PARAMETER Connection
+    Open FTDI connection object.
+
+    .EXAMPLE
+    $byte = Get-FtdiCbusBits -Connection $conn
+    $cbus0High = [bool]($byte -band 0x01)
+    #>
+    [CmdletBinding()]
+    [OutputType([byte])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Object]$Connection
+    )
+    try {
+        if (-not $Connection -or -not $Connection.IsOpen) {
+            throw "Connection is not open"
+        }
+        if ($script:FtdiInitialized -and $null -ne $Connection.Device) {
+            [byte]$pinState = 0
+            $status = $Connection.Device.GetPinStates([ref]$pinState)
+            if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
+                throw "GetPinStates failed with status: $status"
+            }
+            $script:PsGadgetLogger.WriteProto('CBUS.READ',
+                ("CBUS states=0x{0:X2}" -f $pinState), "GetPinStates()")
+            return $pinState
+        } else {
+            # Stub / Linux native path: FT_GetBitMode not declared in P/Invoke class.
+            # Return 0x00 (all LOW) as a safe default.
+            $script:PsGadgetLogger.WriteProto('CBUS.READ',
+                "CBUS states=0x00 (STUB)", "GetPinStates() [stub]")
+            return [byte]0x00
+        }
+    } catch {
+        Write-Error "Get-FtdiCbusBits failed: $_"
+        return [byte]0
+    }
+}
+
 function Set-FtdiFt232hEepromMode {
     <#
     .SYNOPSIS

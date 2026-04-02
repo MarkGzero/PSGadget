@@ -196,6 +196,27 @@ class PsGadgetFtdi : System.IDisposable {
         Set-PsGadgetGpio -Connection $this._connection -Pins @($Pin) -State $State -DurationMs $DurationMs
     }
 
+    # Read the current logic level of a single GPIO pin (true=HIGH, false=LOW).
+    # FT232R CBUS: Pin 0-3.  FT232H MPSSE: Pin 0-7.
+    [bool] ReadPin([int]$Pin) {
+        $this.Logger.WriteTrace("ReadPin($Pin)")
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new("Device not open. Call Connect() first.")
+        }
+        $states = Get-PsGadgetGpio -Connection $this._connection -Pins @($Pin)
+        return $states[0]
+    }
+
+    # Read the current logic level of multiple GPIO pins.
+    # Returns bool[] in the same order as Pins.
+    [bool[]] ReadPins([int[]]$Pins) {
+        $this.Logger.WriteTrace("ReadPins([$($Pins -join ',')])")
+        if (-not $this.IsOpen) {
+            throw [System.InvalidOperationException]::new("Device not open. Call Connect() first.")
+        }
+        return Get-PsGadgetGpio -Connection $this._connection -Pins $Pins
+    }
+
     # Write raw bytes to the device
     [void] Write([byte[]]$Data) {
         $this.Logger.WriteTrace("Write $($Data.Length) bytes")

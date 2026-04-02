@@ -130,29 +130,41 @@ function Set-FtdiGpioPins {
         [int]$DurationMs,
         
         [Parameter(Mandatory = $false)]
-        [switch]$PreserveOtherPins
+        [switch]$PreserveOtherPins,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(0, 7)]
+        [int[]]$InputPins
     )
-    
+
     try {
         # Validate device handle
         if (-not $DeviceHandle -or -not $DeviceHandle.IsOpen) {
             throw "Device handle is invalid or device is not open"
         }
-        
+
         # Normalize direction to boolean
         $isHigh = $Direction -in @('HIGH', 'H', '1')
-        
+
         # Calculate bitmask for specified pins
         $pinMask = 0
         foreach ($pin in $Pins) {
             $pinMask = $pinMask -bor (1 -shl $pin)
         }
-        
+
         Write-Verbose ("Setting pins {0} to {1} (mask: 0x{2:X2})" -f ($Pins -join ','), $Direction, $pinMask)
 
         # Read current ACBUS pin state so that pins not in $Pins are preserved (read-modify-write)
         $currentValue = [byte](Get-FtdiGpioPins -DeviceHandle $DeviceHandle)
-        $directionMask = 0xFF  # All ACBUS pins as outputs
+
+        # Build direction mask: all outputs by default; InputPins get direction bit = 0 (input).
+        [int]$rawDir = 0xFF
+        if ($InputPins) {
+            foreach ($ip in $InputPins) {
+                $rawDir = $rawDir -band (0xFF -bxor (1 -shl $ip))
+            }
+        }
+        [byte]$directionMask = [byte]($rawDir -band 0xFF)
 
         # Apply state change only to the specified pins; all others keep their current value
         if ($isHigh) {
@@ -293,17 +305,22 @@ function Get-FtdiGpioPins {
     [OutputType([byte])]
     param(
         [Parameter(Mandatory = $true)]
-        [System.Object]$DeviceHandle
+        [System.Object]$DeviceHandle,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$BypassCache
     )
-    
+
     try {
         # Validate device handle
         if (-not $DeviceHandle -or -not $DeviceHandle.IsOpen) {
             throw "Device handle is invalid or device is not open"
         }
 
-        # Return cached state if available - avoids USB round-trip in GPIO hot loops
-        if ($DeviceHandle.PSObject.Properties['AcbusCachedState']) {
+        # Return cached state if available - avoids USB round-trip in GPIO hot loops.
+        # BypassCache must be set when reading actual input pin levels, because the
+        # cache only reflects the last written output value, not physical input states.
+        if ($DeviceHandle.PSObject.Properties['AcbusCachedState'] -and -not $BypassCache) {
             Write-Verbose ("ACBUS pin states (cached): 0x{0:X2}" -f [byte]$DeviceHandle.AcbusCachedState)
             return [byte]$DeviceHandle.AcbusCachedState
         }
