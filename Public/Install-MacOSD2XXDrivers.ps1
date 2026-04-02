@@ -64,6 +64,13 @@ function Install-MacOSD2XXDrivers {
 
     if (-not $PSCmdlet.ShouldProcess('/usr/local/lib', "Install FTDI D2XX $Version")) { return }
 
+    # ── Already installed? ───────────────────────────────────────────────────────
+    if ((Test-Path $libDest) -and (Test-Path $symlinkDest)) {
+        Write-Host "D2XX $Version is already installed at $libDest"
+        Write-Host "Run Test-PsGadgetEnvironment to verify, or delete $libDest to force reinstall."
+        return
+    }
+
     # ── Download ────────────────────────────────────────────────────────────────
     $needDownload = $true
     if (Test-Path $dmgPath) {
@@ -108,6 +115,9 @@ function Install-MacOSD2XXDrivers {
 
     Write-Host "Mounting DMG..."
     $hdiLines = & hdiutil attach $dmgPath -nobrowse -readonly 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "hdiutil attach failed (exit $LASTEXITCODE):`n$($hdiLines -join "`n")"
+    }
     # hdiutil output: last line containing /Volumes/ has the mount point as the last token
     $mountLine  = @($hdiLines) | Where-Object { $_ -match '/Volumes/' } | Select-Object -Last 1
     if ($mountLine) {
