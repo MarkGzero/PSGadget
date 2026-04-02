@@ -97,7 +97,8 @@ function Connect-PsGadgetFtdi {
         
         # Check if device is already in use
         if ($targetDevice.IsOpen) {
-            Write-Warning "Device appears to be in use by another application"
+            $deviceRef = if ($targetDevice.SerialNumber) { "'$($targetDevice.SerialNumber)'" } else { "at index $($targetDevice.Index)" }
+            throw "Device $deviceRef is already open. Run Get-ConnectedPsGadget to find the open handle and call .Close() on it."
         }
         
         # Call platform/backend-specific opening function.
@@ -154,7 +155,6 @@ function Connect-PsGadgetFtdi {
         return $connection
         
     } catch {
-        Write-Error "Failed to connect to FTDI device: $_"
         throw
     }
 }

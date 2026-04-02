@@ -96,7 +96,7 @@ class PsGadgetFtdi : System.IDisposable {
 
             $this.Logger.WriteInfo("Connected: $($this.Description) ($($this.SerialNumber)) Type=$($this.Type) GPIO=$($this.GpioMethod)")
         } catch {
-            $this.Logger.WriteError("Connect failed: $($_.Exception.Message)")
+            $this.Logger.WriteTrace("Connect failed: $($_.Exception.Message)")
             throw
         }
     }

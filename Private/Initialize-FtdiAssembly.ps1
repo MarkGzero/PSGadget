@@ -252,10 +252,12 @@ function Initialize-FtdiAssembly {
                                 "Hardware access will fall back to stub mode until it is installed.`n`n" +
                                 "Run the following in Terminal (not pwsh) to install (arch: $arch):`n" +
                                 "----------------------------------------------------------------------`n" +
-                                "# Download the D2XX macOS package from FTDI:`n" +
-                                "# https://ftdichip.com/drivers/d2xx-drivers/`n" +
-                                "# Open the .dmg or .pkg and run the installer, OR manually:`n" +
-                                "sudo cp /path/to/libftd2xx.dylib /usr/local/lib/`n" +
+                                "# Download the D2XX macOS package from https://ftdichip.com/drivers/d2xx-drivers/`n" +
+                                "# Option A: run the installer inside the .dmg (recommended)`n" +
+                                "# Option B: manual install from the extracted release/ folder:`n" +
+                                "sudo mkdir -p /usr/local/lib`n" +
+                                "sudo cp /path/to/release/build/libftd2xx.1.4.30.dylib /usr/local/lib/libftd2xx.1.4.30.dylib`n" +
+                                "sudo ln -sf /usr/local/lib/libftd2xx.1.4.30.dylib /usr/local/lib/libftd2xx.dylib`n" +
                                 "# Copy into lib/net8/ so the module can load it directly:`n" +
                                 "cp /usr/local/lib/libftd2xx.dylib '$net8CopyDest'`n" +
                                 "# NOTE: AppleUSBFTDI kext may claim the device before D2XX. To unload:`n" +

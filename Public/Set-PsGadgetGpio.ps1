@@ -175,7 +175,8 @@ function Set-PsGadgetGpio {
             Write-Debug "Targeting device: $($targetDevice.Description) ($($targetDevice.SerialNumber))"
 
             if ($targetDevice.IsOpen) {
-                Write-Warning "Device $($targetDevice.SerialNumber) appears to be in use by another application"
+                $deviceRef = if ($targetDevice.SerialNumber) { "'$($targetDevice.SerialNumber)'" } else { "at index $($targetDevice.Index)" }
+                throw "Device $deviceRef is already open. Run Get-ConnectedPsGadget to find the open handle and call .Close() on it."
             }
 
             $Connection = Connect-PsGadgetFtdi -Index $targetDevice.Index
@@ -307,7 +308,6 @@ function Set-PsGadgetGpio {
         }
 
     } catch {
-        Write-Error "GPIO control failed: $_"
         throw
     }
 }

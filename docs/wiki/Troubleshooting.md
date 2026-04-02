@@ -276,12 +276,26 @@ Requires macOS 10.4 Tiger or later. Current release: **D2XX v1.4.30** (2024-05-0
    - **Intel (x64)**: https://ftdichip.com/wp-content/uploads/2024/04/D2XX1.4.30.dmg
    - **Apple Silicon (ARM/M1/M2)**: https://ftdichip.com/wp-content/uploads/2024/04/D2XX1.4.30.dmg
 
-2. Open the `.dmg`, then run the installer package inside it (requires Administrator password)
+2. Open the `.dmg`, then run the installer package inside it (requires Administrator password).
 
-3. The installer places `libftd2xx.dylib` in `/usr/local/lib/`. Verify:
+   **Alternative — manual install from the extracted `release/` folder:**
+
+   ```bash
+   sudo mkdir -p /usr/local/lib
+   sudo mkdir -p /usr/local/include
+   sudo cp release/build/libftd2xx.1.4.30.dylib /usr/local/lib/libftd2xx.1.4.30.dylib
+   sudo ln -sf /usr/local/lib/libftd2xx.1.4.30.dylib /usr/local/lib/libftd2xx.dylib
+   sudo cp release/ftd2xx.h /usr/local/include/ftd2xx.h
+   sudo cp release/WinTypes.h /usr/local/include/WinTypes.h
+   ```
+
+3. Verify the symlink is in place:
 
 ```bash
 ls -la /usr/local/lib/libftd2xx*
+# Expected:
+#   libftd2xx.1.4.30.dylib
+#   libftd2xx.dylib -> libftd2xx.1.4.30.dylib
 ```
 
 4. On macOS 10.15+ (Catalina and later), System Integrity Protection may block
