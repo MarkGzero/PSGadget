@@ -113,7 +113,37 @@ function New-PsGadgetFtdi {
     # .Connect() is idempotent: if already open it returns immediately; if closed it reconnects.
     $dev.DisplayHeight = $DisplayHeight
     if ($PSCmdlet.ShouldProcess($dev.Description, 'Connect')) {
+        # FT232R CBUS pins have internal 200k pull-ups to VCCIO (datasheet section 6, Note 1).
+        # They float HIGH after power-up/reset regardless of software state.
+        # EEPROM read opens its own D2XX handle -- must happen BEFORE Connect() to avoid conflict.
+        # Suppress verbose on internal calls; only our summary message is relevant to the user.
+        $cbusIoPins = [int[]]@()
+        $savedVerbose = $VerbosePreference
+        $VerbosePreference = 'SilentlyContinue'
+        try {
+            $devices = @(Get-FtdiDeviceList)
+            $preConnectDev = switch ($PSCmdlet.ParameterSetName) {
+                'ByIndex'    { $devices | Where-Object { $_.Index -eq $Index } | Select-Object -First 1 }
+                'BySerial'   { $devices | Where-Object { $_.SerialNumber -eq $SerialNumber } | Select-Object -First 1 }
+                'ByLocation' { $devices | Where-Object { "$($_.LocationId)" -eq $LocationId } | Select-Object -First 1 }
+            }
+            if ($preConnectDev -and $preConnectDev.Type -match '^FT232R') {
+                $eeprom = Get-FtdiEeprom -Index $preConnectDev.Index
+                if ($eeprom) {
+                    $cbusIoPins = [int[]](0..3 | Where-Object { $eeprom."Cbus$_" -eq 'FT_CBUS_IOMODE' })
+                }
+            }
+        } finally {
+            $VerbosePreference = $savedVerbose
+        }
+
         $dev.Connect()
+
+        if ($cbusIoPins.Count -gt 0) {
+            $pinList = ($cbusIoPins | ForEach-Object { "CBUS$_" }) -join ', '
+            Write-Verbose "FT232R: CBUS pins float HIGH on power-up due to internal 200k ohm pull-ups (datasheet section 6, Note 1). This is safe for signal/LED use but could trigger relays or actuators. Auto-driving $pinList LOW."
+            $dev.SetPins($cbusIoPins, $false)
+        }
     }
     return $dev
 }

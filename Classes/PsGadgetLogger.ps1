@@ -3,14 +3,14 @@
 # Unified session + protocol logger.  All device instances share a single module-level
 # singleton (created in PSGadget.psm1) that appends to a fixed
 # ~/.psgadget/logs/psgadget.log file.  When TraceEnabled = $true (set by
-# Open-PsGadgetTrace), WriteProto() entries are also written at [PROTO] level.
+# Start-PsGadgetTrace), WriteProto() entries are also written at [PROTO] level.
 # Rolls to psgadget.1.log when the file exceeds _maxSizeMb at open time.
 
 class PsGadgetLogger {
     [string]  $LogFilePath
     [string]  $SessionId
     [datetime]$StartTime
-    [bool]    $TraceEnabled        # false until Open-PsGadgetTrace is called
+    [bool]    $TraceEnabled        # false until Start-PsGadgetTrace is called
     hidden [System.IO.StreamWriter]$_writer
     hidden [int]$_maxSizeMb
 
@@ -114,7 +114,7 @@ class PsGadgetLogger {
     }
 
     # -- Protocol-level entries (WriteProto) ----------------------------------
-    # Written only when TraceEnabled = $true (set by Open-PsGadgetTrace).
+    # Written only when TraceEnabled = $true (set by Start-PsGadgetTrace).
     # Format:
     #   [timestamp] [PROTO]  {Subsystem,-12}  {Summary}
     #   [timestamp] [PROTO]  {' '*12}  RAW  {RawHex}
@@ -139,7 +139,7 @@ class PsGadgetLogger {
         } catch {}
     }
 
-    # -- Hex formatting helper (moved from PsGadgetTrace) --------------------
+    # -- Hex formatting helper --------------------
 
     [string] FormatHex([byte[]]$bytes) {
         return $this.FormatHex($bytes, 64)
@@ -156,7 +156,7 @@ class PsGadgetLogger {
     }
 
     # Truncate the log file and reopen the writer so subsequent writes land at offset 0.
-    # Used by Open-PsGadgetTrace -Clear -- calling Clear-Content externally leaves the
+    # Used by Start-PsGadgetTrace -Clear -- calling Clear-Content externally leaves the
     # StreamWriter's position stale, causing writes to be preceded by a null-byte gap.
     [void] Clear() {
         try {

@@ -119,7 +119,7 @@ function Set-PsGadgetFtdiEeprom {
     - Device must NOT have an open handle when running this command. If $dev is open,
       call $dev.Close() first. Otherwise D2XX returns FT_DEVICE_NOT_OPENED.
     - EEPROM changes require a USB replug (or CyclePort) to take effect.
-    - Use Get-PsGadgetFtdiEeprom before and after to verify the change.
+    - Use Get-FtdiEeprom before and after to verify the change.
     - This function requires Windows with the D2XX driver loaded.
     #>
 
@@ -332,7 +332,7 @@ function Invoke-FtdiEepromReplugPrompt {
             $cycleDevice.Connect()
             $cycleDevice.CyclePort()
             Write-Host "Port cycled. Device has re-enumerated with the new EEPROM settings."
-            Write-Host "Verify with: Get-PsGadgetFtdiEeprom -Index $TargetIndex"
+            Write-Host "Verify with: Get-FtdiEeprom -Index $TargetIndex"
         } catch {
             Write-Warning "CyclePort failed: $_"
             Write-Warning "Please unplug and replug the USB cable manually."
@@ -340,7 +340,7 @@ function Invoke-FtdiEepromReplugPrompt {
     } else {
         Write-Host ""
         Write-Host "ACTION REQUIRED: Unplug and replug the USB cable to apply the new settings."
-        Write-Host "Verify with: Get-PsGadgetFtdiEeprom -Index $TargetIndex"
+        Write-Host "Verify with: Get-FtdiEeprom -Index $TargetIndex"
         Write-Host ""
     }
 }

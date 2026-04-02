@@ -35,11 +35,11 @@ FT232H on the bench.
 - Fix: Added "SPI Workflow (FT232H via MPSSE)" and "UART Workflow (FT232H and FT232R)"
   sections to [examples/psgadget_workflow.md](psgadget_workflow.md)
 
-**[High] `Open-PsGadgetTrace` "must be called first" constraint was undocumented** — FIXED
-- Workflow step: Debugging — Jordan calls `Open-PsGadgetTrace` after a command, sees no
+**[High] `Start-PsGadgetTrace` "must be called first" constraint was undocumented** — FIXED
+- Workflow step: Debugging — Jordan calls `Start-PsGadgetTrace` after a command, sees no
   PROTO output, concludes tracing is broken
 - Fix: Added a callout box in [docs/wiki/Logging.md](../docs/wiki/Logging.md) under
-  "Protocol tracing": "Call `Open-PsGadgetTrace` before connecting or running any protocol
+  "Protocol tracing": "Call `Start-PsGadgetTrace` before connecting or running any protocol
   commands. Enabling tracing mid-session does not retroactively capture past operations."
 
 #### Medium — Friction

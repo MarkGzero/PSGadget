@@ -37,7 +37,7 @@ Describe 'PsGadget Module Tests' {
             $ExportedFunctions | Should -Contain 'Invoke-PsGadgetI2C'
             $ExportedFunctions | Should -Contain 'Invoke-PsGadgetI2CScan'
             $ExportedFunctions | Should -Contain 'Invoke-PsGadgetStepper'
-            $ExportedFunctions | Should -Contain 'Open-PsGadgetTrace'
+            $ExportedFunctions | Should -Contain 'Start-PsGadgetTrace'
             $ExportedFunctions | Should -Not -Contain 'Connect-PsGadgetPca9685'
             $ExportedFunctions | Should -Not -Contain 'Connect-PsGadgetSsd1306'
             $ExportedFunctions | Should -Not -Contain 'Write-PsGadgetSsd1306'
@@ -120,9 +120,9 @@ Describe 'PsGadget Module Tests' {
             }
         }
 
-        It 'Should export Open-PsGadgetTrace' {
+        It 'Should export Start-PsGadgetTrace' {
             $ExportedFunctions = (Get-Module PSGadget).ExportedFunctions.Keys
-            $ExportedFunctions | Should -Contain 'Open-PsGadgetTrace'
+            $ExportedFunctions | Should -Contain 'Start-PsGadgetTrace'
         }
 
         It 'TraceEnabled should be false at module import' {
@@ -131,9 +131,9 @@ Describe 'PsGadget Module Tests' {
             }
         }
 
-        It 'Open-PsGadgetTrace -PassThru should set TraceEnabled and return psgadget.log path' {
+        It 'Start-PsGadgetTrace -PassThru should set TraceEnabled and return psgadget.log path' {
             InModuleScope PSGadget {
-                $path = Open-PsGadgetTrace -PassThru
+                $path = Start-PsGadgetTrace -PassThru
                 $path | Should -Match 'psgadget\.log$'
                 $script:PsGadgetLogger.TraceEnabled | Should -Be $true
                 Test-Path -LiteralPath $path | Should -Be $true

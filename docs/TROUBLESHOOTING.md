@@ -1,8 +1,9 @@
-# Moved to wiki
+# Troubleshooting
 
-This document has been moved to the `docs/wiki/` directory as part of the
-2026 documentation reorganization. Please refer to the new location:
+The full troubleshooting guide is at:
 
-- [Troubleshooting](docs/wiki/Troubleshooting.md)
+https://github.com/MarkGzero/PSGadget/blob/main/docs/wiki/Troubleshooting.md
 
-For the full contents, see the corresponding wiki page above.
+Topics covered: Windows D2XX driver install, Linux VCP/ftdi_sio, missing
+native library, access denied, FT232R CBUS GPIO, SSD1306, MicroPython,
+stub backend, DLL version issues, and more.

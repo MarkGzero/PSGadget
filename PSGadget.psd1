@@ -25,6 +25,7 @@
         'Get-PsGadgetMpy',
         'Connect-PsGadgetMpy',
         'Set-PsGadgetGpio',
+        'Get-FtdiEeprom',
         'Get-PsGadgetFtdiEeprom',
         'Set-PsGadgetFt232rCbusMode',
         'Set-PsGadgetFtdiEeprom',
@@ -39,7 +40,7 @@
         'Invoke-PsGadgetStepper',
         'Invoke-PsGadgetSpi',
         'Invoke-PsGadgetUart',
-        'Open-PsGadgetTrace'
+        'Start-PsGadgetTrace'
     )
     
     # No cmdlets, variables exported
@@ -81,6 +82,7 @@
         'Public/Get-PsGadgetConfig.ps1',
         'Public/Get-PsGadgetLog.ps1',
         'Public/Get-PsGadgetEspNowDevices.ps1',
+        'Public/Get-FtdiEeprom.ps1',
         'Public/Get-PsGadgetFtdiEeprom.ps1',
         'Public/Install-PsGadgetMpyScript.ps1',
         'Public/Invoke-PsGadgetStepper.ps1',
@@ -97,7 +99,7 @@
         'Public/Set-PsGadgetFtdiEeprom.ps1',
         'Public/Set-PsGadgetFtdiMode.ps1',
         'Public/Set-PsGadgetGpio.ps1',
-        'Public/Open-PsGadgetTrace.ps1',
+        'Public/Start-PsGadgetTrace.ps1',
         'lib/net48/FTD2XX_NET.dll',
         'lib/net48/FTD2XX_NET.xml',
         'lib/netstandard20/FTD2XX_NET.dll',

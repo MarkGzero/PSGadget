@@ -112,7 +112,7 @@ function Get-FtdiFt232hEeprom {
         $status = $ftdi.OpenByIndex([uint32]$Index)
 
         if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK -and $SerialNumber -ne '') {
-            Write-Verbose "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
+            Write-Debug "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
             $ftdi.Close() | Out-Null
             $ftdi   = [FTD2XX_NET.FTDI]::new()
             $status = $ftdi.OpenBySerialNumber($SerialNumber)
@@ -236,7 +236,7 @@ function Get-FtdiFt232rEeprom {
             $isWinPlatform = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
             if (-not $isWinPlatform) {
                 Write-Warning (
-                    "Get-PsGadgetFtdiEeprom: FT232R EEPROM read is not supported on Linux.`n" +
+                    "Get-FtdiEeprom: FT232R EEPROM read is not supported on Linux.`n" +
                     "Use an FT232H device instead -- it has MPSSE and full Linux support via the IoT backend."
                 )
                 return $null
@@ -250,7 +250,7 @@ function Get-FtdiFt232rEeprom {
         # VCP-mode devices (shown as COM ports) cause OpenByIndex to return FT_DEVICE_NOT_FOUND.
         # Fall back to OpenBySerialNumber which works regardless of driver mode.
         if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK -and $SerialNumber -ne '') {
-            Write-Verbose "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
+            Write-Debug "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
             $ftdi.Close() | Out-Null
             $ftdi   = [FTD2XX_NET.FTDI]::new()
             $status = $ftdi.OpenBySerialNumber($SerialNumber)
@@ -469,7 +469,7 @@ function Set-FtdiFt232rCbusPinMode {
         # VCP-mode devices (shown as COM ports) cause OpenByIndex to return FT_DEVICE_NOT_FOUND.
         # Fall back to OpenBySerialNumber which works regardless of driver mode.
         if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK -and $SerialNumber -ne '') {
-            Write-Verbose "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
+            Write-Debug "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
             $ftdi.Close() | Out-Null
             $ftdi   = [FTD2XX_NET.FTDI]::new()
             $status = $ftdi.OpenBySerialNumber($SerialNumber)
@@ -782,7 +782,7 @@ function Set-FtdiFt232hEepromMode {
         $status = $ftdi.OpenByIndex([uint32]$Index)
 
         if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK -and $SerialNumber -ne '') {
-            Write-Verbose "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
+            Write-Debug "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
             $ftdi.Close() | Out-Null
             $ftdi   = [FTD2XX_NET.FTDI]::new()
             $status = $ftdi.OpenBySerialNumber($SerialNumber)

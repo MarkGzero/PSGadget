@@ -12,8 +12,8 @@ entries — to a single unified log file. No configuration required.
 | **Log file** | `~/.psgadget/logs/psgadget.log` (fixed name, appended each session) |
 | **Backup** | `~/.psgadget/logs/psgadget.1.log` (created when size limit is reached) |
 | **Default max size** | 50 MB (configurable via `Set-PsGadgetConfig`) |
-| **Protocol tracing** | Off by default; call `Open-PsGadgetTrace` to enable |
-| **Live viewer** | `Open-PsGadgetTrace` or `Get-PsGadgetLog -Follow` |
+| **Protocol tracing** | Off by default; call `Start-PsGadgetTrace` to enable |
+| **Live viewer** | `Start-PsGadgetTrace` or `Get-PsGadgetLog -Follow` |
 
 ---
 
@@ -26,7 +26,7 @@ entries — to a single unified log file. No configuration required.
 | `[DEBUG]` | Step-level detail: buffer sizes, resolved parameters |
 | `[TRACE]` | Low-level internals: individual I2C phase bytes |
 | `[ERROR]` | Hardware errors and recoverable faults |
-| `[PROTO]` | Wire-level protocol entries (only when `Open-PsGadgetTrace` has been called) |
+| `[PROTO]` | Wire-level protocol entries (only when `Start-PsGadgetTrace` has been called) |
 
 ---
 
@@ -74,19 +74,19 @@ both the active log and the rolled backup (`psgadget.1.log`).
 ## Protocol tracing
 
 **Protocol tracing is off by default.** Wire-level `[PROTO]` entries are
-written only after `Open-PsGadgetTrace` is called.
+written only after `Start-PsGadgetTrace` is called.
 
-> **Call `Open-PsGadgetTrace` before connecting or running protocol commands.**
+> **Call `Start-PsGadgetTrace` before connecting or running protocol commands.**
 > Enabling tracing mid-session does not retroactively capture past operations.
-> Commands run before `Open-PsGadgetTrace` produce no `[PROTO]` entries.
+> Commands run before `Start-PsGadgetTrace` produce no `[PROTO]` entries.
 
 ```powershell
-Open-PsGadgetTrace              # enable tracing + open live viewer
+Start-PsGadgetTrace              # enable tracing + open live viewer
 $dev = New-PsGadgetFtdi         # CONNECT appears in viewer
 $dev.GetDisplay().ShowSplash()  # SSD1306 + I2C entries appear
 ```
 
-On **Windows**, `Open-PsGadgetTrace` opens a new PowerShell window with
+On **Windows**, `Start-PsGadgetTrace` opens a new PowerShell window with
 colorized, auto-refreshing output on `psgadget.log`.
 
 On **Linux/macOS**, it prints a `Get-Content -Wait` command to run in a
@@ -95,7 +95,7 @@ second terminal.
 To get the log path without opening a viewer:
 
 ```powershell
-$logPath = Open-PsGadgetTrace -PassThru
+$logPath = Start-PsGadgetTrace -PassThru
 ```
 
 ### Subsystems and color coding
@@ -186,5 +186,5 @@ the current log path from any device:
 $dev = New-PsGadgetFtdi
 $dev.Logger.LogFilePath     # ~\.psgadget\logs\psgadget.log
 $dev.Logger.SessionId       # 8-character hex session ID
-$dev.Logger.TraceEnabled    # $true after Open-PsGadgetTrace is called
+$dev.Logger.TraceEnabled    # $true after Start-PsGadgetTrace is called
 ```

@@ -181,9 +181,8 @@ if (-not ($scan | Where-Object Address -eq 0x3C)) {
 ## Step 3 - Display Splash and Confirm I2C
 
 ```powershell
-$d = $dev.GetDisplay()
-$d.Initialize($false)
-$d.ShowSplash()   # border + "PsGadget" for 3 seconds
+$d = $dev.GetDisplay()   # lazily initializes SSD1306; throws if init fails
+$d.ShowSplash()          # border + "PsGadget" for 3 seconds
 ```
 
 If you see the splash screen, I2C is working end-to-end. If the display stays
@@ -198,8 +197,8 @@ With the device still open, test stepper motion using the existing `$dev`
 object. The device stays open after the call when `-PsGadget` is used.
 
 ```powershell
-# 512 half-steps forward (about 45 degrees) at 2ms/step
-Invoke-PsGadgetStepper -PsGadget $dev -Steps 512 -AcBus
+# 512 half-steps forward (about 45 degrees) at 2ms/step — Direction defaults to Forward
+Invoke-PsGadgetStepper -PsGadget $dev -Steps 512 -Direction Forward -AcBus
 ```
 
 The motor should rotate smoothly. Coils are de-energized automatically after
@@ -241,6 +240,8 @@ $d.WriteText("Done", 2, 'center', 1, $false)
 
 ### Full rotation
 
+Requires `$dev` open from Step 2.
+
 ```powershell
 $d = $dev.GetDisplay()
 $dev.ClearDisplay()
@@ -262,6 +263,8 @@ $d.WriteText("Done",    2, 'center', 1, $false)
 ```
 
 ### Bidirectional sweep
+
+Requires `$dev` open from Step 2.
 
 ```powershell
 $d = $dev.GetDisplay()
@@ -368,7 +371,11 @@ try {
         $input = Read-Host "Enter degrees (+forward / -reverse), or Q to quit"
         if ($input -eq 'Q' -or $input -eq 'q') { break }
 
-        $deg = [double]$input
+        $deg = 0.0
+        if (-not [double]::TryParse($input, [ref]$deg)) {
+            Write-Warning "Enter a number (e.g. 90, -45) or Q to quit."
+            continue
+        }
         $dir = if ($deg -ge 0) { 'Forward' } else { 'Reverse' }
         $absDeg = [Math]::Abs($deg)
         $steps  = [int][Math]::Round($absDeg / 360.0 * $spr)

@@ -192,6 +192,18 @@ function Invoke-FtdiWindowsEnumerateVcp {
         '6040' = 'FT232HP'
     }
 
+    # Build set of currently active COM ports from SERIALCOMM -- updated in real-time by Windows.
+    # PortName persists in FTDIBUS even after unplug, so this is the only reliable presence check.
+    $activeComPorts = @{}
+    try {
+        $serialCommProps = Get-ItemProperty 'HKLM:\HARDWARE\DEVICEMAP\SERIALCOMM' -ErrorAction SilentlyContinue
+        if ($serialCommProps) {
+            $serialCommProps.PSObject.Properties |
+                Where-Object { $_.Name -notlike 'PS*' } |
+                ForEach-Object { $activeComPorts[$_.Value] = $true }
+        }
+    } catch {}
+
     try {
         $comboKeys = Get-ChildItem $ftdibusPath -ErrorAction SilentlyContinue
         foreach ($comboKey in $comboKeys) {
@@ -220,6 +232,10 @@ function Invoke-FtdiWindowsEnumerateVcp {
                     } catch {}
 
                     if (-not $friendlyName) { $friendlyName = "$typeName USB Serial" }
+
+                    # Skip stale registry entries. PortName persists after unplug, so check
+                    # SERIALCOMM which only contains currently active/connected COM ports.
+                    if (-not $comPort -or -not $activeComPorts.ContainsKey($comPort)) { continue }
 
                     $caps = Get-FtdiChipCapabilities -TypeName $typeName
                     $results += [PSCustomObject]@{

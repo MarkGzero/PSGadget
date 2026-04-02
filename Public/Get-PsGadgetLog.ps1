@@ -11,7 +11,7 @@ function Get-PsGadgetLog {
     .DESCRIPTION
     Displays the content of ~/.psgadget/logs/psgadget.log -- the unified session log
     that contains INFO/DEBUG/ERROR entries from all device instances plus [PROTO]
-    wire-level entries when Open-PsGadgetTrace has been called this session.
+    wire-level entries when Start-PsGadgetTrace has been called this session.
 
     Use -List to also see the rolled backup (psgadget.1.log), -Tail to limit output
     lines, or -Follow to stream live updates.
@@ -45,7 +45,7 @@ function Get-PsGadgetLog {
     Log file:    ~/.psgadget/logs/psgadget.log
     Backup file: ~/.psgadget/logs/psgadget.1.log  (created when max size is reached)
     Log levels:  [HEADER] [INFO] [DEBUG] [TRACE] [ERROR] [PROTO]
-    Protocol entries ([PROTO]) are written only after Open-PsGadgetTrace is called.
+    Protocol entries ([PROTO]) are written only after Start-PsGadgetTrace is called.
     #>
     [CmdletBinding(DefaultParameterSetName = 'Content')]
     [OutputType([System.Object])]
