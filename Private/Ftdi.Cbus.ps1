@@ -104,6 +104,10 @@ function Get-FtdiFt232hEeprom {
     )
 
     try {
+        if ([System.Environment]::OSVersion.Platform -ne 'Win32NT') {
+            Write-Verbose "Get-FtdiFt232hEeprom: FTD2XX_NET EEPROM read is Windows-only; returning null on macOS/Linux."
+            return $null
+        }
         if (-not $script:FtdiInitialized) {
             throw [System.NotImplementedException]::new("FTDI assembly not loaded")
         }
@@ -232,15 +236,11 @@ function Get-FtdiFt232rEeprom {
     )
 
     try {
+        if ([System.Environment]::OSVersion.Platform -ne 'Win32NT') {
+            Write-Verbose "Get-FtdiFt232rEeprom: FTD2XX_NET EEPROM read is Windows-only; returning null on macOS/Linux."
+            return $null
+        }
         if (-not $script:FtdiInitialized) {
-            $isWinPlatform = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
-            if (-not $isWinPlatform) {
-                Write-Warning (
-                    "Get-FtdiEeprom: FT232R EEPROM read is not supported on Linux.`n" +
-                    "Use an FT232H device instead -- it has MPSSE and full Linux support via the IoT backend."
-                )
-                return $null
-            }
             throw [System.NotImplementedException]::new("FTDI assembly not loaded")
         }
 
