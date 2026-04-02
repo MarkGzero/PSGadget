@@ -78,6 +78,24 @@ function Install-MacOSD2XXDrivers {
     }
 
     # ── Mount ───────────────────────────────────────────────────────────────────
+    # Silently detach any stale mount left by a previous interrupted run.
+    # hdiutil info lists image-path for each mounted disk; match our DMG file.
+    $hdiInfoLines = & hdiutil info 2>$null
+    $staleMount   = $null
+    $inOurImage   = $false
+    foreach ($line in $hdiInfoLines) {
+        if ($line -match [regex]::Escape($dmgPath)) { $inOurImage = $true }
+        if ($inOurImage -and $line -match '/Volumes/') {
+            $staleMount = ($line -split '\s+' | Where-Object { $_ -like '/Volumes/*' } | Select-Object -First 1)
+            break
+        }
+        if ($inOurImage -and $line -match '^================================================') { $inOurImage = $false }
+    }
+    if ($staleMount) {
+        Write-Verbose "Detaching stale mount: $staleMount"
+        & hdiutil detach $staleMount -force 2>$null | Out-Null
+    }
+
     Write-Host "Mounting DMG..."
     $hdiLines = & hdiutil attach $dmgPath -nobrowse -readonly 2>&1
     # hdiutil output: last line containing /Volumes/ has the mount point as the last token
