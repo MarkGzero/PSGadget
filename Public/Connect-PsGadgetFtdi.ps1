@@ -143,7 +143,7 @@ function Connect-PsGadgetFtdi {
                 $connection = Invoke-FtdiWindowsOpen -DeviceInfo $targetDevice
             } else {
                 Write-Debug "Using Unix FTDI backend for connection"
-                $connection = Invoke-FtdiUnixOpen -Index $deviceIndex
+                $connection = Invoke-FtdiUnixOpen -Index $deviceIndex -DeviceInfo $targetDevice
             }
         }
         

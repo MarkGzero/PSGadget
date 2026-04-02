@@ -118,6 +118,9 @@ public static class FtdiNative {
     [DllImport("$escapedPath", EntryPoint = "FT_SetBitMode")]
     public static extern int FT_SetBitMode(IntPtr ftHandle, byte ucMask, byte ucEnable);
 
+    [DllImport("$escapedPath", EntryPoint = "FT_GetBitMode")]
+    public static extern int FT_GetBitMode(IntPtr ftHandle, out byte pucMode);
+
     [DllImport("$escapedPath", EntryPoint = "FT_ReadEE")]
     public static extern int FT_ReadEE(IntPtr ftHandle, uint dwWordOffset, out ushort lpwValue);
 
@@ -241,6 +244,28 @@ function Invoke-FtdiNativeSetBitMode {
 
     Write-Verbose ("Invoke-FtdiNativeSetBitMode: mode=0x{0:X2} mask=0x{1:X2} OK" -f $Mode, $Mask)
     return $true
+}
+
+function Invoke-FtdiNativeGetBitMode {
+    <#
+    .SYNOPSIS
+    Reads the instantaneous pin state byte via FT_GetBitMode.
+    For CBUS mode (0x20), bits 0-3 = current logic level of CBUS0-CBUS3.
+    #>
+    [CmdletBinding()]
+    [OutputType([byte])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [IntPtr]$Handle
+    )
+
+    [byte]$mode = 0
+    $status = [FtdiNative]::FT_GetBitMode($Handle, [ref]$mode)
+    if ($status -ne [FtdiNative]::FT_OK) {
+        throw "Invoke-FtdiNativeGetBitMode: FT_GetBitMode returned status $status"
+    }
+    Write-Verbose ("Invoke-FtdiNativeGetBitMode: pinState=0x{0:X2}" -f $mode)
+    return $mode
 }
 
 function Invoke-FtdiNativeReadEE {

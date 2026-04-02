@@ -755,6 +755,7 @@ function Get-FtdiCbusBits {
             throw "Connection is not open"
         }
         if ($script:FtdiInitialized -and $null -ne $Connection.Device) {
+            # Windows path: FTD2XX_NET managed object
             [byte]$pinState = 0
             $status = $Connection.Device.GetPinStates([ref]$pinState)
             if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
@@ -763,9 +764,24 @@ function Get-FtdiCbusBits {
             $script:PsGadgetLogger.WriteProto('CBUS.READ',
                 ("CBUS states=0x{0:X2}" -f $pinState), "GetPinStates()")
             return $pinState
+        } elseif ($script:FtdiNativeAvailable -and
+                  $Connection.PSObject.Properties['NativeHandle'] -and
+                  $Connection.NativeHandle -ne [IntPtr]::Zero) {
+            # macOS/Linux native path: FT_GetBitMode reads instantaneous CBUS0-3 pin levels.
+            # Guard: if an old FtdiNative type (without FT_GetBitMode) is still registered in
+            # the AppDomain from before this fix, fall back to stub rather than throw MethodNotFound.
+            if ([FtdiNative].GetMethod('FT_GetBitMode')) {
+                $pinState = Invoke-FtdiNativeGetBitMode -Handle $Connection.NativeHandle
+                $script:PsGadgetLogger.WriteProto('CBUS.READ',
+                    ("CBUS states=0x{0:X2}" -f $pinState), "FT_GetBitMode()")
+                return [byte]$pinState
+            } else {
+                $script:PsGadgetLogger.WriteProto('CBUS.READ',
+                    "CBUS states=0x00 (FT_GetBitMode not in AppDomain type; reimport module)", "stub")
+                return [byte]0x00
+            }
         } else {
-            # Stub / Linux native path: FT_GetBitMode not declared in P/Invoke class.
-            # Return 0x00 (all LOW) as a safe default.
+            # Stub (native lib not loaded)
             $script:PsGadgetLogger.WriteProto('CBUS.READ',
                 "CBUS states=0x00 (STUB)", "GetPinStates() [stub]")
             return [byte]0x00

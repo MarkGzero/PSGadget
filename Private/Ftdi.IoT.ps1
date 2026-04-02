@@ -120,7 +120,7 @@ function Invoke-FtdiIotOpen {
             }
             if (-not $isWin32 -and $script:FtdiNativeAvailable) {
                 Write-Verbose "$($DeviceInfo.Type) is a CBUS device; using native P/Invoke backend on Unix"
-                return Invoke-FtdiUnixOpen -Index $DeviceInfo.Index
+                return Invoke-FtdiUnixOpen -Index $DeviceInfo.Index -DeviceInfo $DeviceInfo
             }
             throw [System.NotImplementedException]::new(
                 "$($DeviceInfo.Type) uses CBUS GPIO, which requires the FTD2XX_NET backend. " +

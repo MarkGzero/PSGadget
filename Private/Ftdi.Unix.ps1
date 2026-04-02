@@ -185,17 +185,26 @@ function Invoke-FtdiUnixOpen {
     [OutputType([System.Object])]
     param(
         [Parameter(Mandatory = $true)]
-        [int]$Index
+        [int]$Index,
+
+        # When provided (from IoT enumeration), use this metadata directly and skip sysfs re-enum.
+        # On macOS there is no /sys/bus/usb/devices, so sysfs always returns stubs. The stub at
+        # index 0 is FT232H (GpioMethod=MPSSE) — if a real FT232R is at index 0, re-enumerating
+        # via stubs would assign the wrong GpioMethod, silently routing all GPIO through MPSSE.
+        [Parameter(Mandatory = $false)]
+        [PSCustomObject]$DeviceInfo = $null
     )
 
-    # Get device info from sysfs enumeration for metadata
-    $devices     = Invoke-FtdiUnixEnumerate
-    $targetDevice = if ($Index -lt $devices.Count) { $devices[$Index] } else { $null }
+    # Get device metadata: prefer caller-supplied DeviceInfo, fall back to sysfs enumeration.
+    if (-not $DeviceInfo) {
+        $devices    = Invoke-FtdiUnixEnumerate
+        $DeviceInfo = if ($Index -lt $devices.Count) { $devices[$Index] } else { $null }
+    }
 
-    $serial  = if ($targetDevice) { $targetDevice.SerialNumber } else { "DEV$Index" }
-    $desc    = if ($targetDevice) { $targetDevice.Description  } else { "Unknown FTDI Device" }
-    $type    = if ($targetDevice) { $targetDevice.Type         } else { 'FT232H' }
-    $locId   = if ($targetDevice) { $targetDevice.LocationId   } else { "usb-bus?-dev?" }
+    $serial  = if ($DeviceInfo) { $DeviceInfo.SerialNumber } else { "DEV$Index" }
+    $desc    = if ($DeviceInfo) { $DeviceInfo.Description  } else { "Unknown FTDI Device" }
+    $type    = if ($DeviceInfo) { $DeviceInfo.Type         } else { 'FT232H' }
+    $locId   = if ($DeviceInfo) { $DeviceInfo.LocationId   } else { "usb-bus?-dev?" }
     $caps    = Get-FtdiChipCapabilities -TypeName $type
 
     # ---------------------------------------------------------------------------
