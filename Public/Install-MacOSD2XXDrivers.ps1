@@ -65,13 +65,17 @@ function Install-MacOSD2XXDrivers {
     if (-not $PSCmdlet.ShouldProcess('/usr/local/lib', "Install FTDI D2XX $Version")) { return }
 
     # ── Download ────────────────────────────────────────────────────────────────
-    Write-Host "Downloading FTDI D2XX $Version..."
-    Write-Host "  URL: $dmgUrl"
-    & curl -fL $dmgUrl -o $dmgPath
-    if ($LASTEXITCODE -ne 0) {
-        throw "curl failed (exit $LASTEXITCODE). Check your internet connection and try again."
+    if (Test-Path $dmgPath) {
+        Write-Host "Using cached DMG: $dmgPath (delete it to force re-download)"
+    } else {
+        Write-Host "Downloading FTDI D2XX $Version..."
+        Write-Host "  URL: $dmgUrl"
+        & curl -fL $dmgUrl -o $dmgPath
+        if ($LASTEXITCODE -ne 0) {
+            throw "curl failed (exit $LASTEXITCODE). Check your internet connection and try again."
+        }
+        Write-Host "  Saved to: $dmgPath"
     }
-    Write-Host "  Saved to: $dmgPath"
 
     # ── Mount ───────────────────────────────────────────────────────────────────
     Write-Host "Mounting DMG..."
@@ -88,18 +92,20 @@ function Install-MacOSD2XXDrivers {
 
     try {
         # ── Find the dylib ───────────────────────────────────────────────────────
-        $dylibFile = Get-ChildItem -Path $mountPoint -Recurse -Filter "libftd2xx.*.dylib" `
-                         -ErrorAction SilentlyContinue |
-                     Where-Object { $_.Name -notlike '*.dSYM' } |
-                     Select-Object -First 1
-        if (-not $dylibFile) {
-            # Fallback: plain unversioned name
-            $dylibFile = Get-ChildItem -Path $mountPoint -Recurse -Filter 'libftd2xx.dylib' `
-                             -ErrorAction SilentlyContinue |
-                         Select-Object -First 1
+        # Try the known FTDI DMG layout first (avoids Get-ChildItem -Recurse which
+        # can hang on macOS mounted volumes due to Spotlight/xattr enumeration).
+        $knownPath = Join-Path $mountPoint 'release' 'build' "libftd2xx.$Version.dylib"
+        $dylibFile = $null
+        if (Test-Path $knownPath) {
+            $dylibFile = Get-Item $knownPath
+        } else {
+            # Fallback: native find (faster and more reliable than PS recursive enum on volumes)
+            $findResult = & find $mountPoint -name 'libftd2xx.*.dylib' -not -name '*.dSYM' 2>$null |
+                          Select-Object -First 1
+            if ($findResult) { $dylibFile = Get-Item $findResult }
         }
         if (-not $dylibFile) {
-            throw "libftd2xx dylib not found inside mounted DMG at '$mountPoint'. Contents:`n$(Get-ChildItem $mountPoint -Recurse | Select-Object -ExpandProperty FullName | Out-String)"
+            throw "libftd2xx dylib not found inside mounted DMG at '$mountPoint'. Try running: find '$mountPoint' -name 'libftd2xx*.dylib'"
         }
         Write-Host "  Found dylib: $($dylibFile.FullName)"
 
