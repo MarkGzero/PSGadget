@@ -14,7 +14,8 @@ automatically.
 - [Windows: install D2XX driver](#windows-install-d2xx-driver)
 - [Device shows as VCP only (Linux)](#device-shows-as-vcp-only-linux)
 - [Stub backend](#stub-backend)
-- [Missing native library (Linux/macOS)](#missing-native-library-linuxmacos)
+- [Missing native library (Linux)](#missing-native-library-linux)
+- [Missing native library (macOS)](#missing-native-library-macos)
 - [Linux: snap-confined pwsh and glibc mismatch](#linux-snap-confined-pwsh-and-glibc-mismatch)
 - [Linux: NativeLibOk reports True but backend stays in stub mode](#linux-nativelibOk-reports-true-but-backend-stays-in-stub-mode)
 - [Access denied or device busy](#access-denied-or-device-busy)
@@ -53,7 +54,8 @@ If `Status` is `Fail`, `NextStep` tells you exactly what command to run.
 - [Module imports but no devices are found](#no-devices-found)
 - [Device listed only under Get-FtdiDevice -ShowVCP on Linux](#device-shows-as-vcp-only-linux)
 - [Backend shows "Stub (no hardware access)"](#stub-backend)
-- [Status is Fail: native library not found (Linux/macOS)](#missing-native-library-linux-macos)
+- [Status is Fail: native library not found (Linux)](#missing-native-library-linux)
+- [Status is Fail: native library not found (macOS)](#missing-native-library-macos)
 - [Device found but Connect-PsGadgetFtdi throws an access error](#access-denied-or-device-busy)
 - [FT232R CBUS pins do not respond](#ft232r-cbus-pins-do-not-respond)
 - [SSD1306 display shows nothing](#ssd1306-shows-nothing)
@@ -178,7 +180,7 @@ sudo rm /etc/modprobe.d/ftdi-d2xx.conf && sudo reboot
 
 > **Note**: `libftd2xx.so` must also be installed for D2XX to work. If the device
 > claims correctly after `rmmod` but `Get-FtdiDevice` still returns nothing,
-> see [Missing native library (Linux/macOS)](#missing-native-library-linuxmacos).
+> see [Missing native library (Linux)](#missing-native-library-linux).
 
 ---
 
@@ -193,8 +195,9 @@ not found, OR the DLLs themselves failed to load.
 **Fix on Windows**: reinstall the FTDI D2XX driver.
 See [Getting-Started](Getting-Started.md) for Windows installation instructions.
 
-**Fix on Linux/macOS**: install `libftd2xx.so` / `libftd2xx.dylib`.
-See [Getting-Started](Getting-Started.md) for Linux or macOS installation instructions.
+**Fix on Linux**: install `libftd2xx.so`. See [Missing native library (Linux)](#missing-native-library-linux).
+
+**Fix on macOS**: install `libftd2xx.dylib`. See [Missing native library (macOS)](#missing-native-library-macos).
 
 **To see exactly what was tried**, reimport with `-Verbose`:
 
@@ -207,7 +210,7 @@ The verbose output shows every DLL path attempted and the result.
 
 ---
 
-## Missing native library (Linux/macOS)
+## Missing native library (Linux)
 
 **Symptom**: `Test-PsGadgetEnvironment` reports
 `Native lib: [MISSING] libftd2xx.so not found`.
@@ -256,6 +259,54 @@ Test-PsGadgetEnvironment
 **Wrong architecture**: if the library loads but hardware calls crash with
 P/Invoke or EntryPointNotFound errors, you have the wrong architecture build.
 Check with `file libftd2xx.so` and compare to `uname -m`.
+
+---
+
+## Missing native library (macOS)
+
+**Symptom**: `Test-PsGadgetEnvironment` reports
+`Native lib: [MISSING] libftd2xx.dylib not found`.
+
+Requires macOS 10.4 Tiger or later. Current release: **D2XX v1.4.30** (2024-05-04).
+
+**Step by step**:
+
+1. Download the `.dmg` for your architecture from https://ftdichip.com/drivers/d2xx-drivers/
+
+   - **Intel (x64)**: https://ftdichip.com/wp-content/uploads/2024/04/D2XX1.4.30.dmg
+   - **Apple Silicon (ARM/M1/M2)**: https://ftdichip.com/wp-content/uploads/2024/04/D2XX1.4.30.dmg
+
+2. Open the `.dmg`, then run the installer package inside it (requires Administrator password)
+
+3. The installer places `libftd2xx.dylib` in `/usr/local/lib/`. Verify:
+
+```bash
+ls -la /usr/local/lib/libftd2xx*
+```
+
+4. On macOS 10.15+ (Catalina and later), System Integrity Protection may block
+   unsigned kexts. If the installer fails, check System Preferences >
+   Security & Privacy > General for a blocked extension notification and click
+   **Allow**.
+
+5. Reimport the module and verify:
+
+```powershell
+Remove-Module PSGadget
+Import-Module PSGadget
+Test-PsGadgetEnvironment
+```
+
+**Wrong architecture**: Apple Silicon Macs running Rosetta 2 may pick up the
+wrong dylib. Check with:
+
+```bash
+file /usr/local/lib/libftd2xx.dylib
+# Expected for M1/M2: Mach-O 64-bit dynamically linked shared library arm64
+# Expected for Intel: Mach-O 64-bit dynamically linked shared library x86_64
+```
+
+If wrong, re-download and reinstall the correct architecture package.
 
 ---
 

@@ -2,7 +2,7 @@
 
 > Source: FTDI AN_108 (Command Processor for MPSSE and MCU Host Bus Emulation Modes)  
 > DS_FT232H (FT232H Single Channel Hi-Speed USB to Multipurpose UART/FIFO IC Datasheet)  
-> Cross-reference: [docs/ARCHITECTURE.md](../ARCHITECTURE.md) — Performance Tiers section
+> Cross-reference: [docs/wiki/Architecture.md](../wiki/Architecture.md) — Performance Tiers section
 
 ## Table of Contents
 
@@ -581,6 +581,6 @@ This table maps every opcode used in the PsGadget module to its source file and 
 | I2C write sequence | Tier 0 (via public) | Send-PsGadgetI2CWrite | 3-8 ms/byte    |
 | ACBUS GPIO        | Tier 1/2 (via public) | Set-PsGadgetGpio     | 2-4 ms          |
 
-See docs/ARCHITECTURE.md for the full tier explanation and timing data.
+See docs/wiki/Architecture.md for the full tier explanation and timing data.
 
 [return to ToC](#table-of-contents)
