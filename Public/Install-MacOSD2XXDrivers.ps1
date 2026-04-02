@@ -66,15 +66,15 @@ function Install-MacOSD2XXDrivers {
 
     # ── Download ────────────────────────────────────────────────────────────────
     if (Test-Path $dmgPath) {
-        Write-Host "Using cached DMG: $dmgPath (delete it to force re-download)"
+        Write-Verbose "Using cached DMG: $dmgPath (delete it to force re-download)"
     } else {
         Write-Host "Downloading FTDI D2XX $Version..."
-        Write-Host "  URL: $dmgUrl"
+        Write-Verbose "  URL: $dmgUrl"
         & curl -fL $dmgUrl -o $dmgPath
         if ($LASTEXITCODE -ne 0) {
             throw "curl failed (exit $LASTEXITCODE). Check your internet connection and try again."
         }
-        Write-Host "  Saved to: $dmgPath"
+        Write-Verbose "  Saved to: $dmgPath"
     }
 
     # ── Mount ───────────────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ function Install-MacOSD2XXDrivers {
     if (-not $mountPoint) {
         throw "Failed to determine mount point. hdiutil output:`n$($hdiLines -join "`n")"
     }
-    Write-Host "  Mounted at: $mountPoint"
+    Write-Verbose "  Mounted at: $mountPoint"
 
     try {
         # ── Find the dylib ───────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ function Install-MacOSD2XXDrivers {
         if (-not $dylibFile) {
             throw "libftd2xx dylib not found inside mounted DMG at '$mountPoint'. Try running: find '$mountPoint' -name 'libftd2xx*.dylib'"
         }
-        Write-Host "  Found dylib: $($dylibFile.FullName)"
+        Write-Verbose "  Found dylib: $($dylibFile.FullName)"
 
         # ── Install ──────────────────────────────────────────────────────────────
         Write-Host "Installing (sudo required — enter your macOS password if prompted)..."
@@ -120,8 +120,8 @@ function Install-MacOSD2XXDrivers {
         & sudo ln -sf $libDest $symlinkDest
         if ($LASTEXITCODE -ne 0) { throw "sudo ln -sf '$libDest' '$symlinkDest' failed" }
 
-        Write-Host "  Installed:  $libDest"
-        Write-Host "  Symlink:    $symlinkDest -> $libDest"
+        Write-Verbose "  Installed:  $libDest"
+        Write-Verbose "  Symlink:    $symlinkDest -> $libDest"
 
         # ── Copy into module lib/net8/ ───────────────────────────────────────────
         if (-not $SkipModuleCopy) {
@@ -129,7 +129,7 @@ function Install-MacOSD2XXDrivers {
             $net8Dest = Join-Path $net8Dir 'libftd2xx.dylib'
             if (Test-Path $net8Dir) {
                 Copy-Item -Path $libDest -Destination $net8Dest -Force
-                Write-Host "  Module copy: $net8Dest"
+                Write-Verbose "  Module copy: $net8Dest"
             } else {
                 Write-Warning "Module lib/net8/ directory not found at '$net8Dir' — skipping module copy."
             }
@@ -149,7 +149,7 @@ function Install-MacOSD2XXDrivers {
 
         # ── Unmount before success message so output is ordered cleanly ────────────
         if ($mountPoint) {
-            Write-Host "Unmounting $mountPoint..."
+            Write-Verbose "Unmounting $mountPoint..."
             & hdiutil detach $mountPoint -quiet 2>$null | Out-Null
             $mountPoint = $null
         }
