@@ -72,26 +72,12 @@ function Install-MacOSD2XXDrivers {
     }
 
     # ── Download ────────────────────────────────────────────────────────────────
-    $needDownload = $true
-    if (Test-Path $dmgPath) {
-        # Verify the cached DMG is intact before trusting it
-        & hdiutil verify $dmgPath 2>$null | Out-Null
-        if ($LASTEXITCODE -eq 0) {
-            Write-Verbose "Using cached DMG: $dmgPath (delete it to force re-download)"
-            $needDownload = $false
-        } else {
-            Write-Verbose "Cached DMG failed verification — re-downloading"
-            Remove-Item $dmgPath -Force
-        }
-    }
-    if ($needDownload) {
-        Write-Host "Downloading FTDI D2XX $Version..."
-        Write-Verbose "  URL: $dmgUrl"
-        & curl -fL $dmgUrl -o $dmgPath
-        if ($LASTEXITCODE -ne 0) {
-            throw "curl failed (exit $LASTEXITCODE). Check your internet connection and try again."
-        }
-        Write-Verbose "  Saved to: $dmgPath"
+    Remove-Item $dmgPath -Force -ErrorAction SilentlyContinue
+    Write-Host "Downloading FTDI D2XX $Version..."
+    Write-Verbose "  URL: $dmgUrl"
+    & curl -fsSL $dmgUrl -o $dmgPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "curl failed (exit $LASTEXITCODE). Check your internet connection and try again."
     }
 
     # ── Mount ───────────────────────────────────────────────────────────────────
@@ -194,5 +180,6 @@ function Install-MacOSD2XXDrivers {
             & hdiutil detach $mountPoint -quiet 2>$null | Out-Null
             Remove-Item $mountPoint -Force -ErrorAction SilentlyContinue
         }
+        Remove-Item $dmgPath -Force -ErrorAction SilentlyContinue
     }
 }
