@@ -73,13 +73,13 @@ Current loader order in `PSGadget.psm1`:
 
 Core project docs:
 
-- Setup: `docs/INSTALL.md`, `docs/QUICKSTART.md`, `docs/PLATFORMS.md`
-- Troubleshooting: `docs/TROUBLESHOOTING.md`
-- Architecture: `docs/ARCHITECTURE.md`, `docs/wiki/Architecture.md`
-- Function reference: `docs/wiki/Function-Reference.md`, `docs/REFERENCE/Cmdlets.md`
-- Classes: `docs/REFERENCE/Classes.md`
-- Personas and writing depth: `docs/PERSONAS.md`
-- Hardware kit and FT232H notes: `docs/HARDWARE_KIT.md`, `docs/about_adafruit_ft232h.md`
+- Index: `docs/README.md` (categorized links to all docs)
+- Setup: `docs/wiki/Getting-Started.md`, `docs/wiki/Hardware-Kit.md`
+- Troubleshooting: `docs/TROUBLESHOOTING.md`, `docs/wiki/Troubleshooting.md`
+- Architecture: `docs/wiki/Architecture.md`
+- Function reference: `docs/wiki/Function-Reference.md`
+- Classes: `docs/wiki/Classes.md`
+- Hardware reference: `docs/about_adafruit_ft232h.md`
 - Workflow map: `examples/psgadget_workflow.md`
 
 Rule: Link to these docs instead of copying large sections into instructions.
