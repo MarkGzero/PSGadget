@@ -201,7 +201,7 @@ Import-Module C:\path\to\PSGadget\PSGadget.psd1 -Force
 4. Enumerate connected FTDI devices:
 
 ```powershell
-Get-FTDevice | Format-Table Index, Type, Driver, SerialNumber, LocationId, ComPort
+Get-FtdiDevice | Format-Table Index, Type, Driver, SerialNumber, LocationId, ComPort
 ```
 
 Expected output (one physical FT232R appears twice):
@@ -215,7 +215,7 @@ Index  Type    Driver              SerialNumber  LocationId  ComPort
 
 The D2XX row (no "A" suffix, no COM port) is the one PSGadget uses. Note its **Index**.
 
-> **Pro**: `Get-FTDevice | Where-Object Driver -eq 'ftd2xx.dll'` to filter directly.
+> **Pro**: `Get-FtdiDevice | Where-Object Driver -eq 'ftd2xx.dll'` to filter directly.
 
 ---
 
@@ -450,7 +450,7 @@ around bulk transitions.
 You are using the VCP index instead of the D2XX index. Run:
 
 ```powershell
-Get-FTDevice | Where-Object Driver -eq "ftd2xx.dll" | Format-Table Index, SerialNumber
+Get-FtdiDevice | Where-Object Driver -eq "ftd2xx.dll" | Format-Table Index, SerialNumber
 ```
 
 Use one of those Index values.
@@ -481,7 +481,7 @@ try {
 
 ```powershell
 # Enumerate (D2XX only)
-Get-FTDevice | Where-Object Driver -eq "ftd2xx.dll" | Format-Table
+Get-FtdiDevice | Where-Object Driver -eq "ftd2xx.dll" | Format-Table
 
 # EEPROM read
 Get-PsGadgetFtdiEeprom -Index 0 | Select-Object Cbus0, Cbus1, Cbus2, Cbus3

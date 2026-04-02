@@ -21,9 +21,9 @@ function Get-MpyPortList {
         [switch]$Detailed
     )
 
-    $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+    $isWinPlatform = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
 
-    if ($isWindows) {
+    if ($isWinPlatform) {
         if ($Detailed) {
             return Invoke-MpyWindowsPortList
         } else {

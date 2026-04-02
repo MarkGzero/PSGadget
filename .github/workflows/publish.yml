@@ -1,0 +1,47 @@
+name: Publish to PSGallery
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  publish:
+    name: Publish PSGadget to PSGallery
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify tag matches psd1 ModuleVersion
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}' -replace '^v', ''
+          $psd1 = Import-PowerShellDataFile ./PSGadget.psd1
+          $moduleVersion = $psd1.ModuleVersion
+          if ($tag -ne $moduleVersion) {
+            Write-Error "Tag $tag does not match ModuleVersion $moduleVersion in PSGadget.psd1. Aborting publish."
+            exit 1
+          }
+          Write-Host "[OK] Tag $tag matches ModuleVersion $moduleVersion"
+
+      - name: Run Pester tests
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module -Name Pester -Force -Scope CurrentUser -MinimumVersion 5.0
+          $result = Invoke-Pester ./Tests/PsGadget.Tests.ps1 -PassThru
+          if ($result.FailedCount -gt 0) {
+            Write-Error "Pester: $($result.FailedCount) test(s) failed. Aborting publish."
+            exit 1
+          }
+          Write-Host "[OK] Pester: all tests passed"
+
+      - name: Publish to PSGallery
+        shell: pwsh
+        env:
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+        run: |
+          Publish-Module -Path . -NuGetApiKey $env:PSGALLERY_API_KEY -Verbose
+          Write-Host "[OK] Published PSGadget ${{ github.ref_name }} to PSGallery"

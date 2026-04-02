@@ -1,51 +1,51 @@
 # Get-PsGadgetLog.ps1
-# View PSGadget session log files.
+# View the PSGadget unified session log.
 
 #Requires -Version 5.1
 
 function Get-PsGadgetLog {
     <#
     .SYNOPSIS
-    View PSGadget session log files.
+    View the PSGadget session log.
 
     .DESCRIPTION
-    Displays the content of PSGadget log files stored at ~/.psgadget/logs/.
-    Each module import creates a new log file named psgadget-yyyyMMdd-HHmmss.log.
+    Displays the content of ~/.psgadget/logs/psgadget.log -- the unified session log
+    that contains INFO/DEBUG/ERROR entries from all device instances plus [PROTO]
+    wire-level entries when Start-PsGadgetTrace has been called this session.
 
-    By default shows the latest log file. Use -List to browse all sessions,
-    -Tail to limit output lines, or -Follow to stream a live session.
+    Use -List to also see the rolled backup (psgadget.1.log), -Tail to limit output
+    lines, or -Follow to stream live updates.
 
     .PARAMETER List
-    List all available log files with timestamps, instead of showing content.
+    List the log file(s) with sizes and timestamps instead of showing content.
 
     .PARAMETER Tail
-    Show only the last N lines of the log. Default shows all lines.
+    Show only the last N lines. Default shows all lines.
 
     .PARAMETER Follow
     Stream the log file live (equivalent to tail -f). Press Ctrl+C to stop.
-    Implies the latest log file.
 
     .EXAMPLE
-    # Show the latest session log
+    # Show the full session log
     Get-PsGadgetLog
 
     .EXAMPLE
-    # Show only the last 30 lines
-    Get-PsGadgetLog -Tail 30
-
-    .EXAMPLE
-    # List all log sessions
-    Get-PsGadgetLog -List
-
-    .EXAMPLE
-    # Stream live log output during a session
+    # Stream live as hardware commands run
     Get-PsGadgetLog -Follow
 
+    .EXAMPLE
+    # Show last 50 lines
+    Get-PsGadgetLog -Tail 50
+
+    .EXAMPLE
+    # List log files and sizes
+    Get-PsGadgetLog -List
+
     .NOTES
-    Log files are stored at:  ~/.psgadget/logs/
-    Log levels written to file: INFO, DEBUG, TRACE, ERROR
-    Console visibility: only ERROR (Write-Warning) is shown by default.
-    Use -Verbose on any PSGadget cmdlet to see INFO messages in the console.
+    Log file:    ~/.psgadget/logs/psgadget.log
+    Backup file: ~/.psgadget/logs/psgadget.1.log  (created when max size is reached)
+    Log levels:  [HEADER] [INFO] [DEBUG] [TRACE] [ERROR] [PROTO]
+    Protocol entries ([PROTO]) are written only after Start-PsGadgetTrace is called.
     #>
     [CmdletBinding(DefaultParameterSetName = 'Content')]
     [OutputType([System.Object])]
@@ -61,38 +61,41 @@ function Get-PsGadgetLog {
         [switch]$Follow
     )
 
-    $logDir = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.psgadget/logs'
+    $logDir  = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.psgadget/logs'
+    $logFile = Join-Path $logDir 'psgadget.log'
 
     if (-not (Test-Path $logDir)) {
         Write-Warning "No log directory found at: $logDir"
         return
     }
 
-    $logFiles = Get-ChildItem -Path $logDir -Filter 'psgadget-*.log' |
-                Sort-Object LastWriteTime -Descending
+    if ($List) {
+        $files = @('psgadget.log', 'psgadget.1.log') |
+                 ForEach-Object { Get-Item -LiteralPath (Join-Path $logDir $_) -ErrorAction SilentlyContinue } |
+                 Where-Object { $_ }
+        if (-not $files) {
+            Write-Warning "No log files found in: $logDir"
+            return
+        }
+        return $files | Select-Object Name,
+            @{ Name = 'Size';     Expression = { '{0:N1} MB' -f ($_.Length / 1MB) } },
+            @{ Name = 'Modified'; Expression = { $_.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss') } }
+    }
 
-    if (-not $logFiles) {
-        Write-Warning "No log files found in: $logDir"
+    if (-not (Test-Path -LiteralPath $logFile)) {
+        Write-Warning "Session log not found: $logFile  (import the module first)"
         return
     }
 
-    if ($List) {
-        return $logFiles | Select-Object Name,
-            @{ Name = 'Size'; Expression = { '{0:N0} KB' -f ($_.Length / 1KB) } },
-            @{ Name = 'Created'; Expression = { $_.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss') } }
-    }
-
-    $latest = $logFiles | Select-Object -First 1
-
     if ($Follow) {
-        Write-Host "Streaming: $($latest.FullName)  (Ctrl+C to stop)"
-        Get-Content -Path $latest.FullName -Wait
+        Write-Host "Streaming: $logFile  (Ctrl+C to stop)"
+        Get-Content -LiteralPath $logFile -Wait
         return
     }
 
     if ($Tail) {
-        return Get-Content -Path $latest.FullName -Tail $Tail
+        return Get-Content -LiteralPath $logFile -Tail $Tail
     }
 
-    return Get-Content -Path $latest.FullName
+    return Get-Content -LiteralPath $logFile
 }

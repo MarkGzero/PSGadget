@@ -28,7 +28,7 @@ class PsGadgetI2CDevice {
     # constructor body. Sets Logger so derived constructors can call
     # $this.Logger.WriteInfo() on their first line.
     PsGadgetI2CDevice() {
-        $this.Logger = [PsGadgetLogger]::new()
+        $this.Logger = Get-PsGadgetModuleLogger
         $this.IsInitialized = $false
     }
 

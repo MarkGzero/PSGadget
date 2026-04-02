@@ -1,3 +1,4 @@
+#Requires -Version 5.1
 # Get-PsGadgetMpy.ps1
 # Enumerate available serial ports for MicroPython devices
 
@@ -26,6 +27,7 @@ function Get-PsGadgetMpy {
     #>
     
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [switch]$Detailed
     )

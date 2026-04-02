@@ -11,6 +11,7 @@ automatically.
 - [Quick diagnostics](#quick-diagnostics)
 - [Symptom index](#symptom-index)
 - [No devices found](#no-devices-found)
+- [Windows: install D2XX driver](#windows-install-d2xx-driver)
 - [Device shows as VCP only (Linux)](#device-shows-as-vcp-only-linux)
 - [Stub backend](#stub-backend)
 - [Missing native library (Linux/macOS)](#missing-native-library-linuxmacos)
@@ -50,7 +51,7 @@ If `Status` is `Fail`, `NextStep` tells you exactly what command to run.
 ## Symptom index
 
 - [Module imports but no devices are found](#no-devices-found)
-- [Device listed only under Get-FTDevice -ShowVCP on Linux](#device-shows-as-vcp-only-linux)
+- [Device listed only under Get-FtdiDevice -ShowVCP on Linux](#device-shows-as-vcp-only-linux)
 - [Backend shows "Stub (no hardware access)"](#stub-backend)
 - [Status is Fail: native library not found (Linux/macOS)](#missing-native-library-linux-macos)
 - [Device found but Connect-PsGadgetFtdi throws an access error](#access-denied-or-device-busy)
@@ -66,7 +67,7 @@ If `Status` is `Fail`, `NextStep` tells you exactly what command to run.
 
 ## No devices found
 
-**Symptom**: `Get-FTDevice` returns nothing, or `DeviceCount` is 0.
+**Symptom**: `Get-FtdiDevice` returns nothing, or `DeviceCount` is 0.
 
 **Check list**:
 
@@ -75,9 +76,9 @@ If `Status` is `Fail`, `NextStep` tells you exactly what command to run.
 
 2. On Windows, does Device Manager show the device?
    - If it shows with a yellow warning icon, the D2XX driver is not installed.
-     See [Getting-Started](Getting-Started.md) for Windows installation steps.
+     See [Windows: install D2XX driver](#windows-install-d2xx-driver).
    - If it shows as "USB Serial Port (COMx)" the device is in VCP mode, not
-     D2XX mode. The installed driver is the wrong one; install D2XX.
+     D2XX mode. See [Windows: install D2XX driver](#windows-install-d2xx-driver).
 
 3. On Linux, does `lsusb` show the FTDI device (vendor ID 0403)?
 
@@ -96,9 +97,36 @@ sudo rmmod ftdi_sio
 
 ---
 
+## Windows: install D2XX driver
+
+**When you need this**: `Get-FtdiDevice` returns no devices, or your FTDI device
+appears as "USB Serial Port (COMx)" in Device Manager instead of showing under
+"Universal Serial Bus controllers".
+
+**Step by step**:
+
+1. Download the CDM driver package from https://ftdichip.com/drivers/d2xx-drivers/
+   - Under **D2XX Drivers**, download the Windows setup executable (`.exe`)
+2. Run the installer as **Administrator** (right-click > Run as administrator)
+3. Unplug and replug your FTDI device
+4. Open Device Manager -- the device should now appear under
+   **Universal Serial Bus controllers**, not under **Ports (COM & LPT)**
+5. Reimport the module and verify:
+
+```powershell
+Import-Module PSGadget -Force
+Get-FtdiDevice
+```
+
+> **Do NOT use Zadig** for PSGadget. Zadig installs WinUSB, which is used by
+> libusb-based tools but is **incompatible with D2XX**. If you accidentally
+> ran Zadig, reinstall the CDM driver above -- it will replace WinUSB automatically.
+
+---
+
 ## Device shows as VCP only (Linux)
 
-**Symptom**: `Get-FTDevice` returns nothing, but `Get-FTDevice -ShowVCP`
+**Symptom**: `Get-FtdiDevice` returns nothing, but `Get-FtdiDevice -ShowVCP`
 shows the device with `Driver: ftdi_sio (VCP)` and `LocationId: /dev/ttyUSBx`.
 
 **Cause**: The `ftdi_sio` kernel module has claimed the device as a virtual COM
@@ -117,7 +145,7 @@ Then reimport:
 
 ```powershell
 Import-Module PSGadget -Force
-Get-FTDevice
+Get-FtdiDevice
 ```
 
 To confirm `ftdi_sio` is the culprit before unloading:
@@ -149,7 +177,7 @@ sudo rm /etc/modprobe.d/ftdi-d2xx.conf && sudo reboot
 ---
 
 > **Note**: `libftd2xx.so` must also be installed for D2XX to work. If the device
-> claims correctly after `rmmod` but `Get-FTDevice` still returns nothing,
+> claims correctly after `rmmod` but `Get-FtdiDevice` still returns nothing,
 > see [Missing native library (Linux/macOS)](#missing-native-library-linuxmacos).
 
 ---

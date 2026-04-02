@@ -1,3 +1,4 @@
+#Requires -Version 5.1
 # Set-PsGadgetGpio.ps1
 # Public GPIO control function for FTDI devices
 
@@ -5,86 +6,94 @@ function Set-PsGadgetGpio {
     <#
     .SYNOPSIS
     Controls GPIO pins on connected FTDI devices.
-    
+
     .DESCRIPTION
-    Sets GPIO pins on FTDI devices to HIGH or LOW states. Supports both MPSSE-
-    capable devices (FT232H, FT2232H, FT4232H) using ACBUS0-7, and CBUS bit-bang
-    devices (FT232R / FT232RL / FT232RNL) using CBUS0-3.
+    Sets GPIO pins on FTDI devices to HIGH or LOW states. Supports MPSSE-capable
+    devices (FT232H, FT2232H, FT4232H) using ACBUS0-7, and CBUS bit-bang devices
+    (FT232R) using CBUS0-3.
 
     For FT232R CBUS GPIO, the CBUS pins must first be programmed in the device
     EEPROM as FT_CBUS_IOMODE. Run Set-PsGadgetFt232rCbusMode once per device,
     replug the USB device, then use this function normally.
 
-    Supports timing control and multiple pin operations.
-    
     .PARAMETER Index
-    Index of the FTDI device to control (from Get-PsGadgetFtdi)
-    
-    .PARAMETER Pins
-    For MPSSE devices (FT232H, FT2232H, FT4232H): ACBUS pin numbers 0-7
-      ACBUS0=pin21, ACBUS1=pin25, ACBUS2=pin26, ACBUS3=pin27
-      ACBUS4=pin28, ACBUS5=pin29, ACBUS6=pin30, ACBUS7=pin31 (FT232H)
-    For CBUS devices (FT232R): CBUS pin numbers 0-3 only
-      (Pins outside 0-3 are rejected for CBUS devices)
-    
-    .PARAMETER State
-    Pin state: HIGH/H/1 or LOW/L/0
-    
-    .PARAMETER DurationMs
-    Optional duration to hold the pin state in milliseconds
-    
+    Zero-based index of the FTDI device (from Get-FtdiDevice).
+
     .PARAMETER SerialNumber
-    Alternative to Index - specify device by serial number
+    FTDI device serial number. Preferred over Index -- stable across USB replug.
 
     .PARAMETER Connection
-    An already-open connection object returned by Connect-PsGadgetFtdi.
-    When using this parameter set the caller is responsible for closing the connection.
-    
+    An already-open raw connection object from Connect-PsGadgetFtdi or a
+    PsGadgetFtdi wrapper from New-PsGadgetFtdi. The caller is responsible for
+    closing the connection.
+
+    .PARAMETER PsGadget
+    A PsGadgetFtdi instance from New-PsGadgetFtdi. The caller is responsible for
+    closing it.
+
+    .PARAMETER Pins
+    Pin numbers to drive. Range depends on device type:
+      CBUS (FT232R):         0-3  (CBUS0-CBUS3)
+      MPSSE (FT232H, etc.):  0-7  (ACBUS0-ACBUS7)
+      AsyncBitBang:          0-7  (ADBUS0-ADBUS7)
+
+    .PARAMETER State
+    Pin state: HIGH, H, 1 or LOW, L, 0.
+
+    .PARAMETER LowPins
+    CBUS only. Pins to drive LOW in the same SetBitMode call as -Pins/-State HIGH.
+    Allows atomic mixed-state writes without two round-trips to the device.
+    Example: -Pins @(0,2) -State HIGH -LowPins @(1,3)  sets 0,2=HIGH and 1,3=LOW.
+
+    .PARAMETER DurationMs
+    Hold the pin state for this many milliseconds, then invert (pulse mode).
+
+    .PARAMETER PassThru
+    Return a PSCustomObject describing the operation. By default no output.
+
     .EXAMPLE
-    # FT232H / MPSSE device - control ACBUS pins
-    Set-PsGadgetGpio -Index 0 -Pins @(2, 4) -State HIGH
-    
+    # FT232R CBUS -- set all four pins HIGH (after EEPROM programming)
+    Set-PsGadgetGpio -Index 0 -Pins @(0..3) -State HIGH
+
     .EXAMPLE
-    # FT232R CBUS GPIO (after running Set-PsGadgetFt232rCbusMode -Index 1 once)
-    Set-PsGadgetGpio -Index 1 -Pins @(0, 1) -State HIGH
-    
+    # FT232R CBUS -- mixed states in one call
+    Set-PsGadgetGpio -Index 0 -Pins @(0,2) -State HIGH -LowPins @(1,3)
+
+    .EXAMPLE
+    # FT232H MPSSE -- control ACBUS pins
+    Set-PsGadgetGpio -Index 0 -Pins @(2,4) -State HIGH
+
     .EXAMPLE
     # Pulse ACBUS0 LOW for 500ms
     Set-PsGadgetGpio -SerialNumber "ABC123" -Pins @(0) -State LOW -DurationMs 500
 
     .EXAMPLE
-    # Connect once, call GPIO multiple times, close when done
-    $conn = Connect-PsGadgetFtdi -SerialNumber "BG01X3GX"
-    Set-PsGadgetGpio -Connection $conn -Pins @(0) -State HIGH   # LED on
-    Set-PsGadgetGpio -Connection $conn -Pins @(1) -State HIGH
-    Set-PsGadgetGpio -Connection $conn -Pins @(0, 1) -State LOW  # Both off
+    # Persistent connection -- open once, drive multiple times, close when done
+    $conn = Connect-PsGadgetFtdi -SerialNumber "BG01X3AK"
+    Set-PsGadgetGpio -Connection $conn -Pins @(0) -State HIGH
+    Set-PsGadgetGpio -Connection $conn -Pins @(0) -State LOW
     $conn.Close()
 
     .EXAMPLE
     # OOP style via New-PsGadgetFtdi
-    $dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"   # connected immediately
+    $dev = New-PsGadgetFtdi -Index 0
     $dev.SetPin(0, "HIGH")
     $dev.SetPin(0, "LOW")
     $dev.Close()
-    
-    .EXAMPLE
-    # LED Control Example (FT232H)
-    Set-PsGadgetGpio -Index 0 -Pins @(2) -State HIGH   # Red LED on
-    Set-PsGadgetGpio -Index 0 -Pins @(4) -State HIGH   # Green LED on
-    Set-PsGadgetGpio -Index 0 -Pins @(2, 4) -State LOW  # Both off
-    
+
     .NOTES
-    Requires FTDI D2XX drivers and FTD2XX_NET.dll assembly.
-    FT232H MPSSE: ACBUS0-7 = physical pins 21,25-31.
-    FT232R CBUS: CBUS0-3 require prior EEPROM configuration via Set-PsGadgetFt232rCbusMode.
-    Use Get-PsGadgetFtdi to see available devices.
+    Requires FTDI D2XX drivers and FTD2XX_NET.dll.
+    FT232R CBUS pins require prior EEPROM programming via Set-PsGadgetFt232rCbusMode.
+    FT232H MPSSE: ACBUS0-7 map to physical pins 21, 25-31.
+    Use Get-FtdiDevice to list available devices and their serial numbers.
     #>
-    
-    [CmdletBinding(DefaultParameterSetName = 'ByIndex')]
+
+    [CmdletBinding(DefaultParameterSetName = 'ByIndex', SupportsShouldProcess = $true)]
+    [OutputType([void])]
     param(
         [Parameter(Mandatory = $true, ParameterSetName = 'ByIndex', Position = 0)]
         [int]$Index,
-        
+
         [Parameter(Mandatory = $true, ParameterSetName = 'BySerial')]
         [string]$SerialNumber,
 
@@ -95,47 +104,57 @@ function Set-PsGadgetGpio {
         [Parameter(Mandatory = $true, ParameterSetName = 'PsGadget', Position = 0)]
         [ValidateNotNull()]
         [PsGadgetFtdi]$PsGadget,
-        
+
         [Parameter(Mandatory = $true, Position = 1)]
         [ValidateRange(0, 7)]
         [int[]]$Pins,
-        
+
         [Parameter(Mandatory = $true, Position = 2)]
         [ValidateSet('HIGH', 'LOW', 'H', 'L', '1', '0')]
         [string]$State,
-        
-        [Parameter(Mandatory = $false)]
+
+        [Parameter()]
+        [ValidateRange(0, 3)]
+        [int[]]$LowPins,
+
+        [Parameter()]
         [ValidateRange(1, 60000)]
-        [int]$DurationMs
+        [int]$DurationMs,
+
+        [Parameter()]
+        [switch]$PassThru
     )
-    
+
     try {
         # Track whether this function opened the connection (must close it in finally)
         $ownsConnection = $true
 
         if ($PSCmdlet.ParameterSetName -eq 'ByConnection') {
-            # Caller provides an already-open connection - use it directly, do not close on exit
             $ownsConnection = $false
+            # Unwrap PsGadgetFtdi wrapper if the caller passed one via -Connection
+            if ($Connection.GetType().Name -eq 'PsGadgetFtdi') {
+                if (-not $Connection._connection) {
+                    throw "PsGadgetFtdi internal connection is null. Device may not be connected."
+                }
+                $Connection = $Connection._connection
+            }
             if (-not $Connection.IsOpen) {
                 throw "The supplied connection is not open. Call Connect-PsGadgetFtdi or New-PsGadgetFtdi first."
             }
-            Write-Verbose "Using caller-supplied connection: $($Connection.Description) ($($Connection.SerialNumber))"
+            Write-Debug "Using caller-supplied connection: $($Connection.Description) ($($Connection.SerialNumber))"
         } elseif ($PSCmdlet.ParameterSetName -eq 'PsGadget') {
-            # Caller provides a PsGadgetFtdi class instance - unwrap its internal connection
             $ownsConnection = $false
             if (-not $PsGadget.IsOpen -or -not $PsGadget._connection) {
                 throw "PsGadgetFtdi is not open. Use New-PsGadgetFtdi, which connects automatically."
             }
             $Connection = $PsGadget._connection
-            Write-Verbose "Using PsGadgetFtdi connection: $($Connection.Description) ($($Connection.SerialNumber))"
+            Write-Debug "Using PsGadgetFtdi connection: $($Connection.Description) ($($Connection.SerialNumber))"
         } else {
-            # Get available devices
             $devices = Get-FtdiDeviceList
             if (-not $devices -or $devices.Count -eq 0) {
-                throw "No FTDI devices found. Run Get-PsGadgetFtdi to check available devices."
+                throw "No FTDI devices found. Run Get-FtdiDevice to check available devices."
             }
-            
-            # Find target device
+
             $targetDevice = $null
             if ($PSCmdlet.ParameterSetName -eq 'ByIndex') {
                 if ($Index -lt 0 -or $Index -ge $devices.Count) {
@@ -148,23 +167,20 @@ function Set-PsGadgetGpio {
                     throw "No device found with serial number '$SerialNumber'"
                 }
             }
-            
-            Write-Verbose "Targeting device: $($targetDevice.Description) ($($targetDevice.SerialNumber))"
-            
-            # Check if device is available
+
+            Write-Debug "Targeting device: $($targetDevice.Description) ($($targetDevice.SerialNumber))"
+
             if ($targetDevice.IsOpen) {
                 Write-Warning "Device $($targetDevice.SerialNumber) appears to be in use by another application"
             }
-            
-            # Open device connection
+
             $Connection = Connect-PsGadgetFtdi -Index $targetDevice.Index
             if (-not $Connection) {
                 throw "Failed to connect to FTDI device"
             }
         }
-        
+
         try {
-            # Determine GPIO method - dispatch to the appropriate backend
             $gpioMethod = if ($Connection.PSObject.Properties['GpioMethod']) {
                 $Connection.GpioMethod
             } else {
@@ -173,26 +189,24 @@ function Set-PsGadgetGpio {
 
             Write-Verbose "Device $($Connection.Type): GpioMethod=$gpioMethod, pins=[$($Pins -join ',')], state=$State"
 
+            if (-not $PSCmdlet.ShouldProcess("$($Connection.Type) pins [$($Pins -join ',')]", "Set $State")) {
+                return
+            }
+
             $success = $false
-            $pinLabel = ''
 
             switch ($gpioMethod) {
                 'MPSSE' {
-                    # FT232H / FT2232H / FT4232H - ACBUS control via MPSSE command 0x82
                     $params = @{
                         DeviceHandle = $Connection
                         Pins         = $Pins
                         Direction    = $State
                     }
                     if ($DurationMs) { $params.DurationMs = $DurationMs }
-
-                    $success  = Set-FtdiGpioPins @params
-                    $pinLabel = "ACBUS pins [$($Pins -join ', ')]"
+                    $success = Set-FtdiGpioPins @params
                 }
 
                 'IoT' {
-                    # FT232H via .NET IoT GpioController (PS 7.4+ / .NET 8+ backend)
-                    # PsGadget ACBUS pin 0-7 -> IoT GpioController pin 8-15 (C0-C7)
                     if (-not $Connection.GpioController) {
                         throw "IoT connection is missing GpioController. Re-open the device with Connect-PsGadgetFtdi."
                     }
@@ -202,45 +216,29 @@ function Set-PsGadgetGpio {
                         State          = $State
                     }
                     if ($DurationMs) { $iotParams.DurationMs = $DurationMs }
-
-                    $success  = Set-FtdiIotGpioPins @iotParams
-                    $pinLabel = "ACBUS pins [$($Pins -join ', ')] (IoT)"
+                    $success = Set-FtdiIotGpioPins @iotParams
                 }
 
                 'CBUS' {
-                    # FT232R / FT231X / FT230X - CBUS bit-bang via SetBitMode 0x20
-                    # Validate pin range - CBUS bit-bang only supports CBUS0-3
                     $badPins = $Pins | Where-Object { $_ -gt 3 }
                     if ($badPins) {
-                        throw (
-                            "Pin(s) [$($badPins -join ', ')] are out of range for CBUS bit-bang. " +
-                            "$($Connection.Type) CBUS GPIO supports CBUS0-3 only (pins 0-3)."
-                        )
+                        throw "Pin(s) [$($badPins -join ', ')] are out of range for CBUS bit-bang. $($Connection.Type) supports CBUS0-3 only."
                     }
-
                     $cbusParams = @{
                         Connection = $Connection
                         Pins       = $Pins
                         State      = $State
                     }
-                    if ($DurationMs) { $cbusParams.DurationMs = $DurationMs }
-
-                    $success  = Set-FtdiCbusBits @cbusParams
-                    $pinLabel = "CBUS pins [$($Pins -join ', ')]"
+                    if ($LowPins)   { $cbusParams.LowPins   = $LowPins }
+                    if ($DurationMs){ $cbusParams.DurationMs = $DurationMs }
+                    $success = Set-FtdiCbusBits @cbusParams
                 }
 
                 'AsyncBitBang' {
-                    # Async bit-bang on ADBUS0-7 (UART data pins). This mode must be
-                    # enabled beforehand via Set-PsGadgetFtdiMode -Mode AsyncBitBang
-                    # with an appropriate direction mask (default 0xFF).
-                    # We simply write a byte with the requested pin states to the
-                    # device; higher-level sequence streaming is handled by user
-                    # scripts (see example StepperMotor.md).
                     $badPins = $Pins | Where-Object { $_ -lt 0 -or $_ -gt 7 }
                     if ($badPins) {
-                        throw "Pin(s) [$($badPins -join ', ')] are out of range for async bit-bang. ADBUS GPIO supports pins 0-7."
+                        throw "Pin(s) [$($badPins -join ', ')] are out of range for async bit-bang. ADBUS supports pins 0-7."
                     }
-                    # build output byte
                     [int]$outByte = 0
                     foreach ($p in $Pins) {
                         if ($State -in @('HIGH','H','1')) {
@@ -251,15 +249,12 @@ function Set-PsGadgetGpio {
                     $Connection.Write([byte[]]@($outByte), 1, [ref]$written) | Out-Null
                     if ($DurationMs) {
                         Start-Sleep -Milliseconds $DurationMs
-                        # clear outputs after duration
                         $Connection.Write([byte[]]@(0), 1, [ref]$written) | Out-Null
                     }
-                    $pinLabel = "ADBUS pins [$($Pins -join ', ')]"
                     $success = $true
                 }
 
                 default {
-                    # Unknown or unsupported type - attempt MPSSE as last resort
                     Write-Warning "Unknown GpioMethod '$gpioMethod' for device '$($Connection.Type)'. Attempting MPSSE fallback."
                     $params = @{
                         DeviceHandle = $Connection
@@ -267,17 +262,19 @@ function Set-PsGadgetGpio {
                         Direction    = $State
                     }
                     if ($DurationMs) { $params.DurationMs = $DurationMs }
-                    $success  = Set-FtdiGpioPins @params
-                    $pinLabel = "pins [$($Pins -join ', ')]"
+                    $success = Set-FtdiGpioPins @params
                 }
             }
 
             if (-not $success) {
                 throw "GPIO operation failed"
             }
-            
+
+            foreach ($p in $Pins) {
+                Write-Verbose "  pin $p -> $State"
+            }
+
         } finally {
-            # Only close the connection if this function opened it
             if ($ownsConnection -and $Connection -and $Connection.Close) {
                 try {
                     $Connection.Close()
@@ -286,7 +283,24 @@ function Set-PsGadgetGpio {
                 }
             }
         }
-        
+
+        if ($PassThru) {
+            $resolvedSerial = ''
+            if ($PSBoundParameters.ContainsKey('Connection')) {
+                $resolvedSerial = 'via-connection'
+            } elseif ($PSBoundParameters.ContainsKey('SerialNumber')) {
+                $resolvedSerial = $SerialNumber
+            }
+            [PSCustomObject]@{
+                Index        = if ($PSBoundParameters.ContainsKey('Index')) { $Index } else { -1 }
+                SerialNumber = $resolvedSerial
+                Pins         = $Pins
+                State        = $State
+                DurationMs   = if ($PSBoundParameters.ContainsKey('DurationMs')) { $DurationMs } else { 0 }
+                Timestamp    = [datetime]::UtcNow
+            }
+        }
+
     } catch {
         Write-Error "GPIO control failed: $_"
         throw

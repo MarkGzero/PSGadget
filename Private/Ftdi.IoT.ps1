@@ -144,7 +144,7 @@ function Invoke-FtdiIotOpen {
 
         if (-not $rawFtDevice) {
             throw "Could not locate an IoT FtDevice for serial number '$($DeviceInfo.SerialNumber)'. " +
-                  "Try re-running Get-FTDevice and connecting again."
+                  "Try re-running Get-FtdiDevice and connecting again."
         }
 
         Write-Verbose "Opening $($DeviceInfo.Type) via IoT Ft232HDevice: $($DeviceInfo.Description)"
@@ -172,6 +172,8 @@ function Invoke-FtdiIotOpen {
 
         # Close - disposes GpioController then Ft232HDevice
         $connection | Add-Member -MemberType ScriptMethod -Name 'Close' -Value {
+            $script:PsGadgetLogger.WriteProto('DISCONNECT',
+                    "$($this.Type)  serial=$($this.SerialNumber)  backend=IoT")
             if ($this.GpioController) {
                 try { $this.GpioController.Dispose() } catch {}
                 $this.GpioController = $null
@@ -203,6 +205,8 @@ function Invoke-FtdiIotOpen {
         }
 
         Write-Verbose "Successfully opened $($DeviceInfo.Type) via IoT backend"
+        $script:PsGadgetLogger.WriteProto('CONNECT',
+                "$($connection.Type)  serial=$($connection.SerialNumber)  backend=IoT")
         return $connection
 
     } catch [System.NotImplementedException] {
@@ -264,6 +268,10 @@ function Set-FtdiIotGpioPins {
             }
         }
 
+        $script:PsGadgetLogger.WriteInfo(
+                ("IoT GPIO: ACBUS pins=[{0}] -> {1}" -f ($Pins -join ','), $State))
+        $script:PsGadgetLogger.WriteProto('GPIO.WRITE',
+                ("IoT ACBUS pins=[{0}] -> {1}" -f ($Pins -join ','), $State))
         return $true
 
     } catch {

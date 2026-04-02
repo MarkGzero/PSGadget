@@ -11,6 +11,8 @@ $ClassFiles = @(
     'PsGadgetLogger.ps1',
     'PsGadgetI2CDevice.ps1',
     'PsGadgetSsd1306.ps1',
+    'PsGadgetSpi.ps1',
+    'PsGadgetUart.ps1',
     'PsGadgetFtdi.ps1',
     'PsGadgetMpy.ps1',
     'PsGadgetPca9685.ps1'
@@ -59,3 +61,12 @@ try {
 } catch {
     Write-Warning "Failed to initialize PsGadget environment: $_"
 }
+
+# 6. Singleton session logger — shared by all device instances.
+# Created after Initialize-PsGadgetEnvironment so config (logging.maxSizeMb) is ready.
+# All class constructors call Get-PsGadgetModuleLogger() to reference this instance.
+$script:PsGadgetLogger = [PsGadgetLogger]::new()
+
+# 7. Convenience aliases
+Set-Alias -Name Get-PsGadgetOption -Value Get-PsGadgetConfig -Scope Script
+Set-Alias -Name Set-PsGadgetOption -Value Set-PsGadgetConfig -Scope Script

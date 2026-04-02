@@ -12,7 +12,7 @@ function Test-PsGadgetPca9685Ft232h {
     validation on Windows with a real FT232H board and external servo power.
 
     .PARAMETER Index
-    FTDI device index from Get-FTDevice. Default is 0.
+    FTDI device index from Get-FtdiDevice. Default is 0.
 
     .PARAMETER Address
     PCA9685 I2C address. Default is 0x40.
@@ -102,7 +102,7 @@ function Test-PsGadgetPca9685Ft232h {
             Write-Host 'Module already loaded' -ForegroundColor Green
         }
 
-        $devices = @(Get-FTDevice)
+        $devices = @(Get-FtdiDevice)
         if ($devices.Count -eq 0) {
             throw 'No FTDI devices detected'
         }

@@ -30,7 +30,7 @@ function Invoke-PsGadgetI2C {
     When supplied the device is NOT closed after the call.
 
     .PARAMETER Index
-    FTDI device index (0-based) from Get-FTDevice.
+    FTDI device index (0-based) from Get-FtdiDevice.
     Default is 0.
 
     .PARAMETER SerialNumber

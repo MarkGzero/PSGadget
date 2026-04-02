@@ -40,12 +40,12 @@ Test-PsGadgetEnvironment [-Verbose]
 
 ## FTDI device management
 
-### Get-PsGadgetFtdi
+### Get-FtdiDevice
 
 Lists connected FTDI devices.
 
 ```powershell
-Get-PsGadgetFtdi [-ShowVCP]
+Get-FtdiDevice [-ShowVCP]
 ```
 
 **Parameters:**
@@ -70,7 +70,7 @@ New-PsGadgetFtdi [-Index <int>] [-SerialNumber <string>] [-LocationId <string>]
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| Index | int | Zero-based device index from `Get-PsGadgetFtdi` |
+| Index | int | Zero-based device index from `Get-FtdiDevice` |
 | SerialNumber | string | Device serial number (stable across USB ports) |
 | LocationId | string | USB location ID |
 

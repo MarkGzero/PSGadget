@@ -20,7 +20,7 @@ $e = Test-PsGadgetEnvironment
 ## Device enumeration and connect
 
 ```powershell
-Get-FTDevice | Format-Table Index, Type, SerialNumber, GpioMethod
+Get-FtdiDevice | Format-Table Index, Type, SerialNumber, GpioMethod
 
 # By serial number (recommended -- stable across USB port changes)
 $dev = New-PsGadgetFtdi -SerialNumber 'BG01X3GX'
@@ -29,7 +29,7 @@ $dev = New-PsGadgetFtdi -SerialNumber 'BG01X3GX'
 $dev = New-PsGadgetFtdi -Index 0
 
 # By type
-$sn  = (Get-FTDevice | Where-Object { $_.Type -eq 'FT232H' })[0].SerialNumber
+$sn  = (Get-FtdiDevice | Where-Object { $_.Type -eq 'FT232H' })[0].SerialNumber
 $dev = New-PsGadgetFtdi -SerialNumber $sn
 ```
 

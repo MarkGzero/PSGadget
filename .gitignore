@@ -2,6 +2,11 @@
 mynotes\
 mynotes/
 
+# AI agent working files - dev-only, never committed
+.claude/
+.context/
+.cursor/
+
 # PowerShell specific
 *.pssc
 *.psproj

@@ -250,6 +250,11 @@ function Send-MpsseAcbusCommand {
                 Write-Verbose ("MPSSE ACBUS command sent (5x): value=0x{0:X2} dir=0x{1:X2}" -f $Value, $DirectionMask)
                 # Update cached ACBUS state - eliminates USB reads from Get-FtdiGpioPins in hot loops
                 $DeviceHandle | Add-Member -MemberType NoteProperty -Name 'AcbusCachedState' -Value ([byte]$Value) -Force
+                $script:PsGadgetLogger.WriteInfo(
+                        ("MPSSE GPIO [{0} {1}]: ACBUS val=0x{2:X2} dir=0x{3:X2}" -f $DeviceHandle.SerialNumber, $DeviceHandle.Type, $Value, $DirectionMask))
+                $script:PsGadgetLogger.WriteProto('GPIO.WRITE',
+                        ("ACBUS val=0x{0:X2} dir=0x{1:X2}  (MPSSE x5)" -f $Value, $DirectionMask),
+                        ("0x82 0x{0:X2} 0x{1:X2}" -f $Value, $DirectionMask))
                 return $true
             } else {
                 Write-Warning ("MPSSE ACBUS command failed: status={0}" -f $lastStatus)
@@ -258,6 +263,9 @@ function Send-MpsseAcbusCommand {
         } else {
             # Stub mode - simulate successful operation
             Write-Verbose "MPSSE command sent successfully (STUB MODE)"
+            $script:PsGadgetLogger.WriteProto('GPIO.WRITE',
+                    ("ACBUS val=0x{0:X2} dir=0x{1:X2}  (STUB)" -f $Value, $DirectionMask),
+                    ("0x82 0x{0:X2} 0x{1:X2}" -f $Value, $DirectionMask))
             return $true
         }
         
@@ -421,9 +429,12 @@ function Initialize-MpsseGpio {
             }
 
             Write-Verbose "MPSSE GPIO initialized (all ADBUS pins low/input)"
+            $script:PsGadgetLogger.WriteProto('MPSSE.INIT', 'GPIO initialized  sync=OK  ADBUS all-low',
+                    '8A 97 8C 86 C7 00 85  +  80 00 00 (x5)')
             return $true
         } else {
             Write-Verbose "MPSSE GPIO initialized (STUB MODE)"
+            $script:PsGadgetLogger.WriteProto('MPSSE.INIT', 'GPIO initialized  (STUB)')
             return $true
         }
     } catch {
@@ -536,10 +547,15 @@ function Initialize-MpsseI2C {
             Start-Sleep -Milliseconds 30
 
             Write-Verbose "I2C initialized at $ClockFrequency Hz (divisor=$clockDivisor, 3-phase+drive-zero enabled)"
+            $hexStr = ($i2cConfig | ForEach-Object { $_.ToString('X2') }) -join ' '
+            $script:PsGadgetLogger.WriteProto('I2C.INIT',
+                    ("clock=${ClockFrequency}Hz  divisor=${clockDivisor}  3phase=on  drive-zero=on"),
+                    $hexStr)
             return $true
         } else {
             # Stub mode or no raw device
             Write-Verbose "I2C initialized at $ClockFrequency Hz (STUB MODE)"
+            $script:PsGadgetLogger.WriteProto('I2C.INIT', "clock=${ClockFrequency}Hz  (STUB)")
             return $true
         }
 
@@ -710,11 +726,19 @@ function Send-MpsseI2CWrite {
 
             if (-not $nackPhase) {
                 Write-Verbose ("I2C write OK: Address=0x{0:X2}, {1} data byte(s)" -f $Address, $Data.Length)
+                $hexStr = $script:PsGadgetLogger.FormatHex($Data)
+                $script:PsGadgetLogger.WriteProto('I2C.WRITE',
+                        ("addr=0x{0:X2}  {1}B  wire=0x{2:X2}" -f $Address, $Data.Length, (($Address -shl 1) -bor 0x00)),
+                        $hexStr)
             }
             return $true
         } else {
             # Stub mode
             Write-Verbose ("I2C write: Address=0x{0:X2}, {1} bytes (STUB MODE)" -f $Address, $Data.Length)
+            $hexStr = $script:PsGadgetLogger.FormatHex($Data)
+            $script:PsGadgetLogger.WriteProto('I2C.WRITE',
+                    ("addr=0x{0:X2}  {1}B  (STUB)" -f $Address, $Data.Length),
+                    $hexStr)
             return $true
         }
 

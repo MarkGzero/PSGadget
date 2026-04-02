@@ -1,3 +1,4 @@
+#Requires -Version 5.1
 # Connect-PsGadgetFtdi.ps1
 # Connect to an FTDI device
 
@@ -12,17 +13,16 @@ function Connect-PsGadgetFtdi {
     communication, and other FTDI operations.
     
     .PARAMETER Index
-    The index of the FTDI device to connect to. Use Get-FTDevice to see available devices.
+    The index of the FTDI device to connect to. Use Get-FtdiDevice to see available devices.
     
     .PARAMETER SerialNumber
     Alternative to Index - connect to device by its serial number
     
     .PARAMETER LocationId
     Alternative to Index/SerialNumber - connect by USB LocationId (hub+port address).
-    LocationId is stable for a fixed physical USB port. Use Get-FTDevice to find the value.
+    LocationId is stable for a fixed physical USB port. Use Get-FtdiDevice to find the value.
+    Call $Connection.Close() when finished.
 
-    $Connection.Close()
-    
     .EXAMPLE
     $Connection = Connect-PsGadgetFtdi -SerialNumber "ABC123"
     # Use connection for GPIO or serial operations
@@ -39,6 +39,7 @@ function Connect-PsGadgetFtdi {
     #>
     
     [CmdletBinding(DefaultParameterSetName = 'ByIndex')]
+    [OutputType([System.Object])]
     param(
         [Parameter(Mandatory = $true, ParameterSetName = 'ByIndex', Position = 0)]
         [int]$Index,
@@ -59,12 +60,12 @@ function Connect-PsGadgetFtdi {
             $devices = @(Get-FtdiDeviceList)
             if ($devices.Count -gt 0) { break }
             if ($attempt -lt 3) {
-                Write-Verbose "Get-FtdiDeviceList returned empty on attempt $attempt; retrying after 150ms..."
+                Write-Debug "Get-FtdiDeviceList returned empty on attempt $attempt; retrying after 150ms..."
                 Start-Sleep -Milliseconds 150
             }
         }
         if ($devices.Count -eq 0) {
-            throw "No FTDI devices found. Run Get-FTDevice to check available devices."
+            throw "No FTDI devices found. Run Get-FtdiDevice to check available devices."
         }
         
         # Determine target device
@@ -84,15 +85,15 @@ function Connect-PsGadgetFtdi {
             }
             $deviceIndex = $targetDevice.Index
         } else {
-            # ByLocation - match on LocationId (shown by Get-FTDevice)
+            # ByLocation - match on LocationId (shown by Get-FtdiDevice)
             $targetDevice = $devices | Where-Object { "$($_.LocationId)" -eq $LocationId } | Select-Object -First 1
             if (-not $targetDevice) {
-                throw "No device found with LocationId '$LocationId'. Run Get-FTDevice to see available LocationIds."
+                throw "No device found with LocationId '$LocationId'. Run Get-FtdiDevice to see available LocationIds."
             }
             $deviceIndex = $targetDevice.Index
         }
         
-        Write-Verbose "Connecting to: $($targetDevice.Description) ($($targetDevice.SerialNumber))"
+        Write-Debug "Connecting to: $($targetDevice.Description) ($($targetDevice.SerialNumber))"
         
         # Check if device is already in use
         if ($targetDevice.IsOpen) {
@@ -108,7 +109,7 @@ function Connect-PsGadgetFtdi {
         $connection = $null
 
         if (-not $connection -and $script:IotBackendAvailable) {
-            Write-Verbose "Using IoT .NET backend for connection"
+            Write-Debug "Using IoT .NET backend for connection"
             try {
                 $connection = Invoke-FtdiIotOpen -DeviceInfo $targetDevice
             } catch {
@@ -130,17 +131,17 @@ function Connect-PsGadgetFtdi {
                         "Falling back to stub mode."
                     )
                 } else {
-                    Write-Verbose "IoT open failed ($exType): $errMsg -- falling back to platform backend"
+                    Write-Debug "IoT open failed ($exType): $errMsg -- falling back to platform backend"
                 }
                 $connection = $null
             }
         }
         if (-not $connection) {
             if ($PSVersionTable.PSVersion.Major -le 5 -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
-                Write-Verbose "Using Windows FTDI backend for connection"
+                Write-Debug "Using Windows FTDI backend for connection"
                 $connection = Invoke-FtdiWindowsOpen -DeviceInfo $targetDevice
             } else {
-                Write-Verbose "Using Unix FTDI backend for connection"
+                Write-Debug "Using Unix FTDI backend for connection"
                 $connection = Invoke-FtdiUnixOpen -Index $deviceIndex
             }
         }
@@ -149,7 +150,7 @@ function Connect-PsGadgetFtdi {
             throw "Failed to establish connection to FTDI device"
         }
         
-        Write-Verbose "Successfully connected to FTDI device $deviceIndex"
+        Write-Debug "Successfully connected to FTDI device $deviceIndex"
         return $connection
         
     } catch {

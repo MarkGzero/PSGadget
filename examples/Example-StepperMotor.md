@@ -167,7 +167,7 @@ Each sub-array corresponds to the four pins IN1-IN4; 1 energizes the coil.
 
 ```powershell
 Import-Module PSGadget.psd1 -Force
-Get-FTDevice | Format-Table Index, Type, SerialNumber, GpioMethod
+Get-FtdiDevice | Format-Table Index, Type, SerialNumber, GpioMethod
 ```
 
 Look for an entry like the one you posted earlier (`Type : FT232R` etc.).

@@ -1,3 +1,4 @@
+#Requires -Version 5.1
 # New-PsGadgetFtdi.ps1
 # Factory function to create and connect a PsGadgetFtdi instance.
 # Because PowerShell module classes are not exported to the caller's type scope,
@@ -23,14 +24,14 @@ function New-PsGadgetFtdi {
     .PARAMETER SerialNumber
     FTDI device serial number (e.g. "FT9ZLJ51").
     Preferred: stable across USB re-plugs regardless of port order.
-    Use Get-FTDevice to find the serial number.
+    Use Get-FtdiDevice to find the serial number.
 
     .PARAMETER Index
-    FTDI device index (0-based) from Get-FTDevice.
+    FTDI device index (0-based) from Get-FtdiDevice.
     May change if devices are plugged in different order.
 
     .PARAMETER LocationId
-    FTDI USB LocationId (hub+port address) from Get-FTDevice.
+    FTDI USB LocationId (hub+port address) from Get-FtdiDevice.
     Stable for a fixed physical USB port - useful for demo rigs.
 
     .PARAMETER DisplayHeight
@@ -77,7 +78,7 @@ function New-PsGadgetFtdi {
     PsGadgetFtdi  (already connected, IsOpen = $true)
     #>
 
-    [CmdletBinding(DefaultParameterSetName = 'ByIndex')]
+    [CmdletBinding(DefaultParameterSetName = 'ByIndex', SupportsShouldProcess = $true)]
     [OutputType('PsGadgetFtdi')]
     param(
         [Parameter(Mandatory = $true, ParameterSetName = 'BySerial', Position = 0)]
@@ -111,6 +112,38 @@ function New-PsGadgetFtdi {
     # Connect immediately - mirrors MicroPython construction-implies-connection convention.
     # .Connect() is idempotent: if already open it returns immediately; if closed it reconnects.
     $dev.DisplayHeight = $DisplayHeight
-    $dev.Connect()
+    if ($PSCmdlet.ShouldProcess($dev.Description, 'Connect')) {
+        # FT232R CBUS pins have internal 200k pull-ups to VCCIO (datasheet section 6, Note 1).
+        # They float HIGH after power-up/reset regardless of software state.
+        # EEPROM read opens its own D2XX handle -- must happen BEFORE Connect() to avoid conflict.
+        # Suppress verbose on internal calls; only our summary message is relevant to the user.
+        $cbusIoPins = [int[]]@()
+        $savedVerbose = $VerbosePreference
+        $VerbosePreference = 'SilentlyContinue'
+        try {
+            $devices = @(Get-FtdiDeviceList)
+            $preConnectDev = switch ($PSCmdlet.ParameterSetName) {
+                'ByIndex'    { $devices | Where-Object { $_.Index -eq $Index } | Select-Object -First 1 }
+                'BySerial'   { $devices | Where-Object { $_.SerialNumber -eq $SerialNumber } | Select-Object -First 1 }
+                'ByLocation' { $devices | Where-Object { "$($_.LocationId)" -eq $LocationId } | Select-Object -First 1 }
+            }
+            if ($preConnectDev -and $preConnectDev.Type -match '^FT232R') {
+                $eeprom = Get-FtdiEeprom -Index $preConnectDev.Index
+                if ($eeprom) {
+                    $cbusIoPins = [int[]](0..3 | Where-Object { $eeprom."Cbus$_" -eq 'FT_CBUS_IOMODE' })
+                }
+            }
+        } finally {
+            $VerbosePreference = $savedVerbose
+        }
+
+        $dev.Connect()
+
+        if ($cbusIoPins.Count -gt 0) {
+            $pinList = ($cbusIoPins | ForEach-Object { "CBUS$_" }) -join ', '
+            Write-Verbose "FT232R: CBUS pins float HIGH on power-up due to internal 200k ohm pull-ups (datasheet section 6, Note 1). This is safe for signal/LED use but could trigger relays or actuators. Auto-driving $pinList LOW."
+            $dev.SetPins($cbusIoPins, $false)
+        }
+    }
     return $dev
 }

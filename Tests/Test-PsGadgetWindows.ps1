@@ -91,14 +91,14 @@ function Test-PsGadgetWindows {
     # Test 3: PsGadget Module Functions
     Write-Host "`n3. Testing PsGadget Module Functions..." -ForegroundColor Yellow
     try {
-        Write-Verbose "Calling Get-FTDevice..."
-        $devices = @(Get-FTDevice -Verbose)
+        Write-Verbose "Calling Get-FtdiDevice..."
+        $devices = @(Get-FtdiDevice -Verbose)
         
         if ($devices.Count -gt 0) {
-            Write-Host "   OK Get-FTDevice found $($devices.Count) device(s)" -ForegroundColor Green
+            Write-Host "   OK Get-FtdiDevice found $($devices.Count) device(s)" -ForegroundColor Green
             $devices | Format-Table Index, Type, Description, SerialNumber, IsOpen -AutoSize
         } else {
-            Write-Host "   X Get-FTDevice returned no devices" -ForegroundColor Red
+            Write-Host "   X Get-FtdiDevice returned no devices" -ForegroundColor Red
         }
         
     } catch {

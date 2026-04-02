@@ -71,7 +71,7 @@ under $5 it is likely a clone chip.
 
 ## Tier 1 -- Minimum Starter Kit
 
-Covers: module import, `Get-FTDevice`, `Set-PsGadgetGpio`, LED blink.
+Covers: module import, `Get-FtdiDevice`, `Set-PsGadgetGpio`, LED blink.
 
 | # | Part | Source | Unit Price | Qty | Total | Notes |
 |---|---|---|---|---|---|---|

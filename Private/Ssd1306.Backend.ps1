@@ -139,6 +139,10 @@ function Initialize-Ssd1306 {
         )
 
         Write-Verbose ("Initialize-Ssd1306: sending {0}-byte init sequence (height={1}, rotation={2})" -f $initCommands.Length, $height, $rotation)
+        $hexStr = ($initCommands | ForEach-Object { $_.ToString('X2') }) -join ' '
+        $script:PsGadgetLogger.WriteProto('SSD1306',
+                ("INIT  height=${height}px  rotation=${rotation}deg  $($initCommands.Length)B"),
+                $hexStr)
         Send-Ssd1306Command -device $device -commands $initCommands | Out-Null
 
         # Allow hardware to settle after power-on init sequence (charge pump, oscillator).
@@ -195,6 +199,10 @@ function Write-Ssd1306Page {
         [System.Array]::Copy($frameBuffer, $physPage * $width, $pageData, 0, $width)
         Send-Ssd1306Data -device $device -data $pageData | Out-Null
 
+        $previewHex = $script:PsGadgetLogger.FormatHex($pageData)
+        $script:PsGadgetLogger.WriteProto('SSD1306',
+                ("PAGE ${physPage}  ${width}B"),
+                $previewHex)
         Write-Verbose ("Write-Ssd1306Page: page {0} written ({1} bytes)" -f $physPage, $width)
         return $true
     } catch {
@@ -241,6 +249,10 @@ function Write-Ssd1306Display {
         # Send the entire framebuffer as one data transaction.
         Send-Ssd1306Data -device $device -data $frameBuffer | Out-Null
 
+        $previewHex = $script:PsGadgetLogger.FormatHex($frameBuffer)
+        $script:PsGadgetLogger.WriteProto('SSD1306',
+                ("DISPLAY  $($frameBuffer.Length)B  $pages pages"),
+                $previewHex)
         Write-Verbose ("Write-Ssd1306Display: {0} bytes written ({1} pages)" -f $frameBuffer.Length, $pages)
         return $true
     } catch {

@@ -13,6 +13,8 @@ public functions are added.
 - [FT232R Workflow (CBUS bit-bang - CBUS0-3)](#ft232r-workflow-cbus-bit-bang---cbus0-3)
 - [Stepper Motor Workflow (Async Bit-Bang, FT232R or FT232H)](#stepper-motor-workflow-async-bit-bang-ft232r-or-ft232h)
 - [SSD1306 OLED Display (FT232H via MPSSE I2C)](#ssd1306-oled-display-ft232h-via-mpsse-i2c)
+- [SPI Workflow (FT232H via MPSSE)](#spi-workflow-ft232h-via-mpsse)
+- [UART Workflow (FT232H and FT232R)](#uart-workflow-ft232h-and-ft232r)
 - [ESP-NOW Wireless Telemetry (MicroPython + FT232H UART)](#esp-now-wireless-telemetry-micropython--ft232h-uart)
 - [Device Capability Comparison](#device-capability-comparison)
 - [Available CBUS Mode Options (FT232R)](#available-cbus-mode-options-ft232r)
@@ -29,7 +31,7 @@ public functions are added.
 Import-Module ./PSGadget.psd1 -Force
 
 # Enumerate all connected FTDI devices
-Get-FTDevice | Format-Table
+Get-FtdiDevice | Format-Table
 
 # Example output (Windows):
 # Index  Description          SerialNumber  LocationId  Type    GpioMethod  HasMpsse
@@ -49,7 +51,7 @@ automatically. Unload it before using GPIO:
 sudo rmmod ftdi_sio
 ```
 Devices claimed by `ftdi_sio` show as `IsVcp=True` and are hidden from
-`Get-FTDevice` by default. Use `-ShowVCP` to see them, or unload the
+`Get-FtdiDevice` by default. Use `-ShowVCP` to see them, or unload the
 driver to make them accessible. See [Getting Started - Linux Setup](../docs/wiki/Getting-Started.md#linux-setup)
 for full setup including `libftd2xx.so` installation.
 
@@ -60,7 +62,7 @@ for full setup including `libftd2xx.so` installation.
 The FT232H has a built-in MPSSE engine. GPIO is available immediately on
 ACBUS0-7 (physical pins 21-31). No EEPROM programming is required.
 
-> **VCP driver conflict**: If `Get-FTDevice -ShowVCP` shows your FT232H device
+> **VCP driver conflict**: If `Get-FtdiDevice -ShowVCP` shows your FT232H device
 > TWICE (once as D2XX and once as a COM port), the EEPROM `IsVCP` flag is set. This
 > prevents MPSSE from gaining exclusive control and GPIO/servo operations will silently
 > fail. Fix it with `Set-PsGadgetFtdiEeprom -Index 0 -DisableVcp` then replug the cable.
@@ -83,7 +85,7 @@ ACBUS0-7 (physical pins 21-31). No EEPROM programming is required.
 
 ```powershell
 # Confirm FT232H is at index 0 with GpioMethod = MPSSE
-Get-FTDevice | Format-Table
+Get-FtdiDevice | Format-Table
 
 # Set ACBUS2 and ACBUS4 HIGH
 Set-PsGadgetGpio -Index 0 -Pins @(2, 4) -State HIGH
@@ -122,10 +124,10 @@ as the FT232H -- the dispatch is automatic based on the device's GpioMethod.
 ### Step 1 - Identify D2XX-Enabled Device
 
 **How FTDI Dual Driver Enumeration Works:**
-When both VCP and D2XX drivers are installed (standard Windows setup), Windows loads two drivers per physical FTDI device. `Get-FTDevice` shows only the D2XX-accessible entry by default:
+When both VCP and D2XX drivers are installed (standard Windows setup), Windows loads two drivers per physical FTDI device. `Get-FtdiDevice` shows only the D2XX-accessible entry by default:
 
 ```powershell
-Get-FTDevice | Format-Table Index, Type, Driver, SerialNumber, LocationId
+Get-FtdiDevice | Format-Table Index, Type, Driver, SerialNumber, LocationId
 
 # Example output (one physical FT232R device):
 # Index Type   Driver     SerialNumber LocationId
@@ -135,7 +137,7 @@ Get-FTDevice | Format-Table Index, Type, Driver, SerialNumber, LocationId
 
 To see VCP entries as well (e.g. to find the COM port number for serial terminal use):
 ```powershell
-Get-FTDevice -ShowVCP | Format-Table Index, Type, Driver, SerialNumber, LocationId, ComPort
+Get-FtdiDevice -ShowVCP | Format-Table Index, Type, Driver, SerialNumber, LocationId, ComPort
 
 # Example output with -ShowVCP:
 # Index Type   Driver              SerialNumber LocationId ComPort
@@ -154,7 +156,7 @@ Get-FTDevice -ShowVCP | Format-Table Index, Type, Driver, SerialNumber, Location
 **Find your D2XX-enabled device:**
 ```powershell
 # Default output already shows only D2XX devices
-Get-FTDevice | Format-Table Index, SerialNumber, LocationId
+Get-FtdiDevice | Format-Table Index, SerialNumber, LocationId
 ```
 
 ### Step 2 - Inspect current EEPROM (optional, recommended first time)
@@ -246,19 +248,19 @@ Set-PsGadgetGpio -Index 0 -Pins @(0, 1) -State LOW
 **Error: "Failed to open device via OpenByIndex and OpenBySerialNumber: FT_DEVICE_NOT_FOUND"**
 
 This typically means you're trying to use an index that corresponds to a VCP-mode device.
-VCP devices no longer appear in `Get-FTDevice` by default so this should be rare.
+VCP devices no longer appear in `Get-FtdiDevice` by default so this should be rare.
 If it occurs, verify your index against current output:
 ```powershell
 # Default output shows only D2XX-accessible devices
-Get-FTDevice | Format-Table Index, SerialNumber
+Get-FtdiDevice | Format-Table Index, SerialNumber
 
 # Use one of those Index values
 Set-PsGadgetFt232rCbusMode -Index <D2XX_INDEX>
 ```
 
 **Understanding Dual Enumeration:**
-- `Get-FTDevice` shows D2XX devices only by default (PsGadget-compatible)
-- Use `Get-FTDevice -ShowVCP` to see VCP entries and their COM port assignments
+- `Get-FtdiDevice` shows D2XX devices only by default (PsGadget-compatible)
+- Use `Get-FtdiDevice -ShowVCP` to see VCP entries and their COM port assignments
 - **ftd2xx.dll entry**: Use for PSGadget EEPROM/GPIO functions
 - **ftdibus.sys (VCP) entry**: Use for serial terminal applications
 - **Serial number pattern**: Same base number, VCP adds "A" suffix
@@ -302,7 +304,7 @@ or `$dev.StepsPerRevolution` rather than hardcoding 2048/4096.
 
 ```powershell
 # Enumerate devices - FT232R or FT232H work equally
-Get-FTDevice | Format-Table Index, Type, SerialNumber, GpioMethod
+Get-FtdiDevice | Format-Table Index, Type, SerialNumber, GpioMethod
 
 # Step count (one-shot - auto opens and closes device)
 Invoke-PsGadgetStepper -Index 0 -Steps 4076             # ~1 revolution
@@ -424,6 +426,129 @@ $ftdi.Close()
 
 ---
 
+## SPI Workflow (FT232H via MPSSE)
+
+MPSSE SPI is available on the FT232H only. FT232R does not support MPSSE and
+cannot be used for SPI. No EEPROM programming is required.
+
+The MPSSE pins ADBUS0-2 are reserved for the SPI bus. Chip-select uses ADBUS3
+by default and is configurable to ADBUS3-7 via `-CsPin`. SPI modes 0-3 are
+supported via `-SpiMode`.
+
+### Hardware Wiring
+
+| FT232H pin        | MPSSE signal | SPI role        | Connect to              |
+|-------------------|--------------|-----------------|-------------------------|
+| ADBUS0 (D0)       | TCK/SCK      | SPI clock       | SCK on SPI device       |
+| ADBUS1 (D1)       | TDI          | MOSI            | MOSI / SDI on device    |
+| ADBUS2 (D2)       | TDO          | MISO            | MISO / SDO on device    |
+| ADBUS3 (D3)       | GPIOL0       | Chip select (CS)| CS / nSS on device      |
+| 3.3V or 5V        | Power        | VCC             | VCC on device           |
+| GND               | Ground       | GND             | GND on device           |
+
+Add a 10k pull-up resistor between D3 (CS) and VCC to keep CS inactive when idle.
+
+### Commands
+
+```powershell
+# Confirm FT232H with HasMpsse = True at index 0
+Get-FtdiDevice | Format-Table Index, Type, HasMpsse, SerialNumber
+
+# Write 3 bytes to a SPI device register (write-only, no read)
+# Returns [bool] $true; use [void] to suppress: [void](Invoke-PsGadgetSpi ...)
+Invoke-PsGadgetSpi -Index 0 -Data @(0x02, 0x00, 0xFF)
+
+# Read 4 bytes from SPI device (MOSI stays LOW during read)
+$bytes = Invoke-PsGadgetSpi -Index 0 -ReadCount 4
+
+# Full-duplex: send 4-byte command, receive 4-byte response simultaneously
+$response = Invoke-PsGadgetSpi -Index 0 -Data @(0x01, 0x00, 0x00, 0x00) -ReadCount 4
+
+# 10 MHz clock, SPI Mode 3, chip select on ADBUS4
+Invoke-PsGadgetSpi -Index 0 -Data @(0xAB) -ClockHz 10000000 -SpiMode 3 -CsPin 4
+
+# Address by serial number (stable across replug and hub changes)
+Invoke-PsGadgetSpi -SerialNumber "FT4ABCDE" -Data @(0x9F) -ReadCount 3
+
+# Polling loop -- keep device open across iterations
+$dev = New-PsGadgetFtdi -SerialNumber "FT4ABCDE"
+try {
+    while ($true) {
+        # MCP3208 8-ch ADC: start=1, single-ended ch0=0x80, pad=0x00
+        $raw = Invoke-PsGadgetSpi -PsGadget $dev -Data @(0x01, 0x80, 0x00) -ReadCount 3
+        $value = (($raw[1] -band 0x0F) -shl 8) -bor $raw[2]
+        Write-Host "ADC ch0: $value"
+        Start-Sleep -Seconds 5
+    }
+} finally {
+    $dev.Close()
+}
+```
+
+> **FT232R note**: Calling `Invoke-PsGadgetSpi` with an FT232R device fails at
+> initialization. Verify `HasMpsse = True` in `Get-FtdiDevice` before proceeding.
+
+---
+
+## UART Workflow (FT232H and FT232R)
+
+D2XX UART works on FT232R, FT232H, and compatible FTDI devices. It uses the
+factory-default bit mode — no EEPROM programming required. The device acts as a
+USB-to-serial bridge: TX transmits, RX receives.
+
+### Hardware Wiring
+
+| FT232H/FT232R pin | Signal | Connect to               |
+|-------------------|--------|--------------------------|
+| TXD / ADBUS0 (D0) | TX     | RX pin on target device  |
+| RXD / ADBUS1 (D1) | RX     | TX pin on target device  |
+| GND               | GND    | GND on target device     |
+
+> **Cross-wiring rule**: TX on the FT232x goes to RX on the target, and RX goes
+> to TX. Swapped TX/RX is the most common setup error.
+
+### Commands
+
+```powershell
+# Send "AT\r\n" and read the response line (waits up to 2 seconds by default)
+$resp = Invoke-PsGadgetUart -Index 0 -Data "AT`r`n" -ReadLine -BaudRate 9600
+
+# $null = timeout (no \n received); "" = device sent bare \n; non-empty = response
+if ($null -eq $resp) {
+    Write-Host "No response within timeout -- check baud rate and wiring"
+} else {
+    Write-Host "Response: $resp"
+}
+
+# Raw read of 16 bytes at 115200 baud
+$bytes = Invoke-PsGadgetUart -Index 0 -ReadCount 16 -BaudRate 115200
+
+# Write binary bytes (no read)
+Invoke-PsGadgetUart -Index 0 -Data ([byte[]](0x01, 0x02, 0x03)) -BaudRate 57600
+
+# Address by serial number (stable across replug and USB hub changes)
+Invoke-PsGadgetUart -SerialNumber "BG01X3GX" -Data "STATUS`r`n" -ReadLine -BaudRate 9600
+
+# Increase readline timeout for slow-to-boot devices (5 seconds)
+$resp = Invoke-PsGadgetUart -Index 0 -Data "BOOT`r`n" -ReadLine -LineTimeout 5000 -BaudRate 9600
+
+# Polling loop -- keep device open to avoid per-call open/close overhead
+$dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"
+try {
+    while ($true) {
+        $resp = Invoke-PsGadgetUart -PsGadget $dev -Data "READ`r`n" -ReadLine
+        if ($null -ne $resp) {
+            Write-Host "$(Get-Date -Format 'HH:mm:ss')  $resp"
+        }
+        Start-Sleep -Seconds 30
+    }
+} finally {
+    $dev.Close()
+}
+```
+
+---
+
 ## ESP-NOW Wireless Telemetry (MicroPython + FT232H UART)
 
 ESP-NOW is a connectionless 802.11 protocol that lets ESP32 nodes send telemetry
@@ -529,7 +654,7 @@ All fields are optional; omitted keys use built-in defaults.
 | EEPROM programming   | Set-PsGadgetFtdiEeprom (Windows)    | Set-PsGadgetFtdiEeprom (Windows) |
 | GpioMethod value     | MPSSE           | CBUS                 |
 | HasMpsse             | True            | False                |
-| SPI / I2C / JTAG     | Yes (MPSSE)     | No                   |
+| SPI / I2C / JTAG     | Yes (MPSSE) — `Invoke-PsGadgetSpi`, `Invoke-PsGadgetI2C` | No |
 | SSD1306 OLED display | Yes             | No                   |
 | Async bit-bang ADBUS | Yes             | Yes (stepper motor primary path) |
 | Stepper motor        | Yes (Invoke-PsGadgetStepper) | Yes (Invoke-PsGadgetStepper) |
@@ -575,7 +700,7 @@ PSGadget exposes an object-oriented interface via `New-PsGadgetFtdi`, which retu
 $dev = New-PsGadgetFtdi -SerialNumber "BG01X3GX"
 
 # Identify by USB port location (stable for fixed demo rig wiring)
-# Get-FTDevice | Select-Object Index, SerialNumber, LocationId
+# Get-FtdiDevice | Select-Object Index, SerialNumber, LocationId
 $dev = New-PsGadgetFtdi -LocationId 197634
 
 # FT232R CBUS GPIO (pins 0-3)
@@ -648,7 +773,7 @@ $conn.Close()
 | Function                    | Purpose                                                       |
 |-----------------------------|---------------------------------------------------------------|
 | New-PsGadgetFtdi            | Create a PsGadgetFtdi device object (OOP entry point; -SerialNumber, -Index, or -LocationId) |
-| Get-FTDevice           | Enumerate PsGadget-compatible FTDI devices (D2XX only by default; use -ShowVCP to include VCP) |
+| Get-FtdiDevice           | Enumerate PsGadget-compatible FTDI devices (D2XX only by default; use -ShowVCP to include VCP) |
 | Connect-PsGadgetFtdi        | Open a device connection by index, serial number, or LocationId |
 | Get-PsGadgetFtdiEeprom      | Read EEPROM contents (FT232H and FT232R: inspect IsVCP flag, CBUS/ACBUS modes, drive settings) |
 | Set-PsGadgetFtdiEeprom      | Write EEPROM settings for FT232H or FT232R (-DisableVcp to fix VCP/MPSSE conflict; -CbusPins to configure CBUS pins; -ACDriveCurrent/-ADDriveCurrent for FT232H) |
@@ -656,6 +781,8 @@ $conn.Close()
 | Set-PsGadgetGpio            | Set GPIO pin state (FT232H and FT232R; -Connection supported) |
 | Invoke-PsGadgetI2C          | Unified I2C dispatch (-I2CModule PCA9685 for servo control, SSD1306 for OLED); auto-opens/closes device unless -PsGadget supplied |
 | Invoke-PsGadgetI2CScan      | Scan I2C bus and report devices found (-Index, -SerialNumber) |
+| Invoke-PsGadgetSpi          | MPSSE SPI on FT232H: -Data write, -ReadCount read, or both for full-duplex; -ClockHz, -SpiMode 0-3, -CsPin; auto-opens/closes unless -PsGadget supplied |
+| Invoke-PsGadgetUart         | D2XX UART on FT232H/FT232R: -Data write, -ReadCount raw read, or -ReadLine (returns $null on timeout); -BaudRate, -LineTimeout; auto-opens/closes unless -PsGadget supplied |
 | Invoke-PsGadgetStepper      | Drive a stepper motor via async bit-bang ADBUS0-3 (FT232R or FT232H); -Steps or -Degrees; -StepsPerRevolution for calibrated angles (28BYJ-48 default ~4075.77 half-steps/rev, NOT 4096) |
 | Get-PsGadgetMpy            | Enumerate MicroPython serial ports                            |
 | Connect-PsGadgetMpy         | Open a MicroPython REPL connection                            |

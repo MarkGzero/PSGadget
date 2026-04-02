@@ -1,7 +1,8 @@
-# Get-FTDevice.ps1
+#Requires -Version 5.1
+# Get-FtdiDevice.ps1
 # Enumerate available FTDI devices
 
-function Get-FTDevice {
+function Get-FtdiDevice {
     <#
     .SYNOPSIS
     Lists PsGadget-compatible FTDI devices on the system.
@@ -13,14 +14,14 @@ function Get-FTDevice {
     be used with PsGadget's GPIO or MPSSE functions.
     
     .EXAMPLE
-    Get-FTDevice
+    Get-FtdiDevice
     
     .EXAMPLE  
-    $Devices = Get-FTDevice
+    $Devices = Get-FtdiDevice
     $Devices | Where-Object { -not $_.IsOpen }
 
     .EXAMPLE
-    Get-FTDevice -ShowVCP
+    Get-FtdiDevice -ShowVCP
 
     Shows all detected FTDI devices including those running the VCP (Virtual COM Port) driver,
     which are not usable with PsGadget but may be useful for diagnostics.
@@ -59,18 +60,19 @@ function Get-FTDevice {
         if (-not $ShowVCP) {
             $Filtered = @($Devices | Where-Object { -not $_.IsVcp })
             if ($Filtered.Count -eq 0) {
-                $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
-                if ($isWindows) {
+                $runningOnWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+                if ($runningOnWindows) {
                     $vcpDeviceCount = ($Devices | Where-Object { $_.IsVcp }).Count
                     if ($script:D2xxLoaded -and $vcpDeviceCount -gt 0) {
                         Write-Warning (
                             "No PsGadget-compatible FTDI devices found -- $vcpDeviceCount device(s) in VCP mode.`n" +
                             "`n" +
                             "  Cause : Device is bound to the VCP (COM port) driver, not D2XX.`n" +
-                            "  Fix   : Use Zadig (https://zadig.akeo.ie) -- select your device, choose`n" +
-                            "          WinUSB, click 'Install Driver', then reconnect.`n" +
-                            "  Alt   : Reinstall CDM driver from https://ftdichip.com/drivers/d2xx-drivers/`n" +
-                            "  Tip   : Use -ShowVCP to list these devices."
+                            "  Fix   : Install the FTDI CDM driver from https://ftdichip.com/drivers/d2xx-drivers/`n" +
+                            "          Run the installer, then replug the device.`n" +
+                            "  Note  : Do NOT use Zadig -- it installs WinUSB which is incompatible with D2XX.`n" +
+                            "  Tip   : Use -ShowVCP to list these devices.`n" +
+                            "  More  : https://github.com/MarkGzero/PSGadget/blob/main/docs/wiki/Troubleshooting.md"
                         )
                     } else {
                         Write-Warning (
@@ -78,7 +80,8 @@ function Get-FTDevice {
                             "`n" +
                             "  Cause : Device is likely in VCP mode (shown as COM port in Device Manager).`n" +
                             "  Fix   : Install the D2XX driver from https://ftdichip.com/drivers/d2xx-drivers/`n" +
-                            "  Tip   : Use -ShowVCP to list VCP-mode devices."
+                            "  Tip   : Use -ShowVCP to list VCP-mode devices.`n" +
+                            "  More  : https://github.com/MarkGzero/PSGadget/blob/main/docs/wiki/Troubleshooting.md"
                         )
                     }
                 } else {
@@ -93,7 +96,8 @@ function Get-FTDevice {
                             "            Then: Import-Module PSGadget -Force`n" +
                             "  Perm    : echo 'blacklist ftdi_sio' | sudo tee /etc/modprobe.d/ftdi-d2xx.conf`n" +
                             "  Restore : sudo modprobe ftdi_sio  (re-enables /dev/ttyUSBx VCP mode)`n" +
-                            "  Tip     : Use -ShowVCP to list VCP-mode devices."
+                            "  Tip     : Use -ShowVCP to list VCP-mode devices.`n" +
+                            "  More    : https://github.com/MarkGzero/PSGadget/blob/main/docs/wiki/Troubleshooting.md"
                         )
                     } else {
                         Write-Warning (
@@ -102,7 +106,8 @@ function Get-FTDevice {
                             "  Cause : libftd2xx.so may not be installed, or no device is connected.`n" +
                             "  Fix   : Confirm libftd2xx.so is installed (ldconfig -p | grep ftd2xx)`n" +
                             "          and device is plugged in (lsusb | grep -i ftdi).`n" +
-                            "  Tip   : Use -ShowVCP to list VCP-mode devices."
+                            "  Tip   : Use -ShowVCP to list VCP-mode devices.`n" +
+                            "  More  : https://github.com/MarkGzero/PSGadget/blob/main/docs/wiki/Troubleshooting.md"
                         )
                     }
                 }
@@ -143,4 +148,3 @@ function Get-FTDevice {
 }
 
 # Backward-compatibility alias
-Set-Alias -Name 'Get-PsGadgetFtdi' -Value 'Get-FTDevice'

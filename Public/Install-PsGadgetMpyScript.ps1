@@ -44,6 +44,7 @@ function Install-PsGadgetMpyScript {
         [PSCustomObject] with fields: Role, SerialPort, ScriptDeployed, ConfigDeployed, Success, Message
     #>
     [CmdletBinding(SupportsShouldProcess = $true)]
+    [OutputType([System.Management.Automation.PSCustomObject])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$SerialPort,

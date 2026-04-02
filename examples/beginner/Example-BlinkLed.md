@@ -68,7 +68,7 @@ power needs. Do not connect 5 V directly to the GPIO pins.
 **Step 2**: Open PowerShell and import PSGadget:
 
 ```powershell
-Import-Module ./PSGadget.psd1
+Import-Module PSGadget
 ```
 
 You should see no error. If you see a red error message, see
@@ -81,13 +81,13 @@ Test-PsGadgetEnvironment
 ```
 
 The console should print `Status    : READY` when checks pass. For scripts,
-test the returned object with `$result.Status -eq 'OK'`. If status is `Fail`,
+test the returned object with `$result.Status -eq 'READY'`. If status is `Fail`,
 read the `NextStep` line and run the command shown there.
 
 **Step 4**: See your device listed:
 
 ```powershell
-Get-FTDevice | Format-Table
+Get-FtdiDevice | Format-Table
 ```
 
 You should see a row with `Type = FT232H` and a serial number. Write down the
@@ -143,10 +143,10 @@ Save this as `blink.ps1` and run it any time:
 
 ```powershell
 #Requires -Version 5.1
-Import-Module ./PSGadget.psd1
+Import-Module PSGadget
 
 $result = Test-PsGadgetEnvironment
-if ($result.Status -ne 'OK') {
+if ($result.Status -ne 'READY') {
     Write-Warning "Not ready: $($result.Reason)"
     Write-Warning "Fix: $($result.NextStep)"
     return

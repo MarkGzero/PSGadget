@@ -1,3 +1,4 @@
+#Requires -Version 5.1
 # Connect-PsGadgetMpy.ps1
 # Connect to a MicroPython device via serial port
 
@@ -29,6 +30,7 @@ function Connect-PsGadgetMpy {
     #>
     
     [CmdletBinding()]
+    [OutputType('PsGadgetMpy')]
     param(
         [Parameter(Mandatory = $true, Position = 0)]
         [string]$SerialPort

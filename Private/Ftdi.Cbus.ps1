@@ -82,7 +82,7 @@ function Get-FtdiFt232hEeprom {
     The device must not already be opened by another handle.
 
     .PARAMETER Index
-    Zero-based device index (from Get-FTDevice).
+    Zero-based device index (from Get-FtdiDevice).
 
     .PARAMETER SerialNumber
     Optional fallback when OpenByIndex fails.
@@ -112,7 +112,7 @@ function Get-FtdiFt232hEeprom {
         $status = $ftdi.OpenByIndex([uint32]$Index)
 
         if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK -and $SerialNumber -ne '') {
-            Write-Verbose "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
+            Write-Debug "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
             $ftdi.Close() | Out-Null
             $ftdi   = [FTD2XX_NET.FTDI]::new()
             $status = $ftdi.OpenBySerialNumber($SerialNumber)
@@ -211,7 +211,7 @@ function Get-FtdiFt232rEeprom {
     The device must not already be opened by another handle.
 
     .PARAMETER Index
-    Zero-based device index (from Get-FTDevice).
+    Zero-based device index (from Get-FtdiDevice).
 
     .EXAMPLE
     Get-FtdiFt232rEeprom -Index 0
@@ -233,10 +233,10 @@ function Get-FtdiFt232rEeprom {
 
     try {
         if (-not $script:FtdiInitialized) {
-            $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
-            if (-not $isWindows) {
+            $isWinPlatform = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+            if (-not $isWinPlatform) {
                 Write-Warning (
-                    "Get-PsGadgetFtdiEeprom: FT232R EEPROM read is not supported on Linux.`n" +
+                    "Get-FtdiEeprom: FT232R EEPROM read is not supported on Linux.`n" +
                     "Use an FT232H device instead -- it has MPSSE and full Linux support via the IoT backend."
                 )
                 return $null
@@ -250,7 +250,7 @@ function Get-FtdiFt232rEeprom {
         # VCP-mode devices (shown as COM ports) cause OpenByIndex to return FT_DEVICE_NOT_FOUND.
         # Fall back to OpenBySerialNumber which works regardless of driver mode.
         if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK -and $SerialNumber -ne '') {
-            Write-Verbose "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
+            Write-Debug "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
             $ftdi.Close() | Out-Null
             $ftdi   = [FTD2XX_NET.FTDI]::new()
             $status = $ftdi.OpenBySerialNumber($SerialNumber)
@@ -381,7 +381,7 @@ function Set-FtdiFt232rCbusPinMode {
         FT_CBUS_BITBANG_RD   - Bit-bang read strobe
 
     .PARAMETER Index
-    Zero-based device index (from Get-FTDevice).
+    Zero-based device index (from Get-FtdiDevice).
 
     .PARAMETER Pins
     One or more CBUS pin numbers to reconfigure (0-3). CBUS4 is not available for
@@ -434,8 +434,8 @@ function Set-FtdiFt232rCbusPinMode {
 
     try {
         if (-not $script:FtdiInitialized) {
-            $isWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
-            if (-not $isWindows) {
+            $isWinPlatform = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+            if (-not $isWinPlatform) {
                 # Linux/macOS: use native P/Invoke EEPROM path when available
                 if ($script:FtdiNativeAvailable) {
                     Write-Verbose "Set-FtdiFt232rCbusPinMode: using native P/Invoke EEPROM path on Linux"
@@ -469,7 +469,7 @@ function Set-FtdiFt232rCbusPinMode {
         # VCP-mode devices (shown as COM ports) cause OpenByIndex to return FT_DEVICE_NOT_FOUND.
         # Fall back to OpenBySerialNumber which works regardless of driver mode.
         if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK -and $SerialNumber -ne '') {
-            Write-Verbose "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
+            Write-Debug "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
             $ftdi.Close() | Out-Null
             $ftdi   = [FTD2XX_NET.FTDI]::new()
             $status = $ftdi.OpenBySerialNumber($SerialNumber)
@@ -619,6 +619,12 @@ function Set-FtdiCbusBits {
         [ValidateSet('HIGH', 'LOW', 'H', 'L', '1', '0')]
         [string]$State,
 
+        # Optional: pins to drive LOW when State=HIGH (allows mixed states in one SetBitMode call).
+        # When provided alongside -Pins/-State HIGH, -LowPins are driven LOW and -Pins are driven HIGH.
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(0, 3)]
+        [int[]]$LowPins,
+
         [Parameter(Mandatory = $false)]
         [ValidateRange(0, 3)]
         [int[]]$OutputPins,
@@ -635,28 +641,34 @@ function Set-FtdiCbusBits {
 
         $isHigh = $State -in @('HIGH', 'H', '1')
 
-        # Build output pin set - default to the same pins being driven
-        $outputSet = if ($OutputPins) { $OutputPins } else { $Pins }
+        # Resolve high and low pin sets.
+        # When -LowPins is provided, treat -Pins as the HIGH set regardless of -State,
+        # so a single SetBitMode drives both groups atomically.
+        $highSet = if ($LowPins) { $Pins } else { if ($isHigh) { $Pins } else { @() } }
+        $lowSet  = if ($LowPins) { $LowPins } else { if (-not $isHigh) { $Pins } else { @() } }
+        $outputSet = if ($OutputPins) { $OutputPins } else { @($highSet) + @($lowSet) | Select-Object -Unique }
 
-        # Build direction nibble (bits 3-0 of the upper nibble in the mask)
+        # Build direction nibble: 1 = output for each pin in outputSet
         $dirNibble = 0
-        foreach ($p in $outputSet) {
-            $dirNibble = $dirNibble -bor (1 -shl $p)
-        }
+        foreach ($p in $outputSet) { $dirNibble = $dirNibble -bor (1 -shl $p) }
 
-        # Build value nibble
+        # Build value nibble: 1 = HIGH for each pin in highSet
         $valNibble = 0
-        if ($isHigh) {
-            foreach ($p in $Pins) {
-                $valNibble = $valNibble -bor (1 -shl $p)
-            }
-        }
+        foreach ($p in $highSet) { $valNibble = $valNibble -bor (1 -shl $p) }
 
         # Combined mask: upper nibble = direction, lower nibble = value
         [byte]$mask = (($dirNibble -band 0x0F) -shl 4) -bor ($valNibble -band 0x0F)
 
-        Write-Verbose ("CBUS bit-bang: pins=[{0}] state={1} dir=0x{2:X1} val=0x{3:X1} mask=0x{4:X2}" -f
-            ($Pins -join ','), $State, $dirNibble, $valNibble, $mask)
+        $pinSummary = if ($LowPins) {
+            "high=[{0}] low=[{1}]" -f ($highSet -join ','), ($lowSet -join ',')
+        } else {
+            "pins=[{0}] state={1}" -f ($Pins -join ','), $State
+        }
+        Write-Verbose ("CBUS bit-bang: {0} dir=0x{1:X1} val=0x{2:X1} mask=0x{3:X2}" -f $pinSummary, $dirNibble, $valNibble, $mask)
+        $script:PsGadgetLogger.WriteInfo("CBUS GPIO [$($Connection.SerialNumber) $($Connection.Type)]: $pinSummary  mask=0x$($mask.ToString('X2'))")
+        $script:PsGadgetLogger.WriteProto('CBUS.WRITE',
+                ("{0}  dir=0x{1:X1} val=0x{2:X1}" -f $pinSummary, $dirNibble, $valNibble),
+                ("SetBitMode mask=0x{0:X2} mode=0x20" -f $mask))
 
         if ($script:FtdiInitialized -and $null -ne $Connection.Device) {
             # Windows path: FTD2XX_NET managed object
@@ -721,7 +733,7 @@ function Set-FtdiFt232hEepromMode {
     Change takes effect after USB replug or CyclePort.
 
     .PARAMETER Index
-    Zero-based device index (from Get-FTDevice).
+    Zero-based device index (from Get-FtdiDevice).
 
     .PARAMETER SerialNumber
     Optional fallback when OpenByIndex fails.
@@ -770,7 +782,7 @@ function Set-FtdiFt232hEepromMode {
         $status = $ftdi.OpenByIndex([uint32]$Index)
 
         if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK -and $SerialNumber -ne '') {
-            Write-Verbose "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
+            Write-Debug "OpenByIndex($Index) -> $status; retrying via OpenBySerialNumber('$SerialNumber')"
             $ftdi.Close() | Out-Null
             $ftdi   = [FTD2XX_NET.FTDI]::new()
             $status = $ftdi.OpenBySerialNumber($SerialNumber)

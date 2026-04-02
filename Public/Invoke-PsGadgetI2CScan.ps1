@@ -32,6 +32,7 @@ function Invoke-PsGadgetI2CScan {
     Invoke-PsGadgetI2CScan -PsGadget $dev
     #>
     [CmdletBinding(DefaultParameterSetName = 'ByDevice')]
+    [OutputType([System.Int32[]])]
     param(
         [Parameter(Mandatory = $true, Position = 0, ParameterSetName = 'ByDevice')]
         [ValidateNotNull()]

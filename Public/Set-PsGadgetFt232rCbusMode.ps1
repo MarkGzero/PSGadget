@@ -40,7 +40,7 @@ function Set-PsGadgetFt232rCbusMode {
         FT_CBUS_BITBANG_RD   Bit-bang read strobe
 
     .PARAMETER Index
-    Zero-based device index (from Get-FTDevice).
+    Zero-based device index (from Get-FtdiDevice).
 
     .PARAMETER SerialNumber
     Alternative to Index: specify the target device by serial number string.
@@ -51,9 +51,6 @@ function Set-PsGadgetFt232rCbusMode {
 
     .PARAMETER Mode
     The FT_CBUS_OPTIONS mode name to write. Defaults to FT_CBUS_IOMODE (GPIO).
-
-    .PARAMETER WhatIf
-    Shows what EEPROM change would be made without writing anything.
 
     .EXAMPLE
     # Configure all four CBUS pins as GPIO on device 0 (most common usage):
@@ -94,7 +91,7 @@ function Set-PsGadgetFt232rCbusMode {
       was cycled automatically (True) or left for manual replug (False).
     - HighDriveIOs, PullDownEnable, and RIsD2XX default to the values in
       ~/.psgadget/config.json (see Get-Help about_PsGadgetConfig).
-    - To verify the EEPROM after cycling/replugging, use Get-PsGadgetFtdiEeprom.
+    - To verify the EEPROM after cycling/replugging, use Get-FtdiEeprom.
     - This function requires Windows with the D2XX driver loaded.
       On Linux, use an FT232H device instead -- it has MPSSE and is fully supported
       via the IoT backend without any EEPROM pre-programming step.
@@ -166,7 +163,7 @@ function Set-PsGadgetFt232rCbusMode {
         }
 
         if (-not $targetDev) {
-            throw "Device at index $targetIndex not found. Run Get-PsGadgetFtdi to check available devices."
+            throw "Device at index $targetIndex not found. Run Get-FtdiDevice to check available devices."
         }
 
         if ($targetDev.Type -notmatch '^FT232R(L|NL)?$') {
@@ -251,7 +248,7 @@ function Set-PsGadgetFt232rCbusMode {
                     Write-Host "You can now use Set-PsGadgetGpio or Connect-PsGadgetFtdi immediately."
                     Write-Host ""
                     Write-Host "To verify the new settings:"
-                    Write-Host "  Get-PsGadgetFtdiEeprom -Index $targetIndex | Select-Object Cbus0, Cbus1, Cbus2, Cbus3"
+                    Write-Host "  Get-FtdiEeprom -Index $targetIndex | Select-Object Cbus0, Cbus1, Cbus2, Cbus3"
 
                     $result | Add-Member -MemberType NoteProperty -Name 'PortCycled' -Value $true -Force
                 } catch {
@@ -264,7 +261,7 @@ function Set-PsGadgetFt232rCbusMode {
                 Write-Host "ACTION REQUIRED: Unplug and replug the USB cable to activate the new EEPROM settings."
                 Write-Host ""
                 Write-Host "After replugging, verify the change with:"
-                Write-Host "  Get-PsGadgetFtdiEeprom -Index $targetIndex | Select-Object Cbus0, Cbus1, Cbus2, Cbus3"
+                Write-Host "  Get-FtdiEeprom -Index $targetIndex | Select-Object Cbus0, Cbus1, Cbus2, Cbus3"
                 Write-Host ""
                 $result | Add-Member -MemberType NoteProperty -Name 'PortCycled' -Value $false -Force
             }
