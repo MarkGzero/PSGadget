@@ -141,16 +141,31 @@ function Install-MacOSD2XXDrivers {
             }
         } catch {}
 
+        # ── Unmount before success message so output is ordered cleanly ────────────
+        if ($mountPoint) {
+            Write-Host "Unmounting $mountPoint..."
+            & hdiutil detach $mountPoint -quiet 2>$null | Out-Null
+            $mountPoint = $null
+        }
+
         # ── Done ─────────────────────────────────────────────────────────────────
+        # Detect whether running from a local path or an installed module location
+        # so the reimport instruction matches what will actually work.
+        $psmPath  = Join-Path $PSScriptRoot '..' 'PSGadget.psm1'
+        $importCmd = if (Test-Path $psmPath) {
+            "Import-Module '$((Resolve-Path $psmPath).Path)' -Force"
+        } else {
+            'Import-Module PSGadget -Force'
+        }
+
         Write-Host ""
         Write-Host "D2XX $Version installed successfully."
         Write-Host "Next steps in pwsh:"
-        Write-Host "  Import-Module PSGadget -Force"
+        Write-Host "  $importCmd"
         Write-Host "  Test-PsGadgetEnvironment"
 
     } finally {
         if ($mountPoint) {
-            Write-Host "Unmounting $mountPoint..."
             & hdiutil detach $mountPoint -quiet 2>$null | Out-Null
         }
     }
