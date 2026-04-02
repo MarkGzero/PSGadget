@@ -116,6 +116,17 @@ function Install-MacOSD2XXDrivers {
     if (-not $mountPoint) {
         throw "Failed to determine mount point. hdiutil output:`n$($hdiLines -join "`n")"
     }
+
+    # Poll until the mount point is accessible — hdiutil attach returns before the
+    # filesystem is fully registered, causing immediate Test-Path / find to fail.
+    $pollMs = 0
+    while (-not (Test-Path $mountPoint) -and $pollMs -lt 5000) {
+        Start-Sleep -Milliseconds 250
+        $pollMs += 250
+    }
+    if (-not (Test-Path $mountPoint)) {
+        throw "Mount point '$mountPoint' reported by hdiutil but not accessible after 5 seconds."
+    }
     Write-Verbose "  Mounted at: $mountPoint"
 
     try {
