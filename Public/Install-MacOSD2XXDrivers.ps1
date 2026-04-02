@@ -95,47 +95,16 @@ function Install-MacOSD2XXDrivers {
     }
 
     # ── Mount ───────────────────────────────────────────────────────────────────
-    # Silently detach any stale mount left by a previous interrupted run.
-    # hdiutil info lists image-path for each mounted disk; match our DMG file.
-    $hdiInfoLines = & hdiutil info 2>$null
-    $staleMount   = $null
-    $inOurImage   = $false
-    foreach ($line in $hdiInfoLines) {
-        if ($line -match [regex]::Escape($dmgPath)) { $inOurImage = $true }
-        if ($inOurImage -and $line -match '/Volumes/') {
-            $staleMount = ($line -split '\s+' | Where-Object { $_ -like '/Volumes/*' } | Select-Object -First 1)
-            break
-        }
-        if ($inOurImage -and $line -match '^================================================') { $inOurImage = $false }
-    }
-    if ($staleMount) {
-        Write-Verbose "Detaching stale mount: $staleMount"
-        & hdiutil detach $staleMount -force 2>$null | Out-Null
-    }
+    # Use -mountpoint to bypass disk arbitration entirely — avoids /Volumes/ naming
+    # conflicts and the race condition where hdiutil returns before the volume registers.
+    $mountPoint = "/tmp/psgadget_d2xx_$PID"
+    New-Item -ItemType Directory -Path $mountPoint -Force | Out-Null
 
     Write-Host "Mounting DMG..."
-    $hdiLines = & hdiutil attach $dmgPath -nobrowse -readonly 2>&1
+    & hdiutil attach $dmgPath -nobrowse -readonly -mountpoint $mountPoint 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        throw "hdiutil attach failed (exit $LASTEXITCODE):`n$($hdiLines -join "`n")"
-    }
-    # hdiutil output: last line containing /Volumes/ has the mount point as the last token
-    $mountLine  = @($hdiLines) | Where-Object { $_ -match '/Volumes/' } | Select-Object -Last 1
-    if ($mountLine) {
-        $mountPoint = ($mountLine -split '\s+' | Where-Object { $_ -like '/Volumes/*' } | Select-Object -First 1)
-    }
-    if (-not $mountPoint) {
-        throw "Failed to determine mount point. hdiutil output:`n$($hdiLines -join "`n")"
-    }
-
-    # Poll until the mount point is accessible — hdiutil attach returns before the
-    # filesystem is fully registered, causing immediate Test-Path / find to fail.
-    $pollMs = 0
-    while (-not (Test-Path $mountPoint) -and $pollMs -lt 5000) {
-        Start-Sleep -Milliseconds 250
-        $pollMs += 250
-    }
-    if (-not (Test-Path $mountPoint)) {
-        throw "Mount point '$mountPoint' reported by hdiutil but not accessible after 5 seconds."
+        Remove-Item $mountPoint -Force -ErrorAction SilentlyContinue
+        throw "hdiutil attach failed (exit $LASTEXITCODE). The DMG may be corrupt — delete '$dmgPath' and retry."
     }
     Write-Verbose "  Mounted at: $mountPoint"
 
@@ -200,6 +169,7 @@ function Install-MacOSD2XXDrivers {
         if ($mountPoint) {
             Write-Verbose "Unmounting $mountPoint..."
             & hdiutil detach $mountPoint -quiet 2>$null | Out-Null
+            Remove-Item $mountPoint -Force -ErrorAction SilentlyContinue
             $mountPoint = $null
         }
 
@@ -222,6 +192,7 @@ function Install-MacOSD2XXDrivers {
     } finally {
         if ($mountPoint) {
             & hdiutil detach $mountPoint -quiet 2>$null | Out-Null
+            Remove-Item $mountPoint -Force -ErrorAction SilentlyContinue
         }
     }
 }
