@@ -105,7 +105,9 @@ function Get-FtdiFt232hEeprom {
 
     try {
         if ([System.Environment]::OSVersion.Platform -ne 'Win32NT') {
-            Write-Verbose "Get-FtdiFt232hEeprom: FTD2XX_NET EEPROM read is Windows-only; returning null on macOS/Linux."
+            Write-Warning ("Get-FtdiFt232hEeprom: FT232H EEPROM read is not supported on macOS/Linux. " +
+                           "FTD2XX_NET.dll (Windows-only) is required for the structured FT232H EEPROM read. " +
+                           "Use a Windows machine or the FTDI FT_Prog utility for this operation.")
             return $null
         }
         if (-not $script:FtdiInitialized) {
@@ -237,7 +239,13 @@ function Get-FtdiFt232rEeprom {
 
     try {
         if ([System.Environment]::OSVersion.Platform -ne 'Win32NT') {
-            Write-Verbose "Get-FtdiFt232rEeprom: FTD2XX_NET EEPROM read is Windows-only; returning null on macOS/Linux."
+            if ($script:FtdiNativeAvailable) {
+                Write-Verbose "Get-FtdiFt232rEeprom: using native P/Invoke path on macOS/Linux."
+                return Get-FtdiNativeFt232rEeprom -Index $Index
+            }
+            Write-Warning ("Get-FtdiFt232rEeprom: EEPROM read requires libftd2xx.dylib (macOS) or " +
+                           "libftd2xx.so (Linux). Run Install-MacOSD2XXDrivers or install the FTDI " +
+                           "D2XX library, then reload the module with Import-Module -Force.")
             return $null
         }
         if (-not $script:FtdiInitialized) {

@@ -92,9 +92,13 @@ function Set-PsGadgetFt232rCbusMode {
     - HighDriveIOs, PullDownEnable, and RIsD2XX default to the values in
       ~/.psgadget/config.json (see Get-Help about_PsGadgetConfig).
     - To verify the EEPROM after cycling/replugging, use Get-FtdiEeprom.
-    - This function requires Windows with the D2XX driver loaded.
-      On Linux, use an FT232H device instead -- it has MPSSE and is fully supported
-      via the IoT backend without any EEPROM pre-programming step.
+    - On Windows: requires FTD2XX_NET.dll (bundled with the module).
+      On macOS/Linux: requires libftd2xx.dylib / libftd2xx.so installed via
+      Install-MacOSD2XXDrivers or from ftdichip.com. The EEPROM write path is
+      fully supported on all platforms when the native library is loaded.
+    - Port cycling after a successful EEPROM write may fail on macOS if the
+      automatic USB port cycle is not supported. If that happens, unplug and
+      replug the USB cable manually to apply the new EEPROM settings.
     #>
 
     [CmdletBinding(

@@ -1,49 +1,48 @@
-# Session Context — 2026-04-02T00:00:00Z
+# Session Context — 2026-04-02T15:55:00Z
 
 ## Current Focus
 
-All docs cleanup complete and pushed to main. No active feature work.
+macOS FT232R GPIO support — completed and pushed. No active feature work.
 
 ## Current State
 
-- **Completed and pushed** (`0889717` on `main`):
-  - Deleted 11 stale docs/ files (stubs, duplicates, orphan images ~3.7MB)
-  - Created `docs/README.md` categorized index
-  - Fixed 2 dead links in `docs/REFERENCE/MPSSE_Reference.md`
-  - Added macOS D2XX v1.4.30 install section to `docs/wiki/Troubleshooting.md`
-  - Split Linux/macOS troubleshooting into separate sections
-- **Previous push** (`113ad97` on `main`):
-  - `Get-FtdiEeprom` (no-connection, ByIndex/BySerial) split from `Get-PsGadgetFtdiEeprom` (live PsGadget object)
-  - `New-PsGadgetFtdi` auto-drives FT232R CBUS IOMODE pins LOW on connect
-  - VCP count fixed: cross-checks `HKLM:\HARDWARE\DEVICEMAP\SERIALCOMM` (real-time) vs FTDIBUS registry (historical)
-  - OpenByIndex D2XX retry demoted from `Write-Verbose` to `Write-Debug`
-  - `Get-FtdiDevice` Zadig warning replaced with CDM driver URL + troubleshooting link
-- **Working tree is clean**; no uncommitted changes
+- **Completed this session** (`231c2a8` on `main`):
+  - Fixed `SetPin`/`ReadPin` silently broken on macOS FT232R
+  - Root cause: `Invoke-FtdiUnixOpen` re-enumerated via sysfs (no sysfs on macOS),
+    got FT232H stub at index 0, assigned `GpioMethod='MPSSE'` to real FT232R device
+  - Fix: pass `DeviceInfo` from IoT enumeration into `Invoke-FtdiUnixOpen` via new
+    optional `-DeviceInfo` param; skip sysfs when provided
+  - Added `FT_GetBitMode` P/Invoke + `Invoke-FtdiNativeGetBitMode` for native CBUS reads
+  - `Get-FtdiCbusBits` now reads real pin state on macOS/Linux via native path
+  - Committed `Public/Start-PsGadgetTrace.ps1` (was untracked; Mac lacked the file)
+- **Previous session** (`10f4949`):
+  - EEPROM functions guarded for macOS/Linux (return null, not throw)
+- **Previous session** (`113ad97`):
+  - Error cascade fix: `IsOpen` → fail-fast throw; removed `Write-Error+throw` in catches
+  - `Install-MacOSD2XXDrivers` cmdlet (macOS D2XX install automation)
+  - EEPROM API split, VCP detection fix, CBUS auto-LOW
+- **Working tree is clean**; verified on real hardware (FT232R BG01X3AK, macOS 11.7.11)
 
 ## Recent Decisions
+
+### macOS FT232R CBUS GPIO
+- IoT enumeration correctly identifies FT232R as `GpioMethod=CBUS`; sysfs stubs must not override it
+- `Invoke-FtdiUnixOpen -DeviceInfo` param is optional — Linux sysfs path is unchanged (backward compat)
+- `FT_GetBitMode` in CBUS mode returns CBUS0-3 pin levels in bits 0-3
+- AppDomain guard: if old `FtdiNative` type (without `FT_GetBitMode`) is registered, fall back to `0x00` stub
+- `ReadPin` reflects physical pin state; 200k ohm internal pull-up means undriven inputs read HIGH; user's 2.2kOhm pull-downs required for LOW reads
+
+### Error message convention
+- Device-in-use message: "Device 'SN' is already open. Run Get-ConnectedPsGadget to find the open handle and call .Close() on it."
 
 ### Naming convention: Ftdi* vs PsGadget*
 - `Verb-Ftdi*` = no live connection required (discovery, EEPROM read by index)
 - `Verb-PsGadget*` = requires live `[PsGadgetFtdi]` object
 
-### FT232R CBUS auto-LOW (New-PsGadgetFtdi)
-- EEPROM read happens BEFORE `$dev.Connect()` to avoid "device already open" conflict
-- After Connect(), all IOMODE pins driven LOW via `$dev.SetPins()`
-- Verbose message explains the 200k ohm pull-up and safety rationale (ASCII only)
-
-### VCP count fix
-- `HKLM:\SYSTEM\CurrentControlSet\Enum\FTDIBUS` retains ALL historical entries — useless for current count
-- `HKLM:\HARDWARE\DEVICEMAP\SERIALCOMM` is real-time (only active COM ports) — use this to cross-check
-
-### docs/ cleanup
-- Deleted: ARCHITECTURE.md, HARDWARE_KIT.md, INSTALL.md, PERSONAS.md, PLATFORMS.md,
-  QUICKSTART.md, REFERENCE/Classes.md, REFERENCE/Cmdlets.md, image*.png
-- Kept: TROUBLESHOOTING.md (GitHub redirect), REFERENCE/MPSSE_Reference.md (unique),
-  about_PsGadgetConfig.md (Get-Help target), about_PsGadgetDaemon.md, about_adafruit_ft232h.md
-
-### copilot-instructions.md needs updating
-- Still references deleted files (INSTALL.md, QUICKSTART.md, ARCHITECTURE.md, etc.)
-- "Docs to Link" section must be updated to point to current files
+### macOS test device
+- MBP001 (Natalie-MBP / AdminMark), SSH accessible, PS 7.6.0 / .NET 10.0.5
+- FT232R BG01X3AK with CBUS0-2 wired to RGB LED; 2.2kOhm pull-downs on CBUS0-2
+- Local dev clone at /Users/AdminMark/psgadget
 
 ## Active Files
 
@@ -52,39 +51,28 @@ No files actively under development. Working tree is clean.
 ## Key Constraints
 
 - PowerShell 5.1+; no PS7-only operators (`?:`, `?.`, `??`); ASCII only in PS code/strings
-- `Open-PsGadgetTrace` / `Start-PsGadgetTrace` must use `Start-Process powershell` (not `pwsh`)
-- Module load order in `PSGadget.psm1`:
-  1. `PsGadgetLogger.ps1`
-  2. `PsGadgetI2CDevice.ps1`
-  3. `PsGadgetSsd1306.ps1`
-  4. `PsGadgetSpi.ps1`     <- must precede PsGadgetFtdi
-  5. `PsGadgetUart.ps1`    <- must precede PsGadgetFtdi
-  6. `PsGadgetFtdi.ps1`
-  7. `PsGadgetMpy.ps1`
-  8. `PsGadgetPca9685.ps1`
-- Branch: `main` (dev1 was merged)
-- IDE static analysis false positives for cross-file class refs are expected
+- `Start-PsGadgetTrace` on Windows must use `Start-Process powershell` (not `pwsh`)
+- Module load order in `PSGadget.psm1` is fixed (see copilot-instructions.md)
+- Branch: `main` only (dev1 deleted)
+- Module version: `0.4.2` (PSGadget.psd1)
+- IoT backend path (macOS/Linux): `Invoke-FtdiIotOpen` -> `Invoke-FtdiUnixOpen -DeviceInfo`
+- FTD2XX_NET.dll is Windows-only; EEPROM ops on macOS return null silently
 
 ## Known Issues
 
-- `Tests/PsGadget.Tests.ps1` — version check still expects `0.4.0`; needs bump to `0.4.2`
-  and new test contexts for SPI and UART stub mode (carried over from prior session)
-- `.github/copilot-instructions.md` "Docs to Link" section references deleted files —
-  needs update (INSTALL.md, QUICKSTART.md, PLATFORMS.md, ARCHITECTURE.md,
-  REFERENCE/Cmdlets.md, REFERENCE/Classes.md, PERSONAS.md, HARDWARE_KIT.md all deleted)
+- `Tests/PsGadget.Tests.ps1` version check still expects `0.4.0`; needs bump to `0.4.2`
+- No SPI stub tests (Context 'SPI' block missing)
+- No UART stub tests (Context 'UART' block missing)
+- `.github/copilot-instructions.md` "Examples Conventions" still references `docs/PERSONAS.md` (deleted)
+- `examples/psgadget_workflow.md` may be out of sync with current public API
 
 ## Next Actions
 
-1. **Fix copilot-instructions.md** — update "Docs to Link Instead of Duplicating" section:
-   - Remove refs to deleted files
-   - Add `docs/README.md` as top-level entry point
-   - Update architecture ref to `docs/wiki/Architecture.md` only
-   - Update function ref to `docs/wiki/Function-Reference.md` only
-   - Update classes ref to `docs/wiki/Classes.md` only
-   - Keep `docs/TROUBLESHOOTING.md`, `docs/about_adafruit_ft232h.md`, workflow ref
-2. **Fix version in tests** — `Tests/PsGadget.Tests.ps1`: change `0.4.0` -> `0.4.2`
-3. **Add SPI stub tests** — new `Context 'SPI'` block:
+1. **Fix version in tests** — `Tests/PsGadget.Tests.ps1`: change `0.4.0` -> `0.4.2`
+2. **Add SPI stub tests** — new `Context 'SPI'` block:
    - `Invoke-PsGadgetSpi` is exported; write-only returns `$true`; read-only returns `[byte[]]`
-4. **Add UART stub tests** — new `Context 'UART'` block:
+3. **Add UART stub tests** — new `Context 'UART'` block:
    - `Invoke-PsGadgetUart` is exported; `-ReadLine` returns `$null` (stub); `-ReadCount 4` returns `[byte[]]`
+4. **Fix copilot-instructions.md** — "Examples Conventions" references `docs/PERSONAS.md` (deleted);
+   update to point to current docs
 5. Commit and push above changes

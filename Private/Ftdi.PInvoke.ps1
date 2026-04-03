@@ -323,6 +323,97 @@ function Invoke-FtdiNativeWriteEE {
     return $true
 }
 
+function Get-FtdiNativeFt232rEeprom {
+    <#
+    .SYNOPSIS
+    Reads FT232R EEPROM fields via native P/Invoke (macOS/Linux).
+
+    .DESCRIPTION
+    Returns a partial PSCustomObject matching the shape of Get-FtdiFt232rEeprom.
+    CBUS0-4 and VID/PID fields are correct.  String fields (Manufacturer,
+    Description, SerialNumber) are $null -- the variable-length string descriptor
+    area requires additional parsing not yet implemented.  Use Get-FtdiDevice to
+    retrieve those strings from USB enumeration.
+
+    The device must not be open (no active New-PsGadgetFtdi connection) when this
+    is called -- FT_Open does not allow a second handle on the same device.
+
+    .PARAMETER Index
+    Zero-based device index (from Get-FtdiDevice).
+
+    .OUTPUTS
+    PSCustomObject with EEPROM fields, or throws on P/Invoke error.
+    #>
+    [CmdletBinding()]
+    [OutputType([System.Object])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Index
+    )
+
+    if (-not $script:FtdiNativeAvailable) {
+        throw "FtdiNative not initialised. Call Initialize-FtdiNative first."
+    }
+
+    # FT232R EEPROM word layout (FTDI D2XX Programmer's Guide / AN_107):
+    #   Word 0:  VendorID
+    #   Word 1:  ProductID
+    #   Word 7:  bits[3:0]=CBUS0, bits[7:4]=CBUS1  (EE_WORD_CBUS01)
+    #   Word 8:  bits[3:0]=CBUS2, bits[7:4]=CBUS3  (EE_WORD_CBUS23)
+    #   Word 9:  bits[3:0]=CBUS4, bit[4]=RIsD2XX
+
+    $handle = Invoke-FtdiNativeOpen -Index $Index
+    try {
+        $word0 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset 0
+        $word1 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset 1
+        $word7 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS01)
+        $word8 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS23)
+        $word9 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset 9
+
+        $resolveCbus = {
+            param([int]$v)
+            if ($script:FT_CBUS_NAMES.ContainsKey($v)) { $script:FT_CBUS_NAMES[$v] }
+            else { "UNKNOWN($v)" }
+        }
+
+        return [PSCustomObject]@{
+            VendorID        = '0x{0:X4}' -f $word0
+            ProductID       = '0x{0:X4}' -f $word1
+            # String descriptor area not yet parsed -- use Get-FtdiDevice for these
+            Manufacturer    = $null
+            ManufacturerID  = $null
+            Description     = $null
+            SerialNumber    = $null
+            MaxPower        = $null
+            SelfPowered     = $null
+            RemoteWakeup    = $null
+            UseExtOsc       = $null
+            HighDriveIOs    = $null
+            EndpointSize    = $null
+            PullDownEnable  = $null
+            SerNumEnable    = $null
+            InvertTXD       = $null
+            InvertRXD       = $null
+            InvertRTS       = $null
+            InvertCTS       = $null
+            InvertDTR       = $null
+            InvertDSR       = $null
+            InvertDCD       = $null
+            InvertRI        = $null
+            Cbus0           = & $resolveCbus ($word7 -band 0x0F)
+            Cbus1           = & $resolveCbus (($word7 -shr 4) -band 0x0F)
+            Cbus2           = & $resolveCbus ($word8 -band 0x0F)
+            Cbus3           = & $resolveCbus (($word8 -shr 4) -band 0x0F)
+            Cbus4           = & $resolveCbus ($word9 -band 0x0F)
+            RIsD2XX         = [bool](($word9 -shr 4) -band 0x01)
+            # Marker so callers can detect this is a partial native read
+            _NativeRead     = $true
+        }
+    } finally {
+        Invoke-FtdiNativeClose -Handle $handle
+    }
+}
+
 function Get-FtdiNativeCbusEepromInfo {
     <#
     .SYNOPSIS
