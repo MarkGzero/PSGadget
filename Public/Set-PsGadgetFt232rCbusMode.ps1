@@ -177,9 +177,12 @@ function Set-PsGadgetFt232rCbusMode {
             )
         }
 
-        # Show current EEPROM state for context
+        # Show current EEPROM state for context (skip on PS5.1 -- ReadFT232REEPROM AVE risk)
+        $canPreview = $PSVersionTable.PSVersion.Major -ge 6
         Write-Verbose "Reading current EEPROM for $($targetDev.Description) ($($targetDev.SerialNumber))..."
-        $current = Get-FtdiFt232rEeprom -Index $targetIndex -SerialNumber $targetDev.SerialNumber
+        $current = if ($canPreview) {
+            Get-FtdiFt232rEeprom -Index $targetIndex -SerialNumber $targetDev.SerialNumber
+        } else { $null }
         if ($current) {
             $pinLines = $Pins | ForEach-Object {
                 $cur = $current."Cbus$_"
@@ -212,34 +215,43 @@ function Set-PsGadgetFt232rCbusMode {
             Write-Verbose "FT232R EEPROM updated: $pinNames set to $Mode."
 
             # Inform the user and offer automatic port cycling.
+            # FT_CyclePort is Windows-only (D2XX Programmer's Guide §3.35).
+            # On macOS/Linux skip the prompt and instruct the user to replug.
+            $isWin = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+
             Write-Host ""
             Write-Host "EEPROM written successfully."
             Write-Host "The new CBUS pin settings will not take effect until the device re-enumerates on the USB bus."
             Write-Host ""
-            Write-Host "You have two options:"
-            Write-Host "  [Y] Cycle the USB port automatically right now (no cable unplug needed)"
-            Write-Host "  [N] Unplug and replug the USB cable manually, then continue"
-            Write-Host ""
 
-            $choices = [System.Management.Automation.Host.ChoiceDescription[]]@(
-                [System.Management.Automation.Host.ChoiceDescription]::new(
-                    '&Yes',
-                    'Cycle the USB port now. The device will briefly disconnect and reconnect automatically without needing to physically unplug the cable.'
+            $cycleAttempted = $false
+            if ($isWin) {
+                Write-Host "You have two options:"
+                Write-Host "  [Y] Cycle the USB port automatically right now (no cable unplug needed)"
+                Write-Host "  [N] Unplug and replug the USB cable manually, then continue"
+                Write-Host ""
+
+                $choices = [System.Management.Automation.Host.ChoiceDescription[]]@(
+                    [System.Management.Automation.Host.ChoiceDescription]::new(
+                        '&Yes',
+                        'Cycle the USB port now. The device will briefly disconnect and reconnect automatically without needing to physically unplug the cable.'
+                    )
+                    [System.Management.Automation.Host.ChoiceDescription]::new(
+                        '&No',
+                        'Skip automatic cycling. Unplug and replug the USB cable manually, then continue.'
+                    )
                 )
-                [System.Management.Automation.Host.ChoiceDescription]::new(
-                    '&No',
-                    'Skip automatic cycling. Unplug and replug the USB cable manually, then continue.'
+
+                $choice = $Host.UI.PromptForChoice(
+                    'Apply EEPROM Changes',
+                    'Cycle the USB port now to apply the new settings?',
+                    $choices,
+                    0   # default = Yes
                 )
-            )
+                $cycleAttempted = ($choice -eq 0)
+            }
 
-            $choice = $Host.UI.PromptForChoice(
-                'Apply EEPROM Changes',
-                'Cycle the USB port now to apply the new settings?',
-                $choices,
-                0   # default = Yes
-            )
-
-            if ($choice -eq 0) {
+            if ($cycleAttempted) {
                 Write-Host ""
                 Write-Host "Cycling USB port on $($targetDev.Description) ($($targetDev.SerialNumber))..."
                 try {

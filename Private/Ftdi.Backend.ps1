@@ -201,7 +201,7 @@ function Get-FtdiDeviceList {
                                 $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name CapabilityNote -Value $note -Force
                             }
                         } catch {
-                            # EEPROM read failed -- keep static note
+                            Write-Verbose "EEPROM enrichment failed for FT232R index $i : $_"
                         }
                     } else {
                         Write-Verbose ("EEPROM enrichment skipped on PS5.1 (D2XX handle conflict). " +
@@ -234,12 +234,12 @@ function Get-FtdiDeviceList {
                                 $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name CapabilityNote -Value $note -Force
                             }
                         } catch {
-                            # EEPROM read failed -- keep static note
+                            Write-Verbose "EEPROM enrichment failed for FT232H index $i : $_"
                         }
                     }
                 }
             }
-            
+
             return $deviceArray
         } else {
             Write-Debug "No FTDI devices found"

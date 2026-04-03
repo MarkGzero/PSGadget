@@ -495,12 +495,25 @@ function Set-FtdiFt232rCbusPinMode {
             throw "Failed to open device via $openMethod : $status"
         }
 
-        # Read current EEPROM - preserve all fields, only modify requested CBUS pins
+        # Read current EEPROM to preserve all existing fields.
+        # Devices with a blank/unconfigured EEPROM have an empty serial number.
+        # ReadFT232REEPROM crashes (AccessViolationException) on such devices because
+        # FT_EE_Read returns an error state that the FTD2XX_NET wrapper does not handle
+        # gracefully. Skip the read for blank devices and rely on factory defaults.
         $eeprom = [FTD2XX_NET.FTDI+FT232R_EEPROM_STRUCTURE]::new()
-        $status = $ftdi.ReadFT232REEPROM($eeprom)
-        if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
-            $ftdi.Close() | Out-Null
-            throw "ReadFT232REEPROM failed: $status"
+        $isBlankEeprom = ($SerialNumber -eq '')
+        if ($isBlankEeprom) {
+            Write-Verbose "Set-FtdiFt232rCbusPinMode: blank EEPROM (no serial) -- skipping ReadFT232REEPROM, using factory defaults"
+            $eeprom.VendorID    = [uint16]0x0403
+            $eeprom.ProductID   = [uint16]0x6001
+            $eeprom.MaxPower    = [uint16]90
+            $eeprom.SerNumEnable = $true
+        } else {
+            $status = $ftdi.ReadFT232REEPROM($eeprom)
+            if ($status -ne [FTD2XX_NET.FTDI+FT_STATUS]::FT_OK) {
+                $ftdi.Close() | Out-Null
+                throw "ReadFT232REEPROM failed: $status"
+            }
         }
 
         # Resolve FT_CBUS_OPTIONS value by name using lookup table.

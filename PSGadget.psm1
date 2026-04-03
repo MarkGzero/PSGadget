@@ -42,11 +42,17 @@ foreach ($PublicFile in $PublicFiles) {
 }
 
 # 4. Initialize FTDI assembly loading
+# Initialize-FtdiAssembly sets $script:FtdiInitialized = $script:D2xxLoaded (true only when
+# FTD2XX_NET.dll loads -- Windows only).  Its return value is the broader "any backend ready"
+# flag ($script:IotBackendAvailable -or $script:D2xxLoaded).  Do NOT assign the return value
+# back to $script:FtdiInitialized or it will be $true on macOS/Linux (IoT available, D2XX not),
+# causing Set-FtdiFt232rCbusPinMode to skip the native path and crash on [FTD2XX_NET.FTDI].
 $script:FtdiInitialized = $false
 try {
-    $script:FtdiInitialized = Initialize-FtdiAssembly -ModuleRoot $ModuleRoot -Verbose:($VerbosePreference -ne 'SilentlyContinue')
-    if ($script:FtdiInitialized) {
-        Write-Verbose "FTDI D2XX assembly loaded successfully"
+    $backendReady = Initialize-FtdiAssembly -ModuleRoot $ModuleRoot -Verbose:($VerbosePreference -ne 'SilentlyContinue')
+    # $script:FtdiInitialized is now set correctly by Initialize-FtdiAssembly
+    if ($backendReady) {
+        Write-Verbose "FTDI backend ready (D2XX=$($script:FtdiInitialized) IoT=$($script:IotBackendAvailable))"
     } else {
         Write-Verbose "FTDI assembly not available - using stub mode"
     }

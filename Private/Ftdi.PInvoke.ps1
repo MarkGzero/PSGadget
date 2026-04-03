@@ -142,6 +142,159 @@ public static class FtdiNative {
         byte[] pcSerialNumber,
         byte[] pcDescription,
         IntPtr pvDummy);
+
+    [DllImport("$escapedPath", EntryPoint = "FT_EE_Read")]
+    public static extern int FT_EE_Read(IntPtr ftHandle, ref FtProgramData pData);
+
+    [DllImport("$escapedPath", EntryPoint = "FT_EE_Program")]
+    public static extern int FT_EE_Program(IntPtr ftHandle, ref FtProgramData pData);
+}
+
+// FT_PROGRAM_DATA struct -- full layout through Version 5 (FT232H extensions).
+// String fields are char* pointers -- callers must allocate and pin buffers before use.
+// Field layout follows the D2XX Programmer's Guide §4.4 / §4.6 exactly.
+// All Version 3/4/5 fields zero-initialise automatically; safe to use with Version=5
+// even when programming an FT232R (libftd2xx ignores inapplicable fields).
+[System.Runtime.InteropServices.StructLayout(
+    System.Runtime.InteropServices.LayoutKind.Sequential)]
+public struct FtProgramData {
+    // Header -- must be set by caller
+    public uint   Signature1;        // 0x00000000
+    public uint   Signature2;        // 0xFFFFFFFF
+    public uint   Version;           // 2 for FT232R
+    public ushort VendorId;
+    public ushort ProductId;
+    public IntPtr Manufacturer;      // char* -- allocate >= 32 bytes
+    public IntPtr ManufacturerId;    // char* -- allocate >= 16 bytes
+    public IntPtr Description;       // char* -- allocate >= 64 bytes
+    public IntPtr SerialNumber;      // char* -- allocate >= 16 bytes
+    public ushort MaxPower;
+    public ushort PnP;
+    public ushort SelfPowered;
+    public ushort RemoteWakeup;
+    // BM extensions
+    public byte Rev4;
+    public byte IsoIn;
+    public byte IsoOut;
+    public byte PullDownEnable;
+    public byte SerNumEnable;
+    public byte USBVersionEnable;
+    public ushort USBVersion;
+    // FT2232 extensions (Version >= 1)
+    public byte Rev5;
+    public byte IsoInA;
+    public byte IsoInB;
+    public byte IsoOutA;
+    public byte IsoOutB;
+    public byte PullDownEnable5;
+    public byte SerNumEnable5;
+    public byte USBVersionEnable5;
+    public ushort USBVersion5;
+    public byte AIsHighCurrent;
+    public byte BIsHighCurrent;
+    public byte IFAIsFifo;
+    public byte IFAIsFifoTar;
+    public byte IFAIsFastSer;
+    public byte AIsVCP;
+    public byte IFBIsFifo;
+    public byte IFBIsFifoTar;
+    public byte IFBIsFastSer;
+    public byte BIsVCP;
+    // FT232R extensions (Version >= 2)
+    public byte UseExtOsc;
+    public byte HighDriveIOs;
+    public byte EndpointSize;
+    public byte PullDownEnableR;
+    public byte SerNumEnableR;
+    public byte InvertTXD;
+    public byte InvertRXD;
+    public byte InvertRTS;
+    public byte InvertCTS;
+    public byte InvertDTR;
+    public byte InvertDSR;
+    public byte InvertDCD;
+    public byte InvertRI;
+    public byte Cbus0;
+    public byte Cbus1;
+    public byte Cbus2;
+    public byte Cbus3;
+    public byte Cbus4;
+    public byte RIsD2XX;
+    // Rev 7 (FT2232H) Extensions [Version >= 3]
+    public byte PullDownEnable7;
+    public byte SerNumEnable7;
+    public byte ALSlowSlew;
+    public byte ALSchmittInput;
+    public byte ALDriveCurrent;
+    public byte AHSlowSlew;
+    public byte AHSchmittInput;
+    public byte AHDriveCurrent;
+    public byte BLSlowSlew;
+    public byte BLSchmittInput;
+    public byte BLDriveCurrent;
+    public byte BHSlowSlew;
+    public byte BHSchmittInput;
+    public byte BHDriveCurrent;
+    public byte IFAIsFifo7;
+    public byte IFAIsFifoTar7;
+    public byte IFAIsFastSer7;
+    public byte AIsVCP7;
+    public byte IFBIsFifo7;
+    public byte IFBIsFifoTar7;
+    public byte IFBIsFastSer7;
+    public byte BIsVCP7;
+    public byte PowerSaveEnable;
+    // Rev 8 (FT4232H) Extensions [Version >= 4]
+    public byte PullDownEnable8;
+    public byte SerNumEnable8;
+    public byte ASlowSlew;
+    public byte ASchmittInput;
+    public byte ADriveCurrent;
+    public byte BSlowSlew;
+    public byte BSchmittInput;
+    public byte BDriveCurrent;
+    public byte CSlowSlew;
+    public byte CSchmittInput;
+    public byte CDriveCurrent;
+    public byte DSlowSlew;
+    public byte DSchmittInput;
+    public byte DDriveCurrent;
+    public byte ARIIsTXDEN;
+    public byte BRIIsTXDEN;
+    public byte CRIIsTXDEN;
+    public byte DRIIsTXDEN;
+    public byte AIsVCP8;
+    public byte BIsVCP8;
+    public byte CIsVCP8;
+    public byte DIsVCP8;
+    // Rev 9 (FT232H) Extensions [Version >= 5]
+    public byte PullDownEnableH;
+    public byte SerNumEnableH;
+    public byte ACSlowSlewH;
+    public byte ACSchmittInputH;
+    public byte ACDriveCurrentH;
+    public byte ADSlowSlewH;
+    public byte ADSchmittInputH;
+    public byte ADDriveCurrentH;
+    public byte Cbus0H;
+    public byte Cbus1H;
+    public byte Cbus2H;
+    public byte Cbus3H;
+    public byte Cbus4H;
+    public byte Cbus5H;
+    public byte Cbus6H;
+    public byte Cbus7H;
+    public byte Cbus8H;
+    public byte Cbus9H;
+    public byte IsFifoH;
+    public byte IsFifoTarH;
+    public byte IsFastSerH;
+    public byte IsFT1248H;
+    public byte FT1248CpolH;
+    public byte FT1248LsbH;
+    public byte FT1248FlowControlH;
+    public byte IsVCPH;
+    public byte PowerSaveEnableH;
 }
 "@
 
@@ -518,32 +671,56 @@ function Set-FtdiNativeCbusEeprom {
 
     $handle = Invoke-FtdiNativeOpen -Index $Index
     try {
-        # FT232R packs CBUS0-3 into a single word at 0x0A; CBUS4 is at 0x0B.
-        # Read-modify-write: only touched pins are changed; others preserved.
-        [ushort]$wordA = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS0123)
-        [ushort]$wordB = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS4)
+        # Use FT_EE_Read / FT_EE_Program -- the official D2XX EEPROM programming API.
+        # FT_WriteEE only buffers words in libftd2xx RAM; it does not flush to the
+        # physical chip on the FT232R internal EEPROM.  FT_EE_Program does a full
+        # atomic write-verify cycle that commits to the physical EEPROM.
 
-        $origWordA = $wordA
-        $origWordB = $wordB
+        # Allocate string buffers for FT_EE_Read output (sizes per D2XX guide §4.4)
+        $manufBuf   = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(32)
+        $manufIdBuf = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(16)
+        $descBuf    = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(64)
+        $serialBuf  = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(16)
+        try {
+            $data = [FtProgramData]::new()
+            $data.Signature1     = [uint32]0x00000000
+            $data.Signature2     = [uint32]4294967295   # 0xFFFFFFFF
+            $data.Version        = [uint32]5  # Version 5 = full struct through FT232H (Rev9)
+            $data.Manufacturer   = $manufBuf
+            $data.ManufacturerId = $manufIdBuf
+            $data.Description    = $descBuf
+            $data.SerialNumber   = $serialBuf
 
-        foreach ($pin in $Pins) {
-            $nibble = [ushort]($modeByte -band 0x0F)
-            switch ($pin) {
-                0 { $wordA = [ushort](($wordA -band 0xFFF0) -bor $nibble) }
-                1 { $wordA = [ushort](($wordA -band 0xFF0F) -bor ($nibble -shl 4)) }
-                2 { $wordA = [ushort](($wordA -band 0xF0FF) -bor ($nibble -shl 8)) }
-                3 { $wordA = [ushort](($wordA -band 0x0FFF) -bor ($nibble -shl 12)) }
-                4 { $wordB = [ushort](($wordB -band 0xFFF0) -bor $nibble) }
+            $status = [FtdiNative]::FT_EE_Read($handle, [ref]$data)
+            if ($status -ne [FtdiNative]::FT_OK) {
+                throw "FT_EE_Read failed: status=$status"
             }
-        }
+            Write-Verbose ("FT_EE_Read: Cbus0={0} Cbus1={1} Cbus2={2} Cbus3={3} Cbus4={4}" -f
+                $data.Cbus0, $data.Cbus1, $data.Cbus2, $data.Cbus3, $data.Cbus4)
 
-        if ($wordA -ne $origWordA) {
-            Invoke-FtdiNativeWriteEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS0123) -Value $wordA
-            Write-Verbose ("EEPROM word 0x0A (CBUS0-3): 0x{0:X4} -> 0x{1:X4}" -f $origWordA, $wordA)
-        }
-        if ($wordB -ne $origWordB) {
-            Invoke-FtdiNativeWriteEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS4) -Value $wordB
-            Write-Verbose ("EEPROM word 0x0B (CBUS4):   0x{0:X4} -> 0x{1:X4}" -f $origWordB, $wordB)
+            # Patch only the requested CBUS pins
+            foreach ($pin in $Pins) {
+                switch ($pin) {
+                    0 { $data.Cbus0 = $modeByte }
+                    1 { $data.Cbus1 = $modeByte }
+                    2 { $data.Cbus2 = $modeByte }
+                    3 { $data.Cbus3 = $modeByte }
+                    4 { $data.Cbus4 = $modeByte }
+                }
+            }
+
+            $status = [FtdiNative]::FT_EE_Program($handle, [ref]$data)
+            if ($status -ne [FtdiNative]::FT_OK) {
+                throw "FT_EE_Program failed: status=$status"
+            }
+            Write-Verbose ("FT_EE_Program: Cbus0={0} Cbus1={1} Cbus2={2} Cbus3={3} Cbus4={4}" -f
+                $data.Cbus0, $data.Cbus1, $data.Cbus2, $data.Cbus3, $data.Cbus4)
+
+        } finally {
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($manufBuf)
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($manufIdBuf)
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($descBuf)
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($serialBuf)
         }
 
         Write-Host "EEPROM updated. Unplug and replug the device for the new CBUS mode to take effect."
