@@ -166,6 +166,15 @@ function Get-FtdiDeviceList {
                 $serial = $deviceArray[$i].SerialNumber
                 $isSubInterface = $serial.Length -gt 0 -and $serial[-1] -match '[A-D]' -and
                                   ($devices | Where-Object { $_.SerialNumber -eq $serial.Substring(0, $serial.Length - 1) })
+                # EEPROM enrichment: read CBUS/ACBUS config to build a live CapabilityNote.
+                # IMPORTANT: On Windows PowerShell 5.1 (.NET Framework), D2XX's GetDeviceList
+                # internally opens device handles that are not released by FTDI.Close(). A
+                # subsequent OpenByIndex for EEPROM read then gets a conflicted handle and
+                # ReadFT232REEPROM throws AccessViolationException, which cannot be caught on
+                # .NET Framework and crashes the PowerShell process. Skip on PS5 to avoid this.
+                # Users can call Get-FtdiEeprom -Index N directly for CBUS configuration details.
+                $canReadEeprom = $PSVersionTable.PSVersion.Major -ge 6
+
                 if ($deviceArray[$i].GpioMethod -eq 'CBUS' -and $deviceArray[$i].Type -match '^FT232R' -and -not $isSubInterface) {
                     if ($deviceArray[$i].IsOpen) {
                         $varNames = @(Get-Variable -Scope Global -ErrorAction SilentlyContinue |
@@ -173,7 +182,7 @@ function Get-FtdiDeviceList {
                             Select-Object -ExpandProperty Name)
                         $hint = if ($varNames.Count -gt 0) { " Handle held by: $(($varNames | ForEach-Object { "`$$_" }) -join ', ')" } else { '' }
                         $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name CapabilityNote -Value "Device open -- EEPROM not readable.$hint" -Force
-                    } else {
+                    } elseif ($canReadEeprom) {
                         try {
                             $ee = Get-FtdiFt232rEeprom -Index $i -SerialNumber $serial -ErrorAction SilentlyContinue
                             if ($ee) {
@@ -194,6 +203,9 @@ function Get-FtdiDeviceList {
                         } catch {
                             # EEPROM read failed -- keep static note
                         }
+                    } else {
+                        Write-Verbose ("EEPROM enrichment skipped on PS5.1 (D2XX handle conflict). " +
+                                       "Run Get-FtdiEeprom -Index $i for CBUS configuration details.")
                     }
                 }
 
@@ -206,7 +218,7 @@ function Get-FtdiDeviceList {
                             Select-Object -ExpandProperty Name)
                         $hint = if ($varNames.Count -gt 0) { " Handle held by: $(($varNames | ForEach-Object { "`$$_" }) -join ', ')" } else { '' }
                         $deviceArray[$i] | Add-Member -MemberType NoteProperty -Name CapabilityNote -Value "Device open -- EEPROM not readable.$hint" -Force
-                    } else {
+                    } elseif ($canReadEeprom) {
                         try {
                             $ee = Get-FtdiFt232hEeprom -Index $i -SerialNumber $serial -ErrorAction SilentlyContinue
                             if ($ee) {
