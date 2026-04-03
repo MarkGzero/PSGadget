@@ -64,14 +64,14 @@ function Install-MacOSD2XXDrivers {
 
     if (-not $PSCmdlet.ShouldProcess('/usr/local/lib', "Install FTDI D2XX $Version")) { return }
 
-    # ── Already installed? ───────────────────────────────────────────────────────
+    # -- Already installed? ----------------------------------------------------------
     if ((Test-Path $libDest) -and (Test-Path $symlinkDest)) {
         Write-Host "D2XX $Version is already installed at $libDest"
         Write-Host "Run Test-PsGadgetEnvironment to verify, or delete $libDest to force reinstall."
         return
     }
 
-    # ── Download ────────────────────────────────────────────────────────────────
+    # -- Download --------------------------------------------------------------------
     Remove-Item $dmgPath -Force -ErrorAction SilentlyContinue
     Write-Host "Downloading FTDI D2XX $Version..."
     Write-Verbose "  URL: $dmgUrl"
@@ -80,8 +80,8 @@ function Install-MacOSD2XXDrivers {
         throw "curl failed (exit $LASTEXITCODE). Check your internet connection and try again."
     }
 
-    # ── Mount ───────────────────────────────────────────────────────────────────
-    # Use -mountpoint to bypass disk arbitration entirely — avoids /Volumes/ naming
+    # -- Mount -----------------------------------------------------------------------
+    # Use -mountpoint to bypass disk arbitration entirely -- avoids /Volumes/ naming
     # conflicts and the race condition where hdiutil returns before the volume registers.
     $mountPoint = "/tmp/psgadget_d2xx_$PID"
     New-Item -ItemType Directory -Path $mountPoint -Force | Out-Null
@@ -90,12 +90,12 @@ function Install-MacOSD2XXDrivers {
     & hdiutil attach $dmgPath -nobrowse -readonly -mountpoint $mountPoint 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Remove-Item $mountPoint -Force -ErrorAction SilentlyContinue
-        throw "hdiutil attach failed (exit $LASTEXITCODE). The DMG may be corrupt — delete '$dmgPath' and retry."
+        throw "hdiutil attach failed (exit $LASTEXITCODE). The DMG may be corrupt -- delete '$dmgPath' and retry."
     }
     Write-Verbose "  Mounted at: $mountPoint"
 
     try {
-        # ── Find the dylib ───────────────────────────────────────────────────────
+        # -- Find the dylib ----------------------------------------------------------
         # Try the known FTDI DMG layout first (avoids Get-ChildItem -Recurse which
         # can hang on macOS mounted volumes due to Spotlight/xattr enumeration).
         $knownPath = Join-Path $mountPoint 'release' 'build' "libftd2xx.$Version.dylib"
@@ -113,8 +113,8 @@ function Install-MacOSD2XXDrivers {
         }
         Write-Verbose "  Found dylib: $($dylibFile.FullName)"
 
-        # ── Install ──────────────────────────────────────────────────────────────
-        Write-Host "Installing (sudo required — enter your macOS password if prompted)..."
+        # -- Install -----------------------------------------------------------------
+        Write-Host "Installing (sudo required -- enter your macOS password if prompted)..."
         & sudo mkdir -p /usr/local/lib
         if ($LASTEXITCODE -ne 0) { throw "sudo mkdir /usr/local/lib failed" }
 
@@ -127,7 +127,7 @@ function Install-MacOSD2XXDrivers {
         Write-Verbose "  Installed:  $libDest"
         Write-Verbose "  Symlink:    $symlinkDest -> $libDest"
 
-        # ── Copy into module lib/net8/ ───────────────────────────────────────────
+        # -- Copy into module lib/net8/ ----------------------------------------------
         if (-not $SkipModuleCopy) {
             $net8Dir  = Join-Path $PSScriptRoot '..' 'lib' 'net8'
             $net8Dest = Join-Path $net8Dir 'libftd2xx.dylib'
@@ -135,11 +135,11 @@ function Install-MacOSD2XXDrivers {
                 Copy-Item -Path $libDest -Destination $net8Dest -Force
                 Write-Verbose "  Module copy: $net8Dest"
             } else {
-                Write-Warning "Module lib/net8/ directory not found at '$net8Dir' — skipping module copy."
+                Write-Warning "Module lib/net8/ directory not found at '$net8Dir' -- skipping module copy."
             }
         }
 
-        # ── AppleUSBFTDI kext warning ────────────────────────────────────────────
+        # -- AppleUSBFTDI kext warning -----------------------------------------------
         try {
             $kextOut = & kextstat 2>$null
             if ($kextOut -match 'AppleUSBFTDI') {
@@ -151,7 +151,7 @@ function Install-MacOSD2XXDrivers {
             }
         } catch {}
 
-        # ── Unmount before success message so output is ordered cleanly ────────────
+        # -- Unmount before success message so output is ordered cleanly ------------
         if ($mountPoint) {
             Write-Verbose "Unmounting $mountPoint..."
             & hdiutil detach $mountPoint -quiet 2>$null | Out-Null
@@ -159,7 +159,7 @@ function Install-MacOSD2XXDrivers {
             $mountPoint = $null
         }
 
-        # ── Done ─────────────────────────────────────────────────────────────────
+        # -- Done --------------------------------------------------------------------
         # Detect whether running from a local path or an installed module location
         # so the reimport instruction matches what will actually work.
         $psmPath  = Join-Path $PSScriptRoot '..' 'PSGadget.psm1'

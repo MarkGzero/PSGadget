@@ -105,9 +105,13 @@ public static class FtdiNative {
     public const byte CBUS_BITBANG_WR      = 11;
     public const byte CBUS_BITBANG_RD      = 12;
 
-    // FT232R EEPROM word addresses for CBUS pin mode
-    public const uint EE_WORD_CBUS01       = 7;   // bits 3:0 = CBUS0, bits 7:4 = CBUS1
-    public const uint EE_WORD_CBUS23       = 8;   // bits 3:0 = CBUS2, bits 7:4 = CBUS3
+    // FT232R EEPROM word addresses for CBUS pin mode.
+    // Verified from FT_Prog hex dump (AN_107 / 93C46 EEPROM layout):
+    //   Word 0x0A: bits[3:0]=CBUS0, bits[7:4]=CBUS1, bits[11:8]=CBUS2, bits[15:12]=CBUS3
+    //   Word 0x0B: bits[3:0]=CBUS4
+    // Prior constants EE_WORD_CBUS01=7, EE_WORD_CBUS23=8 were wrong (those are config words).
+    public const uint EE_WORD_CBUS0123    = 10;  // 0x0A: all of CBUS0-3 packed into one word
+    public const uint EE_WORD_CBUS4       = 11;  // 0x0B: bits[3:0]=CBUS4
 
     [DllImport("$escapedPath", EntryPoint = "FT_Open")]
     public static extern int FT_Open(int deviceNumber, out IntPtr pHandle);
@@ -355,20 +359,19 @@ function Get-FtdiNativeFt232rEeprom {
         throw "FtdiNative not initialised. Call Initialize-FtdiNative first."
     }
 
-    # FT232R EEPROM word layout (FTDI D2XX Programmer's Guide / AN_107):
-    #   Word 0:  VendorID
-    #   Word 1:  ProductID
-    #   Word 7:  bits[3:0]=CBUS0, bits[7:4]=CBUS1  (EE_WORD_CBUS01)
-    #   Word 8:  bits[3:0]=CBUS2, bits[7:4]=CBUS3  (EE_WORD_CBUS23)
-    #   Word 9:  bits[3:0]=CBUS4, bit[4]=RIsD2XX
+    # FT232R EEPROM word layout -- verified from FT_Prog hex dump of real FT232R device:
+    #   Word 0:  device type / config (NOT VendorID)
+    #   Word 1:  VendorID  (0x0403 = FTDI)
+    #   Word 2:  ProductID (0x6001 = FT232R)
+    #   Word 0x0A (10): CBUS0[3:0], CBUS1[7:4], CBUS2[11:8], CBUS3[15:12] (all in one word)
+    #   Word 0x0B (11): CBUS4[3:0]
 
     $handle = Invoke-FtdiNativeOpen -Index $Index
     try {
-        $word0 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset 0
-        $word1 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset 1
-        $word7 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS01)
-        $word8 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS23)
-        $word9 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset 9
+        $word1        = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset 1
+        $word2        = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset 2
+        $wordCbus0123 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS0123)
+        $wordCbus4    = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS4)
 
         $resolveCbus = {
             param([int]$v)
@@ -377,8 +380,8 @@ function Get-FtdiNativeFt232rEeprom {
         }
 
         return [PSCustomObject]@{
-            VendorID        = '0x{0:X4}' -f $word0
-            ProductID       = '0x{0:X4}' -f $word1
+            VendorID        = '0x{0:X4}' -f $word1
+            ProductID       = '0x{0:X4}' -f $word2
             # String descriptor area not yet parsed -- use Get-FtdiDevice for these
             Manufacturer    = $null
             ManufacturerID  = $null
@@ -400,12 +403,12 @@ function Get-FtdiNativeFt232rEeprom {
             InvertDSR       = $null
             InvertDCD       = $null
             InvertRI        = $null
-            Cbus0           = & $resolveCbus ($word7 -band 0x0F)
-            Cbus1           = & $resolveCbus (($word7 -shr 4) -band 0x0F)
-            Cbus2           = & $resolveCbus ($word8 -band 0x0F)
-            Cbus3           = & $resolveCbus (($word8 -shr 4) -band 0x0F)
-            Cbus4           = & $resolveCbus ($word9 -band 0x0F)
-            RIsD2XX         = [bool](($word9 -shr 4) -band 0x01)
+            Cbus0           = & $resolveCbus ($wordCbus0123 -band 0x000F)
+            Cbus1           = & $resolveCbus (($wordCbus0123 -shr 4) -band 0x000F)
+            Cbus2           = & $resolveCbus (($wordCbus0123 -shr 8) -band 0x000F)
+            Cbus3           = & $resolveCbus (($wordCbus0123 -shr 12) -band 0x000F)
+            Cbus4           = & $resolveCbus ($wordCbus4 -band 0x000F)
+            RIsD2XX         = $null   # location not confirmed from dump; omit to avoid wrong data
             # Marker so callers can detect this is a partial native read
             _NativeRead     = $true
         }
@@ -433,13 +436,14 @@ function Get-FtdiNativeCbusEepromInfo {
 
     $handle = Invoke-FtdiNativeOpen -Index $Index
     try {
-        $word7 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS01)
-        $word8 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS23)
+        $wordCbus0123 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS0123)
+        $wordCbus4    = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS4)
 
-        $cbus0 = $word7 -band 0x0F
-        $cbus1 = ($word7 -shr 4) -band 0x0F
-        $cbus2 = $word8 -band 0x0F
-        $cbus3 = ($word8 -shr 4) -band 0x0F
+        $cbus0 = $wordCbus0123 -band 0x000F
+        $cbus1 = ($wordCbus0123 -shr 4) -band 0x000F
+        $cbus2 = ($wordCbus0123 -shr 8) -band 0x000F
+        $cbus3 = ($wordCbus0123 -shr 12) -band 0x000F
+        $cbus4 = $wordCbus4 -band 0x000F
 
         $nameOf = {
             param([int]$v)
@@ -451,10 +455,12 @@ function Get-FtdiNativeCbusEepromInfo {
             Cbus1     = & $nameOf $cbus1
             Cbus2     = & $nameOf $cbus2
             Cbus3     = & $nameOf $cbus3
+            Cbus4     = & $nameOf $cbus4
             Cbus0Byte = [byte]$cbus0
             Cbus1Byte = [byte]$cbus1
             Cbus2Byte = [byte]$cbus2
             Cbus3Byte = [byte]$cbus3
+            Cbus4Byte = [byte]$cbus4
         }
     } finally {
         Invoke-FtdiNativeClose -Handle $handle
@@ -512,29 +518,32 @@ function Set-FtdiNativeCbusEeprom {
 
     $handle = Invoke-FtdiNativeOpen -Index $Index
     try {
-        # Read current EEPROM words
-        [ushort]$word7 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS01)
-        [ushort]$word8 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS23)
+        # FT232R packs CBUS0-3 into a single word at 0x0A; CBUS4 is at 0x0B.
+        # Read-modify-write: only touched pins are changed; others preserved.
+        [ushort]$wordA = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS0123)
+        [ushort]$wordB = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS4)
 
-        $origWord7 = $word7
-        $origWord8 = $word8
+        $origWordA = $wordA
+        $origWordB = $wordB
 
         foreach ($pin in $Pins) {
+            $nibble = [ushort]($modeByte -band 0x0F)
             switch ($pin) {
-                0 { $word7 = [ushort](($word7 -band 0xFFF0) -bor ($modeByte -band 0x0F)) }
-                1 { $word7 = [ushort](($word7 -band 0xFF0F) -bor (($modeByte -band 0x0F) -shl 4)) }
-                2 { $word8 = [ushort](($word8 -band 0xFFF0) -bor ($modeByte -band 0x0F)) }
-                3 { $word8 = [ushort](($word8 -band 0xFF0F) -bor (($modeByte -band 0x0F) -shl 4)) }
+                0 { $wordA = [ushort](($wordA -band 0xFFF0) -bor $nibble) }
+                1 { $wordA = [ushort](($wordA -band 0xFF0F) -bor ($nibble -shl 4)) }
+                2 { $wordA = [ushort](($wordA -band 0xF0FF) -bor ($nibble -shl 8)) }
+                3 { $wordA = [ushort](($wordA -band 0x0FFF) -bor ($nibble -shl 12)) }
+                4 { $wordB = [ushort](($wordB -band 0xFFF0) -bor $nibble) }
             }
         }
 
-        if ($word7 -ne $origWord7) {
-            Invoke-FtdiNativeWriteEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS01) -Value $word7
-            Write-Verbose ("EEPROM word7: 0x{0:X4} -> 0x{1:X4}" -f $origWord7, $word7)
+        if ($wordA -ne $origWordA) {
+            Invoke-FtdiNativeWriteEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS0123) -Value $wordA
+            Write-Verbose ("EEPROM word 0x0A (CBUS0-3): 0x{0:X4} -> 0x{1:X4}" -f $origWordA, $wordA)
         }
-        if ($word8 -ne $origWord8) {
-            Invoke-FtdiNativeWriteEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS23) -Value $word8
-            Write-Verbose ("EEPROM word8: 0x{0:X4} -> 0x{1:X4}" -f $origWord8, $word8)
+        if ($wordB -ne $origWordB) {
+            Invoke-FtdiNativeWriteEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS4) -Value $wordB
+            Write-Verbose ("EEPROM word 0x0B (CBUS4):   0x{0:X4} -> 0x{1:X4}" -f $origWordB, $wordB)
         }
 
         Write-Host "EEPROM updated. Unplug and replug the device for the new CBUS mode to take effect."

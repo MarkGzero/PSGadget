@@ -189,7 +189,7 @@ function Invoke-FtdiUnixOpen {
 
         # When provided (from IoT enumeration), use this metadata directly and skip sysfs re-enum.
         # On macOS there is no /sys/bus/usb/devices, so sysfs always returns stubs. The stub at
-        # index 0 is FT232H (GpioMethod=MPSSE) — if a real FT232R is at index 0, re-enumerating
+        # index 0 is FT232H (GpioMethod=MPSSE) -- if a real FT232R is at index 0, re-enumerating
         # via stubs would assign the wrong GpioMethod, silently routing all GPIO through MPSSE.
         [Parameter(Mandatory = $false)]
         [PSCustomObject]$DeviceInfo = $null
