@@ -486,11 +486,9 @@ function Get-FtdiNativeFt232rEeprom {
     Reads FT232R EEPROM fields via native P/Invoke (macOS/Linux).
 
     .DESCRIPTION
-    Returns a partial PSCustomObject matching the shape of Get-FtdiFt232rEeprom.
-    CBUS0-4 and VID/PID fields are correct.  String fields (Manufacturer,
-    Description, SerialNumber) are $null -- the variable-length string descriptor
-    area requires additional parsing not yet implemented.  Use Get-FtdiDevice to
-    retrieve those strings from USB enumeration.
+    Returns a PSCustomObject matching the shape of Get-FtdiFt232rEeprom.
+    Uses FT_EE_Read with the full FtProgramData struct so all fields including
+    string descriptors (Manufacturer, Description, SerialNumber) are populated.
 
     The device must not be open (no active New-PsGadgetFtdi connection) when this
     is called -- FT_Open does not allow a second handle on the same device.
@@ -512,58 +510,176 @@ function Get-FtdiNativeFt232rEeprom {
         throw "FtdiNative not initialised. Call Initialize-FtdiNative first."
     }
 
-    # FT232R EEPROM word layout -- verified from FT_Prog hex dump of real FT232R device:
-    #   Word 0:  device type / config (NOT VendorID)
-    #   Word 1:  VendorID  (0x0403 = FTDI)
-    #   Word 2:  ProductID (0x6001 = FT232R)
-    #   Word 0x0A (10): CBUS0[3:0], CBUS1[7:4], CBUS2[11:8], CBUS3[15:12] (all in one word)
-    #   Word 0x0B (11): CBUS4[3:0]
+    $handle = Invoke-FtdiNativeOpen -Index $Index
+    try {
+        $manufBuf   = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(32)
+        $manufIdBuf = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(16)
+        $descBuf    = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(64)
+        $serialBuf  = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(16)
+        try {
+            $data = [FtProgramData]::new()
+            $data.Signature1     = [uint32]0x00000000
+            $data.Signature2     = [uint32]4294967295   # 0xFFFFFFFF
+            $data.Version        = [uint32]5
+            $data.Manufacturer   = $manufBuf
+            $data.ManufacturerId = $manufIdBuf
+            $data.Description    = $descBuf
+            $data.SerialNumber   = $serialBuf
+
+            $status = [FtdiNative]::FT_EE_Read($handle, [ref]$data)
+            if ($status -ne [FtdiNative]::FT_OK) {
+                throw "FT_EE_Read failed: status=$status"
+            }
+
+            $resolveCbus = {
+                param([int]$v)
+                if ($script:FT_CBUS_NAMES.ContainsKey($v)) { $script:FT_CBUS_NAMES[$v] }
+                else { "UNKNOWN($v)" }
+            }
+
+            return [PSCustomObject]@{
+                VendorID        = '0x{0:X4}' -f $data.VendorId
+                ProductID       = '0x{0:X4}' -f $data.ProductId
+                Manufacturer    = [System.Runtime.InteropServices.Marshal]::PtrToStringAnsi($data.Manufacturer)
+                ManufacturerID  = [System.Runtime.InteropServices.Marshal]::PtrToStringAnsi($data.ManufacturerId)
+                Description     = [System.Runtime.InteropServices.Marshal]::PtrToStringAnsi($data.Description)
+                SerialNumber    = [System.Runtime.InteropServices.Marshal]::PtrToStringAnsi($data.SerialNumber)
+                MaxPower        = $data.MaxPower
+                SelfPowered     = [bool]$data.SelfPowered
+                RemoteWakeup    = [bool]$data.RemoteWakeup
+                UseExtOsc       = [bool]$data.UseExtOsc
+                HighDriveIOs    = [bool]$data.HighDriveIOs
+                EndpointSize    = $data.EndpointSize
+                PullDownEnable  = [bool]$data.PullDownEnableR
+                SerNumEnable    = [bool]$data.SerNumEnableR
+                InvertTXD       = [bool]$data.InvertTXD
+                InvertRXD       = [bool]$data.InvertRXD
+                InvertRTS       = [bool]$data.InvertRTS
+                InvertCTS       = [bool]$data.InvertCTS
+                InvertDTR       = [bool]$data.InvertDTR
+                InvertDSR       = [bool]$data.InvertDSR
+                InvertDCD       = [bool]$data.InvertDCD
+                InvertRI        = [bool]$data.InvertRI
+                Cbus0           = & $resolveCbus $data.Cbus0
+                Cbus1           = & $resolveCbus $data.Cbus1
+                Cbus2           = & $resolveCbus $data.Cbus2
+                Cbus3           = & $resolveCbus $data.Cbus3
+                Cbus4           = & $resolveCbus $data.Cbus4
+                RIsD2XX         = [bool]$data.RIsD2XX
+                _NativeRead     = $true
+            }
+        } finally {
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($manufBuf)
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($manufIdBuf)
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($descBuf)
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($serialBuf)
+        }
+    } finally {
+        Invoke-FtdiNativeClose -Handle $handle
+    }
+}
+
+function Get-FtdiNativeFt232hEeprom {
+    <#
+    .SYNOPSIS
+    Reads FT232H EEPROM fields via native P/Invoke (macOS/Linux).
+
+    .DESCRIPTION
+    Uses FT_EE_Read with the full FtProgramData struct (Version 5) to populate
+    all FT232H fields including string descriptors, drive settings, and CBUS pin
+    modes.  Returns a PSCustomObject matching the shape of Get-FtdiFt232hEeprom.
+
+    The device must not be open (no active New-PsGadgetFtdi connection) when this
+    is called -- FT_Open does not allow a second handle on the same device.
+
+    .PARAMETER Index
+    Zero-based device index (from Get-FtdiDevice).
+
+    .OUTPUTS
+    PSCustomObject with EEPROM fields, or throws on P/Invoke error.
+    #>
+    [CmdletBinding()]
+    [OutputType([System.Object])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Index
+    )
+
+    if (-not $script:FtdiNativeAvailable) {
+        throw "FtdiNative not initialised. Call Initialize-FtdiNative first."
+    }
 
     $handle = Invoke-FtdiNativeOpen -Index $Index
     try {
-        $word1        = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset 1
-        $word2        = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset 2
-        $wordCbus0123 = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS0123)
-        $wordCbus4    = Invoke-FtdiNativeReadEE -Handle $handle -WordOffset ([FtdiNative]::EE_WORD_CBUS4)
+        $manufBuf   = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(32)
+        $manufIdBuf = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(16)
+        $descBuf    = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(64)
+        $serialBuf  = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(16)
+        try {
+            $data = [FtProgramData]::new()
+            $data.Signature1     = [uint32]0x00000000
+            $data.Signature2     = [uint32]4294967295   # 0xFFFFFFFF
+            $data.Version        = [uint32]5
+            $data.Manufacturer   = $manufBuf
+            $data.ManufacturerId = $manufIdBuf
+            $data.Description    = $descBuf
+            $data.SerialNumber   = $serialBuf
 
-        $resolveCbus = {
-            param([int]$v)
-            if ($script:FT_CBUS_NAMES.ContainsKey($v)) { $script:FT_CBUS_NAMES[$v] }
-            else { "UNKNOWN($v)" }
-        }
+            $status = [FtdiNative]::FT_EE_Read($handle, [ref]$data)
+            if ($status -ne [FtdiNative]::FT_OK) {
+                throw "FT_EE_Read failed: status=$status"
+            }
 
-        return [PSCustomObject]@{
-            VendorID        = '0x{0:X4}' -f $word1
-            ProductID       = '0x{0:X4}' -f $word2
-            # String descriptor area not yet parsed -- use Get-FtdiDevice for these
-            Manufacturer    = $null
-            ManufacturerID  = $null
-            Description     = $null
-            SerialNumber    = $null
-            MaxPower        = $null
-            SelfPowered     = $null
-            RemoteWakeup    = $null
-            UseExtOsc       = $null
-            HighDriveIOs    = $null
-            EndpointSize    = $null
-            PullDownEnable  = $null
-            SerNumEnable    = $null
-            InvertTXD       = $null
-            InvertRXD       = $null
-            InvertRTS       = $null
-            InvertCTS       = $null
-            InvertDTR       = $null
-            InvertDSR       = $null
-            InvertDCD       = $null
-            InvertRI        = $null
-            Cbus0           = & $resolveCbus ($wordCbus0123 -band 0x000F)
-            Cbus1           = & $resolveCbus (($wordCbus0123 -shr 4) -band 0x000F)
-            Cbus2           = & $resolveCbus (($wordCbus0123 -shr 8) -band 0x000F)
-            Cbus3           = & $resolveCbus (($wordCbus0123 -shr 12) -band 0x000F)
-            Cbus4           = & $resolveCbus ($wordCbus4 -band 0x000F)
-            RIsD2XX         = $null   # location not confirmed from dump; omit to avoid wrong data
-            # Marker so callers can detect this is a partial native read
-            _NativeRead     = $true
+            $resolveCbus = {
+                param([int]$v)
+                if ($script:FT_232H_CBUS_NAMES.ContainsKey($v)) { $script:FT_232H_CBUS_NAMES[$v] }
+                else { "UNKNOWN($v)" }
+            }
+
+            return [PSCustomObject]@{
+                VendorID            = '0x{0:X4}' -f $data.VendorId
+                ProductID           = '0x{0:X4}' -f $data.ProductId
+                Manufacturer        = [System.Runtime.InteropServices.Marshal]::PtrToStringAnsi($data.Manufacturer)
+                ManufacturerID      = [System.Runtime.InteropServices.Marshal]::PtrToStringAnsi($data.ManufacturerId)
+                Description         = [System.Runtime.InteropServices.Marshal]::PtrToStringAnsi($data.Description)
+                SerialNumber        = [System.Runtime.InteropServices.Marshal]::PtrToStringAnsi($data.SerialNumber)
+                MaxPower            = $data.MaxPower
+                SelfPowered         = [bool]$data.SelfPowered
+                RemoteWakeup        = [bool]$data.RemoteWakeup
+                PullDownEnable      = [bool]$data.PullDownEnableH
+                SerNumEnable        = [bool]$data.SerNumEnableH
+                ACSlowSlew          = [bool]$data.ACSlowSlewH
+                ACSchmittInput      = [bool]$data.ACSchmittInputH
+                ACDriveCurrent      = $data.ACDriveCurrentH
+                ADSlowSlew          = [bool]$data.ADSlowSlewH
+                ADSchmittInput      = [bool]$data.ADSchmittInputH
+                ADDriveCurrent      = $data.ADDriveCurrentH
+                Cbus0               = & $resolveCbus $data.Cbus0H
+                Cbus1               = & $resolveCbus $data.Cbus1H
+                Cbus2               = & $resolveCbus $data.Cbus2H
+                Cbus3               = & $resolveCbus $data.Cbus3H
+                Cbus4               = & $resolveCbus $data.Cbus4H
+                Cbus5               = & $resolveCbus $data.Cbus5H
+                Cbus6               = & $resolveCbus $data.Cbus6H
+                Cbus7               = & $resolveCbus $data.Cbus7H
+                Cbus8               = & $resolveCbus $data.Cbus8H
+                Cbus9               = & $resolveCbus $data.Cbus9H
+                IsFifo              = [bool]$data.IsFifoH
+                IsFifoTar           = [bool]$data.IsFifoTarH
+                IsFastSer           = [bool]$data.IsFastSerH
+                IsFT1248            = [bool]$data.IsFT1248H
+                FT1248Cpol          = [bool]$data.FT1248CpolH
+                FT1248Lsb           = [bool]$data.FT1248LsbH
+                FT1248FlowControl   = [bool]$data.FT1248FlowControlH
+                IsVCP               = [bool]$data.IsVCPH
+                PowerSaveEnable     = [bool]$data.PowerSaveEnableH
+                _NativeRead         = $true
+            }
+        } finally {
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($manufBuf)
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($manufIdBuf)
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($descBuf)
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($serialBuf)
         }
     } finally {
         Invoke-FtdiNativeClose -Handle $handle
