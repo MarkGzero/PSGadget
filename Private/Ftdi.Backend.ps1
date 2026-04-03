@@ -132,6 +132,14 @@ function Get-FtdiDeviceList {
             if ($PSVersionTable.PSVersion.Major -le 5 -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
                 Write-Debug "Using Windows FTDI backend"
                 $devices = Invoke-FtdiWindowsEnumerate
+                # On PS5.1 (.NET Framework), FTD2XX_NET's GetDeviceList leaves internal D2XX
+                # handles open until the FTDI object is garbage-collected -- Close() alone is
+                # insufficient. Force a GC cycle now so those handles are released before the
+                # EEPROM enrichment loop tries to OpenByIndex on the same devices.
+                if ($PSVersionTable.PSVersion.Major -le 5) {
+                    [System.GC]::Collect()
+                    [System.GC]::WaitForPendingFinalizers()
+                }
             } else {
                 Write-Debug "Using Unix FTDI backend"
                 $devices = Invoke-FtdiUnixEnumerate
@@ -167,13 +175,14 @@ function Get-FtdiDeviceList {
                 $isSubInterface = $serial.Length -gt 0 -and $serial[-1] -match '[A-D]' -and
                                   ($devices | Where-Object { $_.SerialNumber -eq $serial.Substring(0, $serial.Length - 1) })
                 # EEPROM enrichment: read CBUS/ACBUS config to build a live CapabilityNote.
-                # IMPORTANT: On Windows PowerShell 5.1 (.NET Framework), D2XX's GetDeviceList
-                # internally opens device handles that are not released by FTDI.Close(). A
-                # subsequent OpenByIndex for EEPROM read then gets a conflicted handle and
-                # ReadFT232REEPROM throws AccessViolationException, which cannot be caught on
-                # .NET Framework and crashes the PowerShell process. Skip on PS5 to avoid this.
-                # Users can call Get-FtdiEeprom -Index N directly for CBUS configuration details.
-                $canReadEeprom = $PSVersionTable.PSVersion.Major -ge 6
+                # On PS5.1 Windows (.NET Framework), ReadFT232REEPROM throws an uncatchable
+                # AccessViolationException on devices with blank/unconfigured EEPROMs (empty
+                # serial number). For devices with a serial number the EEPROM is valid and safe
+                # to read -- the GC.Collect() above ensures GetDeviceList handles are released.
+                # Skip enrichment only for blank-EEPROM devices on PS5.1; allow it otherwise.
+                $isPs51Windows = $PSVersionTable.PSVersion.Major -le 5 -and
+                                 [System.Environment]::OSVersion.Platform -eq 'Win32NT'
+                $canReadEeprom = (-not $isPs51Windows) -or ($serial -ne '')
 
                 if ($deviceArray[$i].GpioMethod -eq 'CBUS' -and $deviceArray[$i].Type -match '^FT232R' -and -not $isSubInterface) {
                     if ($deviceArray[$i].IsOpen) {
@@ -204,8 +213,7 @@ function Get-FtdiDeviceList {
                             Write-Verbose "EEPROM enrichment failed for FT232R index $i : $_"
                         }
                     } else {
-                        Write-Verbose ("EEPROM enrichment skipped on PS5.1 (D2XX handle conflict). " +
-                                       "Run Get-FtdiEeprom -Index $i for CBUS configuration details.")
+                        Write-Verbose "EEPROM enrichment skipped for index $i (blank EEPROM -- no serial number)."
                     }
                 }
 
