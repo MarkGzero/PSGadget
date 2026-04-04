@@ -37,7 +37,12 @@ class PsGadgetI2CDevice {
     [bool] I2CWrite([byte[]]$data) {
         try {
             if ($null -ne $this.I2cDevice) {
-                $this.I2cDevice.Write($this.I2CAddress, $data)
+                # IoT backend: I2cDevice already has the address baked in; just pass the data.
+                $this.I2cDevice.Write([byte[]]$data)
+                $hexStr = $script:PsGadgetLogger.FormatHex($data)
+                $script:PsGadgetLogger.WriteProto('I2C.WRITE',
+                        ("addr=0x{0:X2}  {1}B  IoT" -f $this.I2CAddress, $data.Length),
+                        $hexStr)
                 return $true
             } else {
                 return (Send-MpsseI2CWrite -DeviceHandle $this.FtdiDevice -Address $this.I2CAddress -Data $data)
@@ -75,7 +80,12 @@ class PsGadgetI2CDevice {
             # .NET IoT backend manages its own I2C init; D2XX uses raw MPSSE.
             # Skip if Set-PsGadgetFtdiMode already ran Initialize-MpsseI2C this session.
             if ($null -eq $this.I2cDevice) {
-                if ($this.FtdiDevice.GpioMethod -ne 'MpsseI2c') {
+                if ($this.FtdiDevice.GpioMethod -eq 'IoT') {
+                    # IoT backend: create an I2cDevice from the Ft232HDevice's I2C bus.
+                    # The device has the address baked in; subsequent Write() calls need no address.
+                    $i2cBus = $this.FtdiDevice.Device.CreateOrGetI2cBus(0)
+                    $this.I2cDevice = $i2cBus.CreateDevice([int]$this.I2CAddress)
+                } elseif ($this.FtdiDevice.GpioMethod -ne 'MpsseI2c') {
                     if (-not (Initialize-MpsseI2C -DeviceHandle $this.FtdiDevice -ClockFrequency 100000)) {
                         $this.Logger.WriteError("MPSSE I2C initialization failed")
                         return $false

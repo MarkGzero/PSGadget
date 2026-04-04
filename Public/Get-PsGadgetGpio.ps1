@@ -66,6 +66,13 @@ function Get-PsGadgetGpio {
         switch ($gpioMethod) {
             'CBUS'  { $rawByte = Get-FtdiCbusBits -Connection $Connection }
             'MPSSE' { $rawByte = Get-FtdiGpioPins -DeviceHandle $Connection -BypassCache }
+            'IoT'   {
+                if (-not $Connection.GpioController) {
+                    Write-Warning ("Get-PsGadgetGpio: IoT connection is missing GpioController for device '{0}'" -f $Connection.Type)
+                    break
+                }
+                $rawByte = Get-FtdiIotGpioPins -GpioController $Connection.GpioController
+            }
             default {
                 Write-Warning ("Get-PsGadgetGpio: unsupported GpioMethod '{0}' for device '{1}'" -f $gpioMethod, $Connection.Type)
             }

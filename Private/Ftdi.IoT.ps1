@@ -194,7 +194,7 @@ function Invoke-FtdiIotOpen {
         # CreateI2cBus - returns an IoT I2cBus for use with Iot.Device.Bindings sensor classes
         $connection | Add-Member -MemberType ScriptMethod -Name 'CreateI2cBus' -Value {
             if (-not $this.IsOpen -or -not $this.Device) { throw 'Device is not open' }
-            return $this.Device.CreateOrGetI2cBus()
+            return $this.Device.CreateOrGetI2cBus(0)
         }
 
         # CreateSpiDevice - returns an IoT SpiDevice for use with Iot.Device.Bindings bindings
@@ -277,5 +277,36 @@ function Set-FtdiIotGpioPins {
     } catch {
         Write-Warning "IoT GPIO operation failed: $($_.Exception.Message)"
         return $false
+    }
+}
+
+function Get-FtdiIotGpioPins {
+    # Read ACBUS GPIO pins on an FT232H via IoT GpioController.
+    # Pin mapping: ACBUS pin N -> IoT controller pin N+8 (same as Set-FtdiIotGpioPins).
+    # Returns a byte where bit N = state of ACBUS pin N.
+    # Pins not yet opened are opened as Input before reading.
+    [CmdletBinding()]
+    [OutputType([byte])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$GpioController
+    )
+    try {
+        [byte]$result = 0
+        for ($pin = 0; $pin -le 7; $pin++) {
+            $iotPin = $pin + 8
+            if (-not $GpioController.IsPinOpen($iotPin)) {
+                $GpioController.OpenPin($iotPin, [System.Device.Gpio.PinMode]::Input)
+            }
+            $val = $GpioController.Read($iotPin)
+            if ($val -eq [System.Device.Gpio.PinValue]::High) {
+                $result = $result -bor ([byte](1 -shl $pin))
+            }
+        }
+        $script:PsGadgetLogger.WriteProto('GPIO.READ', ("IoT ACBUS raw=0x{0:X2}" -f $result))
+        return $result
+    } catch {
+        Write-Warning "IoT GPIO read failed: $($_.Exception.Message)"
+        return [byte]0
     }
 }

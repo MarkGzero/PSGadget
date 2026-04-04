@@ -1,71 +1,50 @@
-# Session Context — 2026-04-03T20:00:00Z
+# Session Context — 2026-04-04T12:00:00Z
 
 ## Current Focus
 
-All EEPROM work complete. Considering git history cleanup (250 commits → squashed milestones).
+macOS IoT backend support — GPIO read (`readPins`) + Stepper motor (`IoT` GpioMethod path).
+All three changes implemented and deployed to MBP001 but **not yet committed**.
 
 ## Current State
 
-### Completed this session (commits on `main`):
+### Completed (deployed, uncommitted):
+- `Private/Ftdi.IoT.ps1` — Added `Get-FtdiIotGpioPins` function (reads ACBUS pins via IoT GpioController)
+- `Public/Get-PsGadgetGpio.ps1` — Added `'IoT'` case to GpioMethod switch
+- `Private/Stepper.Backend.ps1` — Added `elseif ($gpioMethod -eq 'IoT')` branch (ACBUS0-3, IoT pins 8-11)
 
-| Commit | Description |
-|--------|-------------|
-| `587ba42` | Full `FT_PROGRAM_DATA` struct (Version 5) for macOS `FT_EE_Program`; blank-EEPROM write fix for PS5.1 |
-| `941f31c` | Restore EEPROM CapabilityNote on Windows PS5.1 via GC.Collect() before enrichment |
-
-### Verified working:
-- **macOS BG01B1EI** — `Set-PsGadgetFt232rCbusMode` succeeded via `FT_EE_Program`; `Get-FtdiEeprom` shows Cbus0-3 = `FT_CBUS_IOMODE`
-- **Windows PS5.1 BG01B7VJ** — programmed from Windows (blank EEPROM path); `Get-FtdiEeprom` shows Cbus0-3 = `FT_CBUS_IOMODE`
-- **Windows PS5.1 `Get-FtdiDevice`** — CapabilityNote correctly shows `CBUS0-3 all configured as I/O MODE -- ready for GPIO.`
-
-### Devices:
-- **BG01X3AK** — Windows FT232R, already programmed, IOMODE confirmed
-- **BG01B7VJ** — Mac FT232R (serial `BG01B7VJ` after programming from Windows), IOMODE confirmed
-- **BG01B1EI** — Mac FT232R (separate device on Mac, programmed via macOS FT_EE_Program)
-- **FT9ZLJ51** — Windows FT232H, MPSSE, CapabilityNote `ACBUS0-7 all MPSSE-controllable.`
+### Previously committed (this session):
+- `cceadca` — Full EEPROM read for FT232R and FT232H on macOS via FT_EE_Read
+- `941f31c` — Restore EEPROM CapabilityNote on Windows PS5.1
+- `587ba42` — Full FT_PROGRAM_DATA struct for macOS; blank-EEPROM write fix on PS5.1
 
 ## Recent Decisions
 
-### FtProgramData struct (Ftdi.PInvoke.ps1)
-Full `FT_PROGRAM_DATA` through Version 5 (all 72 missing fields for FT2232H/FT4232H/FT232H).
-`Version = [uint32]5` in `Set-FtdiNativeCbusEeprom` — required so libftd2xx knows struct is complete.
-Per AN_428: FT232R uses Version=2 logically but the struct must be allocated through Version 5
-for ABI safety (libftd2xx writes beyond declared-version fields regardless).
+### macOS IoT GPIO read — Get-FtdiIotGpioPins (Ftdi.IoT.ps1)
+Added after `Set-FtdiIotGpioPins`. Reads all 8 ACBUS pins (IoT controller pins 8-15).
+Opens unopen pins as Input before reading. Returns a byte where bit N = state of ACBUS pin N.
+Logging via `$script:PsGadgetLogger.WriteProto('GPIO.READ', ...)`.
 
-### Blank EEPROM detection (Ftdi.Cbus.ps1)
-`ReadFT232REEPROM` (FTD2XX_NET) AVE-crashes on blank-EEPROM devices (empty serial number).
-AVE is uncatchable on .NET Framework. Fix: skip read when `SerialNumber == ''`, use
-factory defaults (`VID=0x0403, PID=0x6001, MaxPower=90, SerNumEnable=true`).
+### Get-PsGadgetGpio IoT case
+Third case in switch after CBUS and MPSSE. Guards on `$Connection.GpioController` presence.
 
-### PS5.1 GC fix (Ftdi.Backend.ps1)
-`GetDeviceList` (FTD2XX_NET) leaves D2XX handles open until GC collects the FTDI object.
-`FTDI.Close()` is insufficient on .NET Framework. Fix: `[System.GC]::Collect() +
-WaitForPendingFinalizers()` after `Invoke-FtdiWindowsEnumerate` returns, before enrichment loop.
-Re-enabled enrichment on PS5.1 for devices with non-empty serial (valid EEPROM).
+### Stepper IoT path (Stepper.Backend.ps1)
+Three-way dispatch: MPSSE → IoT → AsyncBitBang.
+IoT path: opens ACBUS0-3 (IoT pins 8-11) as Output once, then tight Stopwatch spin-wait loop
+mirroring the MPSSE path. De-energizes all 4 coil pins after move completes.
+**macOS wiring requirement**: stepper coils must connect to ACBUS0-3 (C0-C3), NOT ADBUS
+(ADBUS = MPSSE protocol bus on FT232H, IoT pins 0-7).
 
-### SSH / deploy
-- SSH key: `C:\Users\mark\.ssh\mbp001_id` → MBP001 (`AdminMark@192.168.25.100`)
-- Deploy: `pwsh -File ./Tools/Deploy-ToMac.ps1 [-Reload] [-File <rel-path>]`
-- Mac pwsh: `/usr/local/bin/pwsh` (must use full path in SSH commands)
-- Mac module: `/Users/AdminMark/psgadget/PSGadget.psm1`
-
-### Git history
-Repo has ~250 commits. User asked about squashing to logical milestones (~20-30 commits).
-Safe approach: `git checkout -b history/full` to preserve full history, then
-`git rebase -i <root>` or soft-reset approach on `main`. **Not yet done — needs user confirmation.**
+### SSD1306 and PCA9685 servo — no changes needed
+Both already platform-agnostic via `PsGadgetI2CDevice.I2CWrite()` which has built-in
+IoT/MPSSE branching. Hardware-verified working on macOS.
 
 ## Active Files
 
-All changes committed. No uncommitted working changes.
-
-| File | Last change |
-|------|-------------|
-| `Private/Ftdi.PInvoke.ps1` | Full FtProgramData struct (Version 5); `Set-FtdiNativeCbusEeprom` Version=5 |
-| `Private/Ftdi.Cbus.ps1` | Blank-EEPROM skip for `ReadFT232REEPROM` on PS5.1 |
-| `Private/Ftdi.Backend.ps1` | GC.Collect() before enrichment on PS5.1; re-enabled enrichment; verbose catch |
-| `Public/Set-PsGadgetFt232rCbusMode.ps1` | PS5.1 preview guard; CyclePort Windows-only |
-| `PSGadget.psm1` | Fix FtdiInitialized overwrite bug |
-| `Tools/Deploy-ToMac.ps1` | New; uses `/usr/local/bin/pwsh` for SSH reload |
+| File | Change | Status |
+|------|--------|--------|
+| `Private/Ftdi.IoT.ps1` | Add `Get-FtdiIotGpioPins` | Deployed, uncommitted |
+| `Public/Get-PsGadgetGpio.ps1` | Add `'IoT'` case to switch | Deployed, uncommitted |
+| `Private/Stepper.Backend.ps1` | Add IoT elseif branch | Deployed, uncommitted |
 
 ## Key Constraints
 
@@ -76,12 +55,21 @@ All changes committed. No uncommitted working changes.
 - `AccessViolationException` uncatchable on .NET Framework (PS5.1)
 - Module load order in `PSGadget.psm1` is fixed
 - Only D2XX (libftd2xx / FTD2XX_NET) or dotnet IoT (`Iot.Device.*`) — no other libraries
+- IoT ACBUS pin mapping: ACBUS N → IoT GpioController pin N+8 (ACBUS0=pin8...ACBUS7=pin15)
+- ADBUS (IoT pins 0-7) = MPSSE bus, not available for general GPIO
+
+## Devices
+
+- **BG01X3AK** — Windows FT232R, IOMODE confirmed
+- **BG01B7VJ** — Mac FT232R, IOMODE confirmed
+- **BG01B1EI** — Mac FT232R, IOMODE confirmed
+- **FT9ZLJ51** — FT232H (Windows + Mac), MPSSE / IoT backend
 
 ## Known Issues
 
-None critical. Pre-existing cleanup items remain:
+None critical. Pre-existing cleanup items:
 
-1. `Tests/PsGadget.Tests.ps1` version check expects `0.4.0` → needs bump to `0.4.2`
+1. `Tests/PsGadget.Tests.ps1` version check expects `0.4.0` — needs bump to `0.4.2`
 2. No SPI/UART stub tests
 3. `.github/copilot-instructions.md` references deleted `docs/PERSONAS.md`
 4. `examples/psgadget_workflow.md` lists deprecated `Send-PsGadgetI2CWrite`
@@ -90,14 +78,24 @@ None critical. Pre-existing cleanup items remain:
 
 ## Next Actions
 
-Option A — Git history squash (user expressed interest, needs confirmation):
-1. `git checkout -b history/full` — preserve full history
-2. Draft rebase plan grouping ~250 commits into ~20-30 logical milestones
-3. Execute `git rebase -i --root` or squash strategy on `main`
+**Immediate:**
+1. `/smart-gitcommit` — commit the 3 changed files (IoT GPIO read + Stepper IoT path)
+2. Verify on Mac: `$ft.setPins(@(2),1); $ft.readPins(@(0,1,2))` — expect `False, False, True`
 
-Option B — Pre-existing cleanup (in priority order):
-1. **Fix test version check** — `Tests/PsGadget.Tests.ps1`: `0.4.0` → `0.4.2`
-2. **Add stub tests** — `Context 'SPI'` and `Context 'UART'` blocks
-3. **Fix PERSONAS.md ref** — `.github/copilot-instructions.md`
-4. **Remove deprecated API** — `examples/psgadget_workflow.md`
-5. **Bump module version** — `0.4.2` → `0.4.3`
+**Cleanup (Option A, in priority order):**
+1. Fix test version check — `Tests/PsGadget.Tests.ps1`: `0.4.0` → `0.4.2`
+2. Add stub tests — `Context 'SPI'` and `Context 'UART'` blocks
+3. Fix PERSONAS.md ref — `.github/copilot-instructions.md`
+4. Remove deprecated API — `examples/psgadget_workflow.md`
+5. Bump module version — `0.4.2` → `0.4.3`
+
+**Option B:** Git history squash (user expressed interest, needs confirmation before starting)
+
+**Option C:** Untracked files suggest upcoming Summit demo:
+- `Tools/BitmapFontGlyphs.ps1`, `Tools/Start-BitmapVisualizer.ps1`, `examples/summit/`
+
+## SSH / Deploy
+
+- SSH key: `C:\Users\mark\.ssh\mbp001_id` → MBP001 (`AdminMark@192.168.25.100`)
+- Deploy: `pwsh -File ./Tools/Deploy-ToMac.ps1 -Reload -File <rel-path>`
+- Mac pwsh: `/usr/local/bin/pwsh`; Mac module: `/Users/AdminMark/psgadget/PSGadget.psm1`

@@ -239,7 +239,7 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
             $this.Logger.WriteError("SSD1306 not initialized")
             return $false
         }
-        $this.Logger.WriteInfo("Clearing SSD1306 display")
+        $script:PsGadgetLogger.WriteProto('SSD1306', 'CLEAR')
         try {
             Clear-Ssd1306Display -device $this -frameBuffer $this.FrameBuffer -pages $this.Pages | Out-Null
             return $true
@@ -340,7 +340,7 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
             return $true
         }
 
-        $this.Logger.WriteInfo("WriteText '$text' -> logical page $page (align: $align, rotation: $($this.Rotation))")
+        $script:PsGadgetLogger.WriteProto('SSD1306', "WRITE  '$text'  page=$page  align=$align  rot=$($this.Rotation)")
 
         try {
             # Build per-character glyph list and total pixel width
@@ -573,7 +573,7 @@ class PsGadgetSsd1306 : PsGadgetI2CDevice {
             return $true
         }
 
-        $this.Logger.WriteInfo("WriteTextTall '$text' pages $page/$($page+1) align=$align rotation=$($this.Rotation)")
+        $script:PsGadgetLogger.WriteProto('SSD1306', "WRITE_TALL  '$text'  pages=$page/$($page+1)  align=$align  rot=$($this.Rotation)")
 
         try {
             # Build glyph list

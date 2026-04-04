@@ -171,15 +171,19 @@ function Invoke-PsGadgetStepperMove {
     $gpioMethod = if ($conn -and $conn.PSObject.Properties['GpioMethod']) { $conn.GpioMethod } else { '' }
 
     # --- write per-step loop ---
-    # Two hardware paths:
+    # Three hardware paths:
     #
-    # MPSSE (FT232H default): three-byte MPSSE command per step, no mode switch needed.
+    # MPSSE (FT232H, Windows/Linux with libftd2xx): three-byte MPSSE command per step.
     #   ADBUS (default, -AcBus not set): SET_BITS_LOW  (0x80, value, direction)
     #     D0-D3 reserved for MPSSE I2C; use D4-D7 with PinOffset=4 / PinMask=0xF0.
     #   ACBUS (-AcBus switch):           SET_BITS_HIGH (0x82, value, direction)
     #     C0-C7 independent of ADBUS; use when stepper is on C0-C3 alongside I2C.
     #   Both keep the device in MPSSE mode; I2C (SSD1306) continues to work.
     #   Reference: FTDI AN_108 section 3.6.1 (SET_DATA_BITS_LOW_BYTE / HIGH_BYTE).
+    #
+    # IoT (FT232H on macOS/Linux via dotnet IoT backend): uses GpioController.
+    #   Coils must be wired to ACBUS0-3 (C0-C3). ADBUS is the MPSSE protocol bus.
+    #   IoT GpioController maps ACBUS pin N to controller pin N+8.
     #
     # AsyncBitBang (FT232R or explicit override): 1-byte direct pin state write.
     #   Requires prior SetBitMode(AsyncBitBang). Mode switch handled below.
@@ -225,6 +229,46 @@ function Invoke-PsGadgetStepperMove {
                 [uint32]$zw = 0
                 $conn.Device.Write($mpsseCmd, 3, [ref]$zw) | Out-Null
                 $log.WriteTrace("StepperMove: coils de-energized (MPSSE)")
+            } catch {
+                $log.WriteTrace("StepperMove de-energize stub: $($_.Exception.Message)")
+            }
+
+        } elseif ($gpioMethod -eq 'IoT') {
+            # IoT GpioController path (FT232H on macOS/Linux via dotnet IoT backend).
+            # Coils must be wired to ACBUS0-3 (C0-C3); IoT maps these to pins 8-11.
+            $gpioCtrl = $conn.GpioController
+            if (-not $gpioCtrl) { throw "IoT connection is missing GpioController" }
+            $log.WriteInfo("StepperMove: IoT ACBUS path, $Steps steps @ ${DelayMs}ms")
+            for ($p = 0; $p -le 3; $p++) {
+                $iotPin = $p + 8
+                if (-not $gpioCtrl.IsPinOpen($iotPin)) {
+                    $gpioCtrl.OpenPin($iotPin, [System.Device.Gpio.PinMode]::Output)
+                }
+            }
+            try {
+                for ($i = 0; $i -lt $Steps; $i++) {
+                    $stepByte = $buf[$i]
+                    $sw.Restart()
+                    for ($p = 0; $p -le 3; $p++) {
+                        $pinVal = if ($stepByte -band (1 -shl $p)) {
+                            [System.Device.Gpio.PinValue]::High
+                        } else {
+                            [System.Device.Gpio.PinValue]::Low
+                        }
+                        $gpioCtrl.Write($p + 8, $pinVal)
+                    }
+                    while ($sw.ElapsedTicks -lt $targetTicks) {}
+                }
+                $log.WriteInfo("StepperMove: completed $Steps steps (IoT/ACBUS)")
+                $script:PsGadgetLogger.WriteProto('STEPPER', "DONE  $Steps steps  IoT/ACBUS")
+            } catch {
+                $log.WriteError("StepperMove IoT error: $($_.Exception.Message)")
+                throw
+            }
+            # De-energize
+            try {
+                for ($p = 0; $p -le 3; $p++) { $gpioCtrl.Write($p + 8, [System.Device.Gpio.PinValue]::Low) }
+                $log.WriteTrace("StepperMove: coils de-energized (IoT)")
             } catch {
                 $log.WriteTrace("StepperMove de-energize stub: $($_.Exception.Message)")
             }
