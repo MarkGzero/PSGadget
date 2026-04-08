@@ -339,6 +339,14 @@ function Invoke-FtdiWindowsOpen {
             $ftdi.Write([byte[]](0x8A, 0x97, 0x8D), 3, [ref]$initBytesWritten) | Out-Null
             Start-Sleep -Milliseconds 5
             Write-Debug "MPSSE init sequence sent ($initBytesWritten bytes)"
+
+            # Initialise ACBUS output register to all-low, all-inputs (0x82 = Set Data Bits High Byte).
+            # Without this, the first Get-FtdiGpioPins hardware read returns 0xFF because ACBUS
+            # pins float HIGH via internal pull-ups before any output command is sent.
+            # That causes SetPin(n, HIGH) to OR onto 0xFF and drive ALL ACBUS pins HIGH.
+            [uint32]$acbusInitBytesWritten = 0
+            $ftdi.Write([byte[]](0x82, 0x00, 0x00), 3, [ref]$acbusInitBytesWritten) | Out-Null
+            Write-Debug "ACBUS init: all-low, all-inputs ($acbusInitBytesWritten bytes)"
         } else {
             Write-Debug "Device uses $($DeviceInfo.GpioMethod) GPIO (no MPSSE setup needed on open)"
             $ftdi.SetTimeouts(5000, 5000) | Out-Null
@@ -352,12 +360,13 @@ function Invoke-FtdiWindowsOpen {
             Description  = $DeviceInfo.Description
             Type         = $DeviceInfo.Type
             LocationId   = $DeviceInfo.LocationId
-            IsOpen       = $true
-            GpioMethod   = $DeviceInfo.GpioMethod
-            GpioPins     = $DeviceInfo.GpioPins
-            HasMpsse     = $DeviceInfo.HasMpsse
-            MpsseEnabled = $DeviceInfo.HasMpsse
-            Platform     = "Windows"
+            IsOpen           = $true
+            GpioMethod       = $DeviceInfo.GpioMethod
+            GpioPins         = $DeviceInfo.GpioPins
+            HasMpsse         = $DeviceInfo.HasMpsse
+            MpsseEnabled     = $DeviceInfo.HasMpsse
+            Platform         = "Windows"
+            AcbusCachedState = [byte]0
         }
         
         # Add methods to the connection object

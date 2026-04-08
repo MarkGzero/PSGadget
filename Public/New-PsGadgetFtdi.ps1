@@ -127,7 +127,7 @@ function New-PsGadgetFtdi {
                 'BySerial'   { $devices | Where-Object { $_.SerialNumber -eq $SerialNumber } | Select-Object -First 1 }
                 'ByLocation' { $devices | Where-Object { "$($_.LocationId)" -eq $LocationId } | Select-Object -First 1 }
             }
-            if ($preConnectDev -and $preConnectDev.Type -match '^FT232R') {
+            if ($preConnectDev -and $preConnectDev.Type -match '^FT232R' -and -not $preConnectDev.IsOpen) {
                 $eeprom = Get-FtdiEeprom -Index $preConnectDev.Index
                 if ($eeprom) {
                     $cbusIoPins = [int[]](0..3 | Where-Object { $eeprom."Cbus$_" -eq 'FT_CBUS_IOMODE' })
