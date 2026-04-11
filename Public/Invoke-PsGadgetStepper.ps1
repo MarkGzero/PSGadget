@@ -6,28 +6,39 @@ function Invoke-PsGadgetStepper {
     Drive a stepper motor connected to an FTDI device in a single command.
 
     .DESCRIPTION
-    High-level stepper motor dispatch.  Opens an FTDI device, switches it to
-    async bit-bang mode on ADBUS0-3, drives the attached stepper motor the
-    requested number of steps or degrees, then closes the connection.
+    High-level stepper motor dispatch.  Supports two driver types selected by
+    -DriverType:
 
-    Jitter reduction: the full step sequence is pre-computed as a byte buffer
-    and written in a single USB transfer.  The D2XX baud-rate timer paces each
-    coil transition, eliminating per-step USB round-trip latency.
+    ULN2003 (default) — coil-sequence driver for unipolar motors (e.g. 28BYJ-48).
+        Opens the FTDI device, switches to async bit-bang on ADBUS0-3, pre-computes
+        the full coil sequence as a byte buffer, and issues a single USB write so
+        the D2XX baud-rate timer paces each transition.  Supports FT232R and FT232H.
 
-    Supports FT232R and FT232H (both use ADBUS async bit-bang for stepper).
+        Pin wiring (default):
+            ADBUS0 (D0) -> IN1
+            ADBUS1 (D1) -> IN2
+            ADBUS2 (D2) -> IN3
+            ADBUS3 (D3) -> IN4
 
-    Pin wiring (default, ULN2003 driver board):
-        ADBUS0 (D0) -> IN1
-        ADBUS1 (D1) -> IN2
-        ADBUS2 (D2) -> IN3
-        ADBUS3 (D3) -> IN4
+        StepsPerRevolution default: ~4075.77 half-steps (28BYJ-48 empirical,
+        NOT exactly 4096).  Calibrate and pass -StepsPerRevolution to override.
 
-    StepsPerRevolution calibration note:
-        The 28BYJ-48 is NOT exactly 2048 full-steps or 4096 half-steps per
-        revolution.  Empirical measurement yields ~4075.77 half-steps/rev.
-        The default is that value.  Calibrate your specific unit and pass
-        -StepsPerRevolution to use your measured value.  Angle-based moves
-        (-Degrees) always use the configured calibration.
+    TB6600 — step/direction driver for bipolar motors (e.g. NEMA 17/23, VEXTA).
+        Uses MPSSE SET_BITS_HIGH (0x82) to toggle ACBUS/CBUS pins.  Requires
+        FT232H in MPSSE or IoT mode.  The driver handles all phase sequencing;
+        the host only pulses PUL+ once per step.
+
+        Default pin wiring (ACBUS/CBUS on FT232H):
+            CBUS0 (C0) -> PUL+    (pulse: rising edge = 1 step)
+            CBUS1 (C1) -> DIR+    (direction: HIGH=forward)
+            CBUS2 (C2) -> ENA+    (enable; omit with -NoEnable when looped/GND)
+            CBUS4 (C4) -> Left limit switch  (input; LOW = triggered, active-low default)
+            CBUS5 (C5) -> Right limit switch (input; LOW = triggered, active-low default)
+        Override with -EnaPin / -DirPin / -PulPin / -LeftLimitPin / -RightLimitPin.
+
+        StepsPerRevolution default: 200 (1.8-degree motor, full-step).
+        Change to match your TB6600 microstep DIP setting, e.g. 400 for 1/2 step,
+        800 for 1/4 step, 1600 for 1/8 step, 3200 for 1/16 step, 6400 for 1/32 step.
 
     .PARAMETER PsGadget
     An already-open PsGadgetFtdi object (from New-PsGadgetFtdi).
@@ -77,43 +88,82 @@ function Invoke-PsGadgetStepper {
     Default 0 (IN1=bit0 = ADBUS0).
 
     .PARAMETER AcBus
-    Target ACBUS (C-bank, pins C0-C7) instead of ADBUS (D-bank).
+    (ULN2003 only) Target ACBUS (C-bank, pins C0-C7) instead of ADBUS (D-bank).
     Required when the stepper is wired to ACBUS C0-C3 on an FT232H that is
     also running I2C on ADBUS D0/D1 (e.g. combined stepper + SSD1306).
     Uses MPSSE SET_BITS_HIGH (0x82) instead of SET_BITS_LOW (0x80).
 
+    .PARAMETER DriverType
+    'ULN2003' (default) for coil-sequence unipolar drivers (28BYJ-48).
+    'TB6600' for step/direction bipolar drivers (NEMA 17/23, VEXTA PK-series).
+
+    .PARAMETER EnaPin
+    (TB6600 only) ACBUS pin number for ENA+.  Default 2 (CBUS2).
+
+    .PARAMETER DirPin
+    (TB6600 only) ACBUS pin number for DIR+.  Default 1 (CBUS1).
+
+    .PARAMETER PulPin
+    (TB6600 only) ACBUS pin number for PUL+.  Default 0 (CBUS0).
+
+    .PARAMETER PulseWidthUs
+    (TB6600 only) PUL+ high-pulse width in microseconds.
+    TB6600 minimum is 2.5 µs; default 5 µs gives a safe margin.
+
+    .PARAMETER NoEnable
+    (TB6600 only) Skip ENA pin control entirely.
+    Use when ENA+/ENA- are looped together or ENA+ is tied to GND (always-enabled).
+
+    .PARAMETER UseLimits
+    (TB6600 only) Enable limit switch checking after each step pulse.
+    When set, ACBUS pins LeftLimitPin and RightLimitPin are sampled.
+    A Forward move stops when the right limit fires; a Reverse move stops on the left.
+    Default polarity: LOW = triggered (active-low, typical for optical interruptors).
+    Use -LimitActiveHigh for switches that pull the pin HIGH when triggered.
+
+    .PARAMETER LimitActiveHigh
+    (TB6600 only) Switch trigger polarity.  Default (not set) = active-low.
+    Optical interruptors (photointerruptors) are active-low: beam broken -> LOW.
+    Set this switch when your hardware pulls the pin HIGH when the limit is reached.
+
+    .PARAMETER LeftLimitPin
+    (TB6600 only) ACBUS pin for the left limit switch.  Default 4 (CBUS4).
+
+    .PARAMETER RightLimitPin
+    (TB6600 only) ACBUS pin for the right limit switch.  Default 5 (CBUS5).
+
     .EXAMPLE
-    # Move forward 1000 half-steps (about 88 degrees)
+    # Move forward 1000 half-steps (about 88 degrees)  [ULN2003]
     Invoke-PsGadgetStepper -Index 0 -Steps 1000
 
     .EXAMPLE
-    # Rotate 90 degrees using calibrated StepsPerRevolution
+    # Rotate 90 degrees using calibrated StepsPerRevolution  [ULN2003]
     Invoke-PsGadgetStepper -Index 0 -Degrees 90
 
     .EXAMPLE
-    # Rotate 90 degrees using a measured calibration value
-    Invoke-PsGadgetStepper -Index 0 -Degrees 90 -StepsPerRevolution 4082.5
+    # Reverse 180 degrees, full-step mode, faster speed  [ULN2003]
+    Invoke-PsGadgetStepper -Index 0 -Degrees 180 -Direction Reverse -StepMode Full -DelayMs 1
 
     .EXAMPLE
-    # Reverse 180 degrees, full-step mode, faster speed
-    Invoke-PsGadgetStepper -Index 0 -Degrees 180 -Direction Reverse -StepMode Full -DelayMs 1
+    # TB6600 - full step (200 steps/rev), forward 1 revolution
+    # Wiring: ENA+=CBUS0, DIR+=CBUS1, PUL+=CBUS2  (defaults)
+    Invoke-PsGadgetStepper -Index 0 -Steps 200 -DriverType TB6600
+
+    .EXAMPLE
+    # TB6600 - rotate 90 degrees, 1/8 microstep (1600 steps/rev), 5ms/step
+    Invoke-PsGadgetStepper -Index 0 -Degrees 90 -DriverType TB6600 -StepsPerRevolution 1600 -DelayMs 5
+
+    .EXAMPLE
+    # TB6600 - reverse 180 degrees, 1/4 microstep
+    Invoke-PsGadgetStepper -Index 0 -Degrees 180 -DriverType TB6600 -Direction Reverse -StepsPerRevolution 800
 
     .EXAMPLE
     # Use an already-open device (device stays open after call)
     $dev = New-PsGadgetFtdi -Index 0
     Invoke-PsGadgetStepper -PsGadget $dev -Steps 2048
 
-    .EXAMPLE
-    # Shorthand via PsGadgetFtdi object methods
-    $dev = New-PsGadgetFtdi -Index 0
-    $dev.Step(1000)                          # 1000 half-steps forward
-    $dev.StepDegrees(90)                     # ~90 degrees using default calibration
-    $dev.StepDegrees(90, 'Reverse')          # 90 degrees reverse
-    $dev.StepsPerRevolution = 4082.5         # apply measured calibration
-    $dev.StepDegrees(180)                    # uses calibrated value
-
     .OUTPUTS
-    PSCustomObject with StepMode, Direction, Steps, Degrees, StepsPerRevolution,
+    PSCustomObject with DriverType, Direction, Steps, Degrees, StepsPerRevolution,
     DelayMs, and Device.
 
     .NOTES
@@ -121,10 +171,8 @@ function Invoke-PsGadgetStepper {
     within this call.  When using -PsGadget the caller retains ownership and
     the device is NOT closed after the call.
 
-    The device is left in AsyncBitBang mode after the call.  If you need to
-    reuse the device for I2C or other protocols, call:
-        Set-PsGadgetFtdiMode -PsGadget $dev -Mode UART
-    before the next operation.
+    ULN2003: device is left in AsyncBitBang mode after the call.
+    TB6600:  device stays in MPSSE mode; I2C/SPI can be used before or after.
     #>
 
     [CmdletBinding(DefaultParameterSetName = 'ByIndex')]
@@ -178,7 +226,56 @@ function Invoke-PsGadgetStepper {
         [byte]$PinOffset = 0,
 
         [Parameter(Mandatory = $false)]
-        [switch]$AcBus
+        [switch]$AcBus,
+
+        # --- TB6600 / step-dir parameters ---
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('ULN2003', 'TB6600')]
+        [string]$DriverType = 'ULN2003',
+
+        # ACBUS pin numbers for ENA+, DIR+, PUL+ on the TB6600.
+        # Defaults match: CBUS0=ENA+, CBUS1=DIR+, CBUS2=PUL+
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(0, 7)]
+        [byte]$EnaPin = 2,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(0, 7)]
+        [byte]$DirPin = 1,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(0, 7)]
+        [byte]$PulPin = 0,
+
+        # TB6600 PUL+ high-pulse width.  Minimum 2.5 µs per datasheet; 5 µs default.
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(1, 1000)]
+        [int]$PulseWidthUs = 5,
+
+        # Skip ENA pin control when ENA+/ENA- are looped or tied to GND (always-enabled).
+        [Parameter(Mandatory = $false)]
+        [switch]$NoEnable,
+
+        # Limit switch support (TB6600 only).
+        # When set, ACBUS pins LeftLimitPin / RightLimitPin are sampled after each step.
+        # HIGH (~4.8V) = switch triggered.  Move aborts when the relevant limit is hit.
+        [Parameter(Mandatory = $false)]
+        [switch]$UseLimits,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(0, 7)]
+        [byte]$LeftLimitPin = 4,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(0, 7)]
+        [byte]$RightLimitPin = 5,
+
+        # Trigger polarity.  Default (not set) = active-low: LOW = limit triggered.
+        # Optical/photointerruptor switches are typically active-low (beam broken -> LOW).
+        # Set -LimitActiveHigh when your switches pull the pin HIGH when triggered.
+        [Parameter(Mandatory = $false)]
+        [switch]$LimitActiveHigh
     )
 
     process {
@@ -193,6 +290,8 @@ function Invoke-PsGadgetStepper {
         # --- resolve StepsPerRevolution ---
         $spr = if ($StepsPerRevolution -gt 0) {
             $StepsPerRevolution
+        } elseif ($DriverType -eq 'TB6600') {
+            200.0    # 1.8-degree NEMA motor, full-step; override for microstep DIP setting
         } else {
             Get-PsGadgetStepperDefaultStepsPerRev -StepMode $StepMode
         }
@@ -228,21 +327,42 @@ function Invoke-PsGadgetStepper {
             }
 
             # --- execute move ---
-            Invoke-PsGadgetStepperMove `
-                -Ftdi      $ftdi `
-                -Steps     $Steps `
-                -Direction $Direction `
-                -StepMode  $StepMode `
-                -DelayMs   $DelayMs `
-                -PinMask   $PinMask `
-                -PinOffset $PinOffset `
-                -AcBus:$AcBus
+            $moveResult = $null
+            if ($DriverType -eq 'TB6600') {
+                $moveResult = Invoke-PsGadgetStepDirMove `
+                    -Ftdi          $ftdi `
+                    -Steps         $Steps `
+                    -Direction     $Direction `
+                    -DelayMs       $DelayMs `
+                    -EnaPin        $EnaPin `
+                    -DirPin        $DirPin `
+                    -PulPin        $PulPin `
+                    -PulseWidthUs  $PulseWidthUs `
+                    -NoEnable:$NoEnable `
+                    -UseLimits:$UseLimits `
+                    -LeftLimitPin    $LeftLimitPin `
+                    -RightLimitPin   $RightLimitPin `
+                    -LimitActiveHigh:$LimitActiveHigh
+            } else {
+                Invoke-PsGadgetStepperMove `
+                    -Ftdi      $ftdi `
+                    -Steps     $Steps `
+                    -Direction $Direction `
+                    -StepMode  $StepMode `
+                    -DelayMs   $DelayMs `
+                    -PinMask   $PinMask `
+                    -PinOffset $PinOffset `
+                    -AcBus:$AcBus
+            }
 
             # --- return summary ---
             return [PSCustomObject]@{
-                StepMode          = $StepMode
+                DriverType        = $DriverType
+                StepMode          = if ($DriverType -eq 'TB6600') { $null } else { $StepMode }
                 Direction         = $Direction
                 Steps             = $Steps
+                StepsActual       = if ($moveResult) { $moveResult.StepsActual } else { $Steps }
+                LimitHit          = if ($moveResult) { $moveResult.LimitHit }   else { $false }
                 Degrees           = if ($resolvedDegrees -ge 0) { [Math]::Round($resolvedDegrees, 4) } else { $null }
                 StepsPerRevolution = [Math]::Round($spr, 4)
                 DelayMs           = $DelayMs

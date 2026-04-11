@@ -324,3 +324,287 @@ function Invoke-PsGadgetStepperMove {
         $log.WriteTrace("StepperMove stub: no Device handle (Steps=$Steps, Mode=$StepMode, Dir=$Direction)")
     }
 }
+
+# ---------------------------------------------------------------------------
+# Invoke-PsGadgetStepDirMove
+# Step/direction driver backend for TB6600 and similar dedicated stepper drivers.
+#
+# Unlike the coil-sequence path (Invoke-PsGadgetStepperMove), step/dir drivers
+# handle all phase sequencing internally.  The host only needs to:
+#   1. Assert ENA+ to enable the driver
+#   2. Set DIR+ for direction
+#   3. Pulse PUL+ once per step (rising edge triggers the driver)
+#
+# Default pin wiring (matches TB6600 on FT232H ACBUS/CBUS):
+#   CBUS0 (C0) -> PUL+    rising edge per step
+#   CBUS1 (C1) -> DIR+    forward = HIGH
+#   ENA+/ENA-  -> looped  (always enabled; use -NoEnable to skip ENA control)
+#
+# If ENA+ is wired to a CBUS pin set -EnaPin and omit -NoEnable.
+#
+# TB6600 minimum timing (from datasheet):
+#   PUL+ high time: 2.5 µs minimum (default 5 µs gives safe margin)
+#   DIR setup time: 5 µs before first PUL rising edge
+#
+# Hardware paths supported:
+#   MPSSE  (FT232H on Windows/Linux):  SET_BITS_HIGH 0x82 on ACBUS
+#   IoT    (FT232H on macOS/Linux via dotnet IoT):  GpioController pins N+8
+#
+# AsyncBitBang (FT232R) is NOT supported for TB6600 — CBUS on FT232R uses a
+# separate bit-bang mode (0x20) unrelated to ACBUS and is too slow for step/dir.
+# ---------------------------------------------------------------------------
+function Invoke-PsGadgetStepDirMove {
+    [CmdletBinding(SupportsShouldProcess = $false)]
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Ftdi,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateRange(1, [int]::MaxValue)]
+        [int]$Steps,
+
+        [ValidateSet('Forward', 'Reverse')]
+        [string]$Direction = 'Forward',
+
+        # Inter-step delay from PUL falling edge to next PUL rising edge.
+        [ValidateRange(1, 10000)]
+        [int]$DelayMs = 2,
+
+        # ACBUS pin numbers for the TB6600 signal lines.
+        # Defaults match: CBUS0=PUL+, CBUS1=DIR+, ENA looped (-NoEnable).
+        [ValidateRange(0, 7)]
+        [byte]$PulPin = 0,
+
+        [ValidateRange(0, 7)]
+        [byte]$DirPin = 1,
+
+        # When ENA+/ENA- are looped (always-enabled), set -NoEnable to skip ENA control.
+        # When ENA+ is wired to a CBUS pin, omit -NoEnable and set -EnaPin accordingly.
+        [switch]$NoEnable,
+
+        [ValidateRange(0, 7)]
+        [byte]$EnaPin = 2,
+
+        # PUL+ high-pulse width in microseconds.
+        # TB6600 minimum is 2.5 µs; 5 µs default gives a safe margin.
+        [ValidateRange(1, 1000)]
+        [int]$PulseWidthUs = 5,
+
+        # Limit switch support.  When -UseLimits is set, ACBUS pins LeftLimitPin
+        # and RightLimitPin are sampled after each step pulse.
+        # The move aborts immediately when the relevant limit for the current
+        # direction is hit (Forward checks right; Reverse checks left).
+        [switch]$UseLimits,
+
+        [ValidateRange(0, 7)]
+        [byte]$LeftLimitPin = 4,
+
+        [ValidateRange(0, 7)]
+        [byte]$RightLimitPin = 5,
+
+        # Trigger polarity.  Default (not set) = active-low: LOW = limit triggered.
+        # Set -LimitActiveHigh when the switch pulls the pin HIGH when triggered.
+        # Optical interrupters (photointerruptors) are typically active-low.
+        [switch]$LimitActiveHigh
+    )
+
+    $log = $Ftdi.Logger
+
+    # Compute bit positions
+    [byte]$dirBit = [byte](1 -shl $DirPin)
+    [byte]$pulBit = [byte](1 -shl $PulPin)
+
+    [byte]$dirVal = if ($Direction -eq 'Forward') { $dirBit } else { [byte]0 }
+
+    if ($NoEnable) {
+        [byte]$outMask   = [byte]($dirBit -bor $pulBit)
+        [byte]$baseByte  = [byte]$dirVal                        # DIR=set, PUL=0
+        [byte]$pulseByte = [byte]($dirVal -bor $pulBit)         # DIR=set, PUL=1
+    } else {
+        [byte]$enaBit    = [byte](1 -shl $EnaPin)
+        [byte]$outMask   = [byte]($enaBit -bor $dirBit -bor $pulBit)
+        [byte]$baseByte  = [byte]($enaBit -bor $dirVal)         # ENA=1, DIR=set, PUL=0
+        [byte]$pulseByte = [byte]($baseByte -bor $pulBit)       # ENA=1, DIR=set, PUL=1
+    }
+
+    $enaLabel = if ($NoEnable) { 'looped' } else { "C$EnaPin" }
+    $log.WriteDebug("StepDirMove: $Steps steps / $Direction / delay=${DelayMs}ms / pulse=${PulseWidthUs}us / ENA=$enaLabel DIR=C$DirPin PUL=C$PulPin")
+    $script:PsGadgetLogger.WriteProto('STEPPER',
+        "STEPDIR  $Steps steps  $Direction  ${DelayMs}ms/step  ${PulseWidthUs}us pulse  ENA=$enaLabel DIR=C$DirPin PUL=C$PulPin")
+
+    $dirForward  = $Direction -eq 'Forward'
+    $limitHit    = $false
+    $stepsActual = $Steps
+
+    $conn       = $Ftdi._connection
+    $gpioMethod = if ($conn -and $conn.PSObject.Properties['GpioMethod']) { $conn.GpioMethod } else { '' }
+
+    if ($conn -and $conn.PSObject.Properties['Device'] -and $conn.Device) {
+
+        $sw            = [System.Diagnostics.Stopwatch]::new()
+        $freq          = [System.Diagnostics.Stopwatch]::Frequency
+        $stepTicks     = [long]($DelayMs      * ($freq / 1000.0))
+        $pulseTicks    = [long]($PulseWidthUs * ($freq / 1000000.0))
+        $dirSetupTicks = [long](5             * ($freq / 1000000.0))   # 5 µs DIR setup
+
+        if ($gpioMethod -eq 'MPSSE' -or $gpioMethod -eq 'MpsseI2c') {
+            # SET_BITS_HIGH (0x82) drives ACBUS C0-C7 while keeping ADBUS for I2C/SPI.
+            $log.WriteInfo("StepDirMove: MPSSE ACBUS path, $Steps steps @ ${DelayMs}ms")
+            $mpsseHigh = [byte[]]@(0x82, $pulseByte, $outMask)
+            $mpsseLow  = [byte[]]@(0x82, $baseByte,  $outMask)
+            [uint32]$written = 0
+            [uint32]$read    = 0
+            $readBuf         = [byte[]]::new(1)
+            try {
+                # Set initial state and wait DIR setup time before first pulse
+                $conn.Device.Write($mpsseLow, 3, [ref]$written) | Out-Null
+                $sw.Restart()
+                while ($sw.ElapsedTicks -lt $dirSetupTicks) {}
+
+                # Helper: given raw ACBUS byte, return $true if the specified pin is triggered.
+                # Active-low (default): bit clear = triggered.  Active-high: bit set = triggered.
+                $isTriggered = if ($LimitActiveHigh) {
+                    [scriptblock]{ param($b, $pin) ($b -band (1 -shl $pin)) -ne 0 }
+                } else {
+                    [scriptblock]{ param($b, $pin) ($b -band (1 -shl $pin)) -eq 0 }
+                }
+
+                # Pre-check: read limits before first step so we don't pulse into a hard stop
+                if ($UseLimits) {
+                    $conn.Device.Write([byte[]](0x83, 0x87), 2, [ref]$written) | Out-Null
+                    $conn.Device.Read($readBuf, 1, [ref]$read) | Out-Null
+                    $acbus = $readBuf[0]
+                    if (($dirForward      -and (& $isTriggered $acbus $RightLimitPin)) -or
+                        (-not $dirForward -and (& $isTriggered $acbus $LeftLimitPin))) {
+                        $limitHit    = $true
+                        $stepsActual = 0
+                        $log.WriteInfo("StepDirMove: limit already triggered, no steps issued (MPSSE/ACBUS)")
+                    }
+                }
+
+                if (-not $limitHit) {
+                    for ($i = 0; $i -lt $Steps; $i++) {
+                        $conn.Device.Write($mpsseHigh, 3, [ref]$written) | Out-Null
+                        $sw.Restart()
+                        while ($sw.ElapsedTicks -lt $pulseTicks) {}
+                        $conn.Device.Write($mpsseLow, 3, [ref]$written) | Out-Null
+                        $sw.Restart()
+                        while ($sw.ElapsedTicks -lt $stepTicks) {}
+                        if ($UseLimits) {
+                            $conn.Device.Write([byte[]](0x83, 0x87), 2, [ref]$written) | Out-Null
+                            $conn.Device.Read($readBuf, 1, [ref]$read) | Out-Null
+                            $acbus = $readBuf[0]
+                            if (($dirForward      -and (& $isTriggered $acbus $RightLimitPin)) -or
+                                (-not $dirForward -and (& $isTriggered $acbus $LeftLimitPin))) {
+                                $limitHit    = $true
+                                $stepsActual = $i + 1
+                                break
+                            }
+                        }
+                    }
+                }
+                $log.WriteInfo("StepDirMove: completed $stepsActual/$Steps steps (MPSSE/ACBUS)$(if ($limitHit) { ' [limit hit]' })")
+                $script:PsGadgetLogger.WriteProto('STEPPER', "DONE  $stepsActual/$Steps steps  MPSSE/ACBUS STEPDIR$(if ($limitHit) { ' LIMIT' })")
+            } catch [System.NotImplementedException] {
+                $log.WriteTrace("StepDirMove stub: FT_Write not implemented (no hardware)")
+            } catch {
+                $log.WriteError("StepDirMove FT_Write error: $($_.Exception.Message)")
+                throw
+            }
+
+        } elseif ($gpioMethod -eq 'IoT') {
+            # IoT GpioController: ACBUS pin N -> controller pin N+8
+            $gpioCtrl = $conn.GpioController
+            if (-not $gpioCtrl) { throw "StepDirMove: IoT connection is missing GpioController" }
+            $dirIot = $DirPin + 8
+            $pulIot = $PulPin + 8
+            $iotPins = @($dirIot, $pulIot)
+            if (-not $NoEnable) { $iotPins += ($EnaPin + 8) }
+            foreach ($p in $iotPins) {
+                if (-not $gpioCtrl.IsPinOpen($p)) {
+                    $gpioCtrl.OpenPin($p, [System.Device.Gpio.PinMode]::Output)
+                }
+            }
+            $log.WriteInfo("StepDirMove: IoT ACBUS path, $Steps steps @ ${DelayMs}ms")
+            $high      = [System.Device.Gpio.PinValue]::High
+            $low       = [System.Device.Gpio.PinValue]::Low
+            $dirPinVal = if ($Direction -eq 'Forward') { $high } else { $low }
+
+            # Open limit input pins once before the move
+            if ($UseLimits) {
+                $leftIot  = $LeftLimitPin  + 8
+                $rightIot = $RightLimitPin + 8
+                foreach ($lp in @($leftIot, $rightIot)) {
+                    if (-not $gpioCtrl.IsPinOpen($lp)) {
+                        $gpioCtrl.OpenPin($lp, [System.Device.Gpio.PinMode]::Input)
+                    }
+                }
+            }
+
+            try {
+                if (-not $NoEnable) { $gpioCtrl.Write($EnaPin + 8, $high) }
+                $gpioCtrl.Write($dirIot, $dirPinVal)
+                $gpioCtrl.Write($pulIot, $low)
+                $sw.Restart()
+                while ($sw.ElapsedTicks -lt $dirSetupTicks) {}
+
+                # Helper: return $true when the IoT pin reads the triggered state.
+                # Active-low (default): Low = triggered.  Active-high: High = triggered.
+                $iotTriggered = if ($LimitActiveHigh) {
+                    [scriptblock]{ param($pin) $gpioCtrl.Read($pin) -eq [System.Device.Gpio.PinValue]::High }
+                } else {
+                    [scriptblock]{ param($pin) $gpioCtrl.Read($pin) -eq [System.Device.Gpio.PinValue]::Low }
+                }
+
+                # Pre-check: read limits before first step
+                if ($UseLimits) {
+                    if (($dirForward      -and (& $iotTriggered $rightIot)) -or
+                        (-not $dirForward -and (& $iotTriggered $leftIot))) {
+                        $limitHit    = $true
+                        $stepsActual = 0
+                        $log.WriteInfo("StepDirMove: limit already triggered, no steps issued (IoT/ACBUS)")
+                    }
+                }
+
+                if (-not $limitHit) {
+                    for ($i = 0; $i -lt $Steps; $i++) {
+                        $gpioCtrl.Write($pulIot, $high)
+                        $sw.Restart()
+                        while ($sw.ElapsedTicks -lt $pulseTicks) {}
+                        $gpioCtrl.Write($pulIot, $low)
+                        $sw.Restart()
+                        while ($sw.ElapsedTicks -lt $stepTicks) {}
+                        if ($UseLimits) {
+                            if (($dirForward      -and (& $iotTriggered $rightIot)) -or
+                                (-not $dirForward -and (& $iotTriggered $leftIot))) {
+                                $limitHit    = $true
+                                $stepsActual = $i + 1
+                                break
+                            }
+                        }
+                    }
+                }
+                $log.WriteInfo("StepDirMove: completed $stepsActual/$Steps steps (IoT/ACBUS)$(if ($limitHit) { ' [limit hit]' })")
+                $script:PsGadgetLogger.WriteProto('STEPPER', "DONE  $stepsActual/$Steps steps  IoT/ACBUS STEPDIR$(if ($limitHit) { ' LIMIT' })")
+            } catch {
+                $log.WriteError("StepDirMove IoT error: $($_.Exception.Message)")
+                throw
+            }
+
+        } else {
+            throw ("StepDirMove: DriverType TB6600 requires MPSSE or IoT connection " +
+                   "(current GpioMethod='$gpioMethod').  AsyncBitBang does not support ACBUS step/dir.")
+        }
+
+    } else {
+        $log.WriteTrace("StepDirMove stub: no Device handle (Steps=$Steps, Dir=$Direction)")
+    }
+
+    return [PSCustomObject]@{
+        Steps        = $Steps
+        StepsActual  = $stepsActual
+        Direction    = $Direction
+        LimitHit     = $limitHit
+        DelayMs      = $DelayMs
+    }
+}
