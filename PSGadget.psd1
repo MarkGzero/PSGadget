@@ -14,7 +14,7 @@
     Copyright   = '(c) 2026 Mark Go. All rights reserved.'
     
     # Description
-    Description = 'Production-grade PowerShell module for FTDI hardware control and MicroPython orchestration'
+    Description = 'Experimental PowerShell module for direct hardware control via FTDI chips FT232R and FT232H — drive GPIO pin states, write I2C, actuate physical devices, and more.'
     
     # Exported functions - explicitly declared, no wildcards
     FunctionsToExport = @(
